@@ -1,0 +1,478 @@
+---
+name: Madregot
+description: Daily math practice for Israeli grade 7-8 students, in Hebrew. Clay - a white page, chunky clay cards, buttons and round stops, Duolingo's green for action and blue for what is picked, Fredoka for display, large readable type.
+colors:
+  paper: "#ffffff"
+  ground: "#f8f9fe"
+  ink: "#141a3a"
+  ink-2: "#4c5374"
+  quiet: "#676e8c"
+  rule: "#dce1ef"
+  rule-strong: "#c4cbe0"
+  rule-press: "#ced4e8"
+  track: "#e6e9f4"
+  track-edge: "#cdd3e6"
+  brand: "#3e8600"
+  brand-d: "#2b6000"
+  brand-tint: "#e7f8d8"
+  brand-line: "#a9df7f"
+  select: "#1899d6"
+  select-tint: "#ddf4ff"
+  select-ink: "#1270a8"
+  selection: "#d7f2c2"
+  highlighter: "#ffe45c"
+  on-brand: "#ffffff"
+  good: "#2fbf4a"
+  good-d: "#1a8a34"
+  good-tint: "#e3f8e7"
+  good-ink: "#157a41"
+  good-line: "#bfe9c9"
+  on-good: "#000000"
+  bad: "#c4213b"
+  bad-d: "#96182c"
+  bad-tint: "#fde8ec"
+  bad-ink: "#b3203a"
+  bad-line: "#f6c3cd"
+  on-bad: "#ffffff"
+  gold: "#ffc233"
+  gold-d: "#e0a100"
+  gold-ink: "#8a5c00"
+  gold-tint: "#fff6d6"
+  on-gold: "#5c3d00"
+  streak: "#ff8a1f"
+  streak-ink: "#a84f00"
+  streak-tint: "#fff1e3"
+  ch-sky: "#00527f"
+  ch-sky-d: "#003a5c"
+  ch-sky-tint: "#dcf0fd"
+  ch-petrol: "#0b7285"
+  ch-petrol-d: "#085566"
+  ch-petrol-tint: "#e3f4f6"
+  ch-violet: "#7048e8"
+  ch-violet-d: "#5232c2"
+  ch-violet-tint: "#efeafd"
+  ch-fuchsia: "#a3218f"
+  ch-fuchsia-d: "#7a1869"
+  ch-fuchsia-tint: "#f8e6f4"
+  ch-cobalt: "#283593"
+  ch-cobalt-d: "#1a237e"
+  ch-cobalt-tint: "#e8eaf6"
+typography:
+  display:
+    fontFamily: "Rubik Variable, Rubik, Segoe UI, Arial Hebrew, Arial, sans-serif"
+    fontSize: "32px"
+    fontWeight: 800
+    lineHeight: "38px"
+  page-title:
+    fontFamily: "Rubik Variable, Rubik, Segoe UI, Arial Hebrew, Arial, sans-serif"
+    fontSize: "30px"
+    fontWeight: 800
+    lineHeight: "36px"
+    letterSpacing: "-0.015em"
+  headline:
+    fontFamily: "Rubik Variable, Rubik, Segoe UI, Arial Hebrew, Arial, sans-serif"
+    fontSize: "22px"
+    fontWeight: 800
+    lineHeight: "30px"
+  title:
+    fontFamily: "Rubik Variable, Rubik, Segoe UI, Arial Hebrew, Arial, sans-serif"
+    fontSize: "20px"
+    fontWeight: 700
+    lineHeight: "26px"
+    letterSpacing: "-0.01em"
+  teaching:
+    fontFamily: "Rubik Variable, Rubik, Segoe UI, Arial Hebrew, Arial, sans-serif"
+    fontSize: "19px"
+    fontWeight: 400
+    lineHeight: "29px"
+  body:
+    fontFamily: "Rubik Variable, Rubik, Segoe UI, Arial Hebrew, Arial, sans-serif"
+    fontSize: "17px"
+    fontWeight: 400
+    lineHeight: "26px"
+    fontFeature: "tnum"
+  body-sm:
+    fontFamily: "Rubik Variable, Rubik, Segoe UI, Arial Hebrew, Arial, sans-serif"
+    fontSize: "15px"
+    fontWeight: 500
+    lineHeight: "22px"
+  label:
+    fontFamily: "Rubik Variable, Rubik, Segoe UI, Arial Hebrew, Arial, sans-serif"
+    fontSize: "14px"
+    fontWeight: 700
+    lineHeight: "20px"
+  button:
+    fontFamily: "Rubik Variable, Rubik, Segoe UI, Arial Hebrew, Arial, sans-serif"
+    fontSize: "17px"
+    fontWeight: 700
+    lineHeight: "24px"
+  number:
+    fontFamily: "Rubik Variable, Rubik, Segoe UI, Arial Hebrew, Arial, sans-serif"
+    fontSize: "22px"
+    fontWeight: 800
+    fontFeature: "tnum"
+rounded:
+  sm: "12px"
+  btn-sm: "14px"
+  md: "16px"
+  lg: "20px"
+  pill: "999px"
+  circle: "50%"
+spacing:
+  s1: "4px"
+  s2: "8px"
+  s3: "12px"
+  s4: "16px"
+  s5: "20px"
+  s6: "24px"
+  s8: "32px"
+  s10: "40px"
+  s12: "48px"
+  gutter: "20px"
+  gutter-wide: "24px"
+components:
+  button-primary:
+    backgroundColor: "{colors.brand}"
+    textColor: "{colors.on-brand}"
+    typography: "{typography.button}"
+    rounded: "{rounded.md}"
+    padding: "0 20px"
+    height: "52px"
+  button-primary-disabled:
+    backgroundColor: "#eceef2"
+    textColor: "{colors.quiet}"
+    rounded: "{rounded.md}"
+    height: "52px"
+  button-secondary:
+    backgroundColor: "{colors.paper}"
+    textColor: "{colors.brand-d}"
+    typography: "{typography.button}"
+    rounded: "{rounded.md}"
+    height: "52px"
+  button-ghost:
+    textColor: "{colors.brand-d}"
+    typography: "{typography.button}"
+    rounded: "{rounded.md}"
+    height: "52px"
+  button-bad:
+    backgroundColor: "{colors.bad}"
+    textColor: "{colors.on-bad}"
+    typography: "{typography.button}"
+    rounded: "{rounded.md}"
+    height: "52px"
+  button-sm:
+    rounded: "{rounded.btn-sm}"
+    height: "44px"
+  card:
+    backgroundColor: "{colors.paper}"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.md}"
+    padding: "20px 20px 16px"
+  math-panel:
+    backgroundColor: "{colors.ground}"
+    rounded: "{rounded.md}"
+    padding: "20px 12px"
+  choice:
+    backgroundColor: "{colors.paper}"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.md}"
+  choice-selected:
+    backgroundColor: "{colors.brand-tint}"
+    textColor: "{colors.brand-d}"
+    rounded: "{rounded.md}"
+  choice-wrong:
+    backgroundColor: "{colors.bad-tint}"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.md}"
+  answer-slot:
+    backgroundColor: "{colors.paper}"
+    textColor: "{colors.ink}"
+    rounded: "14px"
+    height: "64px"
+  key:
+    backgroundColor: "{colors.paper}"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.sm}"
+  segmented:
+    backgroundColor: "{colors.paper}"
+    textColor: "{colors.ink}"
+  segmented-on:
+    backgroundColor: "{colors.brand-tint}"
+    textColor: "{colors.brand-d}"
+  feedback-good:
+    backgroundColor: "{colors.good-tint}"
+    textColor: "{colors.good-ink}"
+  feedback-not-yet:
+    backgroundColor: "{colors.bad-tint}"
+    textColor: "{colors.bad-ink}"
+  unit-header:
+    backgroundColor: "{colors.brand}"
+    textColor: "{colors.on-brand}"
+    rounded: "{rounded.md}"
+    padding: "16px 20px"
+  path-stop:
+    backgroundColor: "{colors.brand}"
+    textColor: "{colors.on-brand}"
+    rounded: "{rounded.circle}"
+    size: "68px"
+  path-stop-current:
+    backgroundColor: "{colors.brand}"
+    textColor: "{colors.on-brand}"
+    rounded: "{rounded.circle}"
+    size: "76px"
+  path-stop-mastered:
+    backgroundColor: "{colors.gold}"
+    textColor: "{colors.on-gold}"
+    rounded: "{rounded.circle}"
+    size: "68px"
+  path-stop-locked:
+    backgroundColor: "{colors.track}"
+    textColor: "#9aa1ac"
+    rounded: "{rounded.circle}"
+    size: "68px"
+  tab:
+    textColor: "{colors.quiet}"
+    typography: "{typography.label}"
+    height: "58px"
+  tab-active:
+    textColor: "{colors.brand}"
+  stat-tile:
+    backgroundColor: "{colors.paper}"
+    textColor: "{colors.ink-2}"
+    rounded: "{rounded.md}"
+  earned-chip:
+    backgroundColor: "{colors.ground}"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.pill}"
+    padding: "6px 12px"
+  sheet:
+    backgroundColor: "{colors.paper}"
+    rounded: "{rounded.lg}"
+---
+
+# Design System: Madregot
+
+## Overview
+
+**Creative North Star: "Clay" (v6, November 2026)**
+
+The owner saw v5's notebook and the rounds before it as the same app. v6 is chosen by the design skills the owner installed, not by taste: ui-ux-pro-max's reasoning for an educational app is claymorphism with micro-interactions (vibrant, block-based as the second style), its type pairing for playful learning is Fredoka for display, and its palette for the category is a learning indigo with a progress green. So the page is plain white, as Duolingo's is, and everything you can touch is a chunky piece of clay standing on it: round, a light edge along its top, a solid lip under it. Headings, buttons, numbers and the tab names are set in Fredoka (rounded, heavy, Hebrew and Latin), and reading text stays in Rubik.
+
+Signature moves:
+- **A white page** under every screen: no squares, no tint. The maths of a lesson sits on the light `ground` panel with a 2px edge.
+- **Round clay stops**: the path's stops are circles (70px, the current one 76px) on an 8px lip with a glossy top; the current one sits in a 4px highlighter ring, mastered ones gold.
+- **A white top bar** on home with a 2px rule under it: the class switch is a white clay button, the streak and the day's XP are Fredoka numbers in their own colours (orange, gold) beside their icons, no pills.
+- **The unit banner** is a block of clay in the unit's colour: a light edge along its top, its darker lip under it.
+- **The tab bar**: a white dock with 28px icons; the open tab sits in an outlined indigo-tinted box.
+- **Fredoka** for every heading, button, number and tab; Rubik for sentences, so a long word problem stays easy to read.
+- **Two colours only (the owner's choice, Nov 2026)**: green and blue, on white, grey and the navy ink. Green is action, progress, XP and mastery (`brand`, `gold` = bright green #58CC02); blue is Madi, what the student picked, the streak, the AI and the current stop's marker (`select`, `streak` #1CB0F6, `hl` #84D8FF). Each unit is a blue or a green at its own lightness (`ch-*`). Red appears only for a wrong answer and a destructive action.
+- **Duolingo's colour grammar**: the action colour is green (`brand` #3E8600, the brightest green white text reads on at 4.5:1, on a darker green lip), so "בדיקה", "המשך" and every progress bar are green; what the student picked is blue (`select` #1899D6 edge, `select-tint` #DDF4FF fill, `select-ink` #1270A8 text): a chosen answer, the active slot, a segment, the open tab.
+- **מדי says the question** in a white clay speech bubble beside him when there is no drawing on the screen; he stands still while the student works and reacts once to the answer.
+
+Kept from v4 and v5: Hebrew right to left with maths isolated left to right, the lipped press, one meaning per colour (green right, red "not yet", gold XP, orange streak), the yellow highlighter (`hl`, now only the current stop's ring and its "המשך" label), no hearts, leagues or pressure, the motion system (ux-motion), and מדי in the blue the owner chose (`madi-*`, unchanged on purpose). Dark mode keeps v5's night colours: `paper` #0E1024, `surface` #181B34.
+
+**Key Characteristics:**
+- A white page; chunky clay cards, buttons and stops with a lip; green to act, blue for what is picked; the highlighter for "now".
+- One card and one button grammar everywhere: buttons 18px corners on a 5px lip, the primary with a light inner top edge.
+- Fredoka for display, Rubik for reading; body 17px; nothing under 14px; tabular numbers.
+- A child reads two short lines (PRODUCT2-41): a mission's reason and a wrong guess's explanation show their first short sentence, and the rest waits behind "עוד". מדי stands beside every first-visit question (64px).
+- Phone first, one column; short ease-out motion; everything stops under reduced motion; every entrance starts drawn until motion has loaded (`entrance()` in lib/motion.js).
+
+The rest of this file is the v4 system the notebook is built on: where it names a value, `styles/tokens.css` and `styles/dark.css` hold v6's, and the v6 layer itself is the last section of `styles/canon.css`.
+
+## Colors
+
+A white, quiet palette with one saturated blue and four meaning colours that appear only when their meaning does.
+
+### Primary
+- **Brand Blue** (`brand`): the primary button, the selected choice's border, every progress fill, the current unit header, done and current path stops, the active tab, icons in tiles and stat rows. White text on it is 5.4:1.
+- **Deep Brand** (`brand-d`): the lip under every brand-blue surface, and blue text on white (secondary and ghost buttons, links, selected-choice text).
+- **Brand Tint** (`brand-tint`): the selected choice's fill, icon tiles, the active desktop tab, the profile header band, the track of the current stop's ring.
+- **Brand Line** (`brand-line`): focus rings and the lip under a selected choice or segment.
+
+### Secondary (meaning colours)
+- **Correct Green** (`good`, with `good-d`, `good-tint`, `good-ink`, `good-line`): correct answers only. The bright green is a fill with black text (8.7:1); on white, marks and borders use `good-d`, text uses `good-ink`. The correct feedback panel is `good-tint`.
+- **Not-Yet Red** (`bad`, with `bad-d`, `bad-tint`, `bad-ink`, `bad-line`): "not yet" only, in lessons and in the teaching stages alike. White text on the red (5.8:1). The retry and reveal feedback panels are `bad-tint` with a `bad-line` top edge; a wrong choice gets a `bad` border on `bad-tint`.
+- **XP Gold** (`gold`, with `gold-d`, `gold-ink`, `gold-tint`): XP, mastered stops, an opened gift, the exam day on a plan. Text on gold is the dark brown `on-gold`.
+- **Streak Orange** (`streak`, with `streak-ink`, `streak-tint`): the streak flame and nothing else. An inactive flame is grey (`#b7bdc7`).
+
+### Unit colours (council, November 2026)
+Each unit has one colour family (`ch-*`, with `-d` for its lip and its text on white, `-tint`, and `-ink`), for its banner, its emblem and its stops on the path only (`content/topics.js` pathColours keeps two neighbours apart). White text on every fill passes AA; two units of a grade differ by a contrast of 1.4 or 30° of hue; none is near green, red or the brand blue (`styles/tokens.test.js`). Dark mode keeps the fills and gives each family a light `-ink` (`styles/dark.css`).
+- **Sky** (`ch-sky` `#00527f`, `ch-sky-d` `#003a5c`, `ch-sky-tint` `#dcf0fd`; dark `-ink` `#a0dcff` on `#112c40`): a deep sky blue: the first unit of each grade (signed numbers in ז׳, ratio and scale in ח׳), and ח׳'s similarity and Pythagoras in space. Until November 2026 it was the brand blue, so its stops looked like buttons; it is darker than petrol (1.5:1) and 31° of hue from cobalt, the two it sits between.
+- **Petrol** (`ch-petrol` `#0b7285`), **Violet** (`ch-violet` `#561ca8`, a grape since v5: the indigo brand took the old violet's hue), **Fuchsia** (`ch-fuchsia` `#a3218f`), **Cobalt** (`ch-cobalt` `#283593`).
+
+### Neutral
+- **Paper** (`paper`): every screen, card, sheet, bar and footer.
+- **Ground** (`ground`): the panel under a question's maths, the teaching canvas, the earned-reward chips. Never a page background.
+- **Ink** (`ink`): headings, body text, numbers.
+- **Secondary Ink** (`ink-2`): descriptions, subtitles, the label under a heading (6.6:1 on white).
+- **Quiet** (`quiet`): inactive tab icons and labels, disabled button text.
+- **Rule** (`rule`): card borders and dividers (2px), bar edges (1px). **Rule Strong** (`rule-strong`): the answer slot's border, dashed empty boxes. **Rule Press** (`rule-press`): the lip under white pressables.
+- **Track** (`track`, with `track-edge`): empty progress tracks, locked path stops and their lip.
+- **Selection** (`selection`): text selection.
+
+### Named Rules
+**The One Blue Rule.** Brand blue means "act here" or "you are here". A unit wears its own family (Unit colours), never the brand blue, so a stop or a unit banner never looks like a button.
+
+**The One Job Rule.** Green only for correct, red only for "not yet", gold only for XP and achievements, orange only for the streak. A meaning colour on a result tile goes on the icon and the number, never on the tile.
+
+**The Readable Fill Rule.** Black text on green and gold, white on blue and red. A right or wrong answer never relies on colour alone: it carries an icon and words.
+
+## Typography
+
+**Display Font (v6):** Fredoka (variable, 300-700, self-hosted via `@fontsource-variable/fredoka`, Hebrew and Latin parts only) for headings, titles, buttons, tabs and numbers, with Rubik behind it.
+**Body and Label Font:** Rubik (variable, self-hosted via `@fontsource-variable/rubik`), with Segoe UI, Arial Hebrew and Arial as fallbacks.
+**Maths:** KaTeX's serif, at 1.08em inline and `clamp(30px, 5dvh, 44px)` on the question panel, always left to right and never wrapped inline. Inside a sentence the digits are the sentence's own (STUDENT-9): a bare number such as $-3$ or $35^\circ$ is plain Rubik text in `bdi.num` (left to right, a real minus sign U+2212, tabular figures). Other flat inline maths ($x = -3$, $3^2 + 4^2$) is set in the sentence's font too, at its size: digits, operators and letters in Rubik, letters upright (`.mt-ui`, PRODUCT2-41). Inline maths laid out in rows (a fraction, a root) keeps KaTeX's layout and fonts, with its digits in Rubik (`.mt-inline`). Display maths on the panel stays all KaTeX.
+
+**Character:** one rounded, sturdy sans for everything, set large; the hierarchy comes from size and weight (800 for titles, 700 for headings and buttons), not from a second face.
+
+### Hierarchy
+- **Display** (800, 32px/38px): the lesson result title.
+- **Page title** (800, 30px/36px, 36px/44px from 1100px wide): a tab's own screen title, ink on white, with a 17px `ink-2` line under it (max 46ch).
+- **Headline** (800, 22px/30px): the question in a lesson and onboarding, the unit name on the unit header, the feedback panel title, empty-state titles. Drops to 18-19px on screens under 640px tall.
+- **Title** (700, 20px/26px): section headings and card titles; sheet and path-popover titles use 800. The in-lesson instruction is 20px/700.
+- **Teaching** (400, 19px/29px): the prose of the teaching stages and worked examples.
+- **Body** (400, 17px/26px): all running text, descriptions in cards, feedback explanations.
+- **Small body** (500, 15px/22px): descriptions in list rows, the label under a heading ("הצעד הבא", the topic under a level title), unit labels.
+- **Label** (700, 14px/20px): stat tile labels, tab names on phones, the kind and duration of a mission. The floor of the scale.
+- **Button** (700, 17px; 18px large, 16px small).
+- **Number** (800, 22px, tabular): stat values, profile numbers; top-bar counts at 18px.
+
+### Named Rules
+**The 14px Floor Rule.** No text below 14px; body is 17px. Small text is secondary ink, never light grey.
+
+**The Label Under Rule.** A label that says what a heading belongs to sits under the heading, at 15px in `ink-2`. Nothing sits above a heading.
+
+## Layout
+
+Phone first, one column, right to left. Content runs inside a 20px gutter (24px from 600px wide). Spacing is a 4px grid (`s1` to `s12`); sections are 24px apart, a section heading has 12px below it.
+
+- **Home (the path):** a white top bar at least 60px tall with a 1px bottom rule: the grade switch at the start, streak and XP at the end (icons in their meaning colour, numbers in ink). Below it the current unit as a header card in the unit's own colour (`--c`; two units side by side never share one, `content/topics.js` pathColours; brand blue only as the fallback), then the path of round stops in the same colour in a gentle zig-zag, 18px apart, on plain white. The home path is a journey, not every unit at once (PRODUCT2-35/37, November 2026): only the unit the student is on is open; the next unit shows its banner and its first stop (a tinted stop with a star, labelled as the next unit's first stair, and "כל המדרגות של …" to open it all); every other unit is one folded row, a heading with one 64px button (the unit's emblem on its tint, its name, its number and count, its 2px edge and 4px lip in a light mix of its colour) that opens the unit in place and moves focus to its name. A link to a unit (the topics list, the wardrobe's "ליחידת …") opens that unit. מדי (44px, `components/map/Walker.jsx`, loaded after the map) stands beside the stop the student is on; back from a stair mastered he walks there from that stair's stop in a few small hops while the stop he reaches loses its lock (unless it was open already: a stair kept from before checks was drawn done), and after a stage he hops in place, once per arrival (not on Back or a re-render); under reduced motion he is simply there. The unit's landmarks are its emblem (64px in the banner, 48px on 320-400px phones) and its two topic drawings beside the path (104px, a slight tilt, standing on a soft ellipse of the unit's tint). Full scenes and ground textures stay out: they need the "no scenery" rule below relaxed by the owner first.
+- **Tab bar:** fixed at the bottom, white, 1px top rule, five tabs with a 24px icon over a 14px label, at least 58px tall on phones. From 960px it becomes a side rail with the wordmark (26px/800 brand) and row tabs at 16px; the active tab gets a `brand-tint` fill.
+- **Pushed screens:** a 56px white bar with the way back and an 18px/700 title, and a white footer with a 1px top rule for the main action.
+- **Lesson:** the question owns the screen. The instruction and the maths at the top, the answer field, keypad and a full-width check button at the bottom, within thumb reach. On a computer (900px wide and 560px tall) the lesson is one column: the question and maths up to 760px wide, the answer and keypad in a centred 560px foot.
+- **Wide screens:** a tab's screen keeps a readable column of at most 880px from 1024px.
+- **Short phones** (under 640px tall): the question and teaching type step down one size and the panels tighten, so the drawing keeps its room.
+
+### Routes outside the tabs
+These open with no tab bar, in the parents' frame (a 56px white bar with "מדרגות • להורים" and no way into the child's app) or as a pushed screen:
+- **`/report`** (a pushed screen on the child's device): "הסיכום השבועי". The week's dates and a strip of its seven days (practice days as brand circles with a check, Shabbat as rest with a moon, never as missed), four stat tiles, then mastered stairs, what was practised, repeated mistakes with "בתיקון" or "תוקן השבוע" tags, an exam ahead and tips for the parent. One primary button opens the share sheet "לשלוח להורים": "זה מה שיישלח:" with the exact message, then WhatsApp as the primary action, the system share where the phone has one, and a copied link. An empty week is מדי idle with a calm line, and nothing to send yet. No price and no plan anywhere on it.
+- **`/r/<payload>`**: the same week, rendered from the link alone for a parent on another phone, with no sign-in and no request to any server. A broken link says so in one line and asks the child to send it again.
+- **`/restore`**: "יש לי קוד גיבוי", reached from the welcome screen and from Settings ("לשחזר מקוד או מקובץ"): the code field, one primary button, then a preview of what comes back before anything is replaced; "יש לי קובץ גיבוי" switches to the backup file on the same screen, and with no server only the file is offered.
+- **`/parents`** (the family plan): the section "ההתקדמות" under the plan card. A switch row for the Sunday email (label, the address in its hint), then one card per device in the order they were linked: its name and last update, the same report the child sees, the 8 weeks as plain bars with a hidden table, and the parent's own switch and "delete history" at the bottom. Every early state has its own words; no percentage right is ever shown.
+
+## Elevation & Depth
+
+The system is flat. Cards, rows, headers and panels have no soft shadow; depth is the 2px border and the solid lip under pressable things. Soft shadows appear only on layers that float over the page.
+
+### Shadow Vocabulary
+- **The lip** (`box-shadow: 0 4px 0 <darker tone>`; 3px on keys and segments, 6px on path stops and the gift): the pressable edge. Brand surfaces use `brand-d`, white ones `rule-press`, selected ones `brand-line`, locked ones `track-edge`.
+- **Lift** (`box-shadow: 0 2px 6px rgba(20,22,26,.06), 0 12px 32px rgba(20,22,26,.12)`): the path stop's popover card and bottom sheets only.
+- **Backdrop** (`rgba(20,22,26,.45)`): behind sheets and dialogs.
+
+### Named Rules
+**The Lipped Press Rule.** Something that can be pressed stands on a solid lip of its own darker tone; on press it moves down by the lip's height and the lip goes to zero, in 100ms (`--duration-press`). A tile, a segment, a stop on the path, the gift and a switch's knob also squash a little as they go down, from the edge they stand on (`--squash` 1.04 × 0.96 in `--duration-squash`, 120ms; a tile with maths or words on it half that, `--squash-soft`); text, numbers and data never squash. The most-used controls only sink, in 60ms (`--duration-tap`): the keypad, "בדיקה", the feedback's button and the help buttons. Under reduced motion a press only sinks. `npm run lint:motion` holds every press to these tokens. Something that cannot be pressed does not get a lip.
+
+**The Flat Card Rule.** Cards never carry a soft shadow. Only floating layers (popover, sheet) do.
+
+## Shapes
+
+Rounded, sturdy geometry. Cards, buttons, answer choices and panels have 16px corners; small buttons 14px; keys, the grade switch and the answer-letter tag 10-12px; sheets 20px on the top corners only. Path stops, avatars, the gift and the progress ring are circles. Earned rewards and label chips are full pills. Borders are 2px everywhere inside content, 1px only on the edges of bars. The empty slot is a dashed 2px `rule-strong` box.
+
+## Components
+
+### Buttons
+Big, solid and pressable.
+- **Shape:** gently rounded (16px), at least 52px tall (56px large, 44px small with 14px corners), 2px border in the fill colour, 700 weight.
+- **Primary:** brand blue with white text on a `brand-d` lip. One primary per screen.
+- **Secondary:** white with `brand-d` text, a `rule` border and a `rule-press` lip.
+- **Ghost:** no fill, border or lip; `brand-d` text; a `brand-tint` fill on hover.
+- **Not yet:** red with white text on a `bad-d` lip, used only inside a "not yet" moment.
+- **Disabled:** `#eceef2` with `quiet` text and a `#dfe2e8` lip.
+- **Focus:** a 3px `brand-line` outline 2px outside the button.
+
+### Cards / Containers
+- **Corner Style:** 16px.
+- **Background:** white.
+- **Shadow Strategy:** none (see The Flat Card Rule).
+- **Border:** 2px `rule`. A list in a card separates its rows with a 2px `rule` line; rows are at least 72px tall with a brand-tint icon tile, a 17px/700 title and a 15px `ink-2` description.
+- **Internal Padding:** 20px, 16px at the bottom. The current topic card gets a brand border and a brand lip.
+
+### Answer choices, slot and keypad
+- **Choice:** a white card with a 2px `rule` border and a 4px `rule-press` lip, 18px text. Selected: `brand` border, `brand-tint` fill, `brand-line` lip, `brand-d` text. Wrong (teaching stages): `bad` border on `bad-tint`, and its letter tag turns solid red.
+- **Answer slot:** a large white field (104-200px wide, 48-64px tall, 22-30px bold digits) with a 2px `rule-strong` border and a 4px bottom edge; active: brand border and a 3px brand-tint ring.
+- **Keypad keys:** white, 12px corners, 2px `rule` border, 3px lip, 700 weight.
+
+### Feedback panel (signature)
+After a check, a panel rises from the bottom (24px, 250ms, smooth ease-out) over the lesson foot: `good-tint` with a `good-ink` 22px/800 title for correct; `bad-tint` with a `bad-ink` title for retry and reveal; a 2px top edge in the matching line colour; the explanation in 17px ink; the next button inside. The answer row shakes once on a wrong answer.
+
+### Path (signature)
+- **Stops:** 68px circles on a 6px lip, in the unit's colour (`--c` face, `--c-d` lip; brand blue only as the fallback). Done: the unit's colour with a white check. Current: 76px in the unit's colour with a star, wrapped in a 7px progress ring (the unit's colour on its `--c-tint` track, showing how far it is along its five stages) and a white "start/continue" bubble above it. Open (passed over by a test, its check waiting): white with a 3px inner line in a light mix of the unit's colour and an outlined star. Mastered (the unit's review passed): gold with a crown. Locked: the unit's tint (`--c-tint`) with its lock in the unit's ink (`--c-ink`), muted, never grey stone among the unit's own. Each state has its own glyph (check, star, lock, crown), so none relies on colour alone; in dark mode a stop in a dark unit colour gets a 2px ring in its light `--c-ink` (`--stop-ring`), so every stop reaches 3:1 against the page. A gift is a 64px circle in the unit's tint (its gift in the unit's ink) until opened, gold after.
+- **Unit header:** a card in the unit's colour (`--c`, brand blue only as the fallback) with the white 22px/800 unit name, a 15px count line, a 6px white bar of all the unit's stages (five a stair) on a translucent white track, and the guidebook at the end behind a thin white divider. The count line moves from the first stage: the unit's size ("5 מדרגות"), then stages done ("3 מתוך 25 שלבים"), then stairs done once one is mastered ("1 מתוך 5 מדרגות"); never "0 מתוך".
+- **Popover:** a white card with the lift shadow, a 20px/800 title and its buttons.
+
+### Navigation
+- **Tab bar:** icon and name; inactive in `quiet`, active in brand with a 2.4 icon stroke. Phones show 14px labels; the side rail from 960px uses 16px labels and a `brand-tint` active row.
+- **Segmented choices:** white with a 2px `rule` border and 3px lip; on: brand border, `brand-tint` fill, `brand-d` text.
+
+### Results
+One title, מדי, what was earned as quiet pills (`ground` fill, 15px ink text, an icon in its meaning colour), three neutral stat tiles (white, 2px `rule`, a 14px `ink-2` label and a 22px/800 number in the tile's meaning ink), and one button. Under the title, the stair's five stages as thick segments with "{stair}: N מתוך 5 שלבים", and the unit's stairs only once one is done.
+
+**A stair mastered** (a passed mastery check, `CheckDone`) is the biggest moment: the gold celebration (gold light, the shapes flying out) behind מדי, and the stair's badge landing beside him with a squash, the unit's emblem on a gold medal (light on its top edge, darker gold under it) with the path's done mark on it (a check on the unit's colour) that draws itself; מדי hops once as it closes, and the tiles' numbers count up beside it, in about a second (`CheckDone.jsx` PEAK). The level-up sound and vibration play with it, quiet in a class until the student turns sound on; in a quiet class the moment has no flying shapes, no turning light and no hop. Under reduced motion it is simply there. Every passed mastery check is a stair mastered, a kept or placed stair's too: the screen, the sound and מדי's walk on the path all read one flag (`award.mastered`, `lib/store.js` completeCheck).
+
+**A teaching stage done** is lighter than a lesson's end: no confetti, no stat tiles. מדי (112px), "שלב N הושלם!" at 30px/800 with the stage and the stair as a 15px `ink-2` label under it, the five segments, the earned pills (XP the first time, the streak when it starts or grows, the daily goal), a bordered "הבא:" card with the next stage and its minutes, the one primary button to that stage, and a ghost "למפה".
+
+**Celebrations with life (PRODUCT2-38).** Every celebration opens the same way (`components/learn/Celebrate.jsx`): מדי jumps in from below and lands with a bounce, a soft ring of light in the moment's colour turns slowly behind him (`brand-tint` for a stage, `gold-tint` for the goal and a new piece, `streak-tint` for a streak milestone), and twelve small shapes (stars, dots, little stairs, in brand, gold, good and streak) fly out once and fall away; then he does his own dance (his `excited` or `achievement` mood). The XP counts up from 0 once it is in view and lands with a pop and a few gold sparks (`XpCount`): in a gold pill, a little larger than the others, on a stage's end; in the XP tile at a lesson's end; as today's total in the daily goal. A screen reader hears the final number at once. **Streak milestones** at 3, 7 and 30 days each have their own moment, once (`nudges.streakSeen`): the streak's usual screen with מדי holding his star, an orange medal with the number, and one calm line about what was done ("שבעה ימים של תרגול. זה כבר הרגל."), never a countdown to the next one or anything to lose. Every moment's buttons work from the first frame and one tap goes on mid-animation; the main button has the focus, so Enter skips it (on a stage's end the title has it, for a screen reader, and the button is the next Tab). Under reduced motion nothing moves: מדי stands, the light is still and faint, nothing flies, and the number is simply there. **The day's chest** (the three quests done) has one moment wherever the last quest was done, the end of a lesson or of a teaching stage (`components/learn/QuestsStage.jsx`; on a stage's end a gold pill says it waits, and it opens after that moment): the chest opens, the streak freeze is said, and two pieces for מדי are offered; "לבחור אחר כך, במשימות" leaves the choice on the missions tab, whose tab carries a dot until it is made. Its confetti falls neither under reduced motion nor in a quiet class. All of it loads with the screens that end a stage or a lesson, never with the first load (`budget.json` lazyOnly).
+
+**A run of right first tries (5, 10)** is a small pill over the progress bar ("5 ברצף!", a pop of 1 to 1.15 to 1) for 1.4 seconds: it covers only the bar, never the question or the keypad, so the next answer goes in while it shows; a tap closes it, and a quiet class does not show it (the run's chip beside the bar still counts).
+
+**Motion (ux-motion, `.claude/skills/ux-motion/SKILL.md`).** One press for the app (the Lipped Press Rule); lists arrive one item after another, 40ms apart and all started within 240ms (`.cascade`); a stop's card grows from its stop and its start winds up 120ms before the lesson opens; a sheet's content follows it in 40ms behind and every exit leaves in about half its entry, easing in; מדי's walk hops in arcs; a dragged marker or bar stretches past its end and springs back; a wait past 400ms shows a running bar. `npm run lint:motion` and `src/lib/motion.test.js` hold these.
+
+**Sounds (lib/sound.js).** A small set made in the browser: a two-note chime with a faint shimmer for right, a soft low pair for "not yet", a run that climbs with the combo (ten in a row starts higher than five), and a level up (a stair mastered, a unit done, a new piece, a streak milestone) that rises and settles on a soft chord; each with its own vibration pattern. A student in a class hears nothing until they turn sound on themselves, whatever the saved state says (`soundOn`); the switch in Settings shows the same. Under reduced motion the celebration sounds stay quiet with their animations; the short answer tones still follow the sound switch.
+
+### Teaching stages
+Clean text at 19px on white, the maths or the object to move on a `ground` panel with 16px corners, answer cards across the width, and the check at the bottom. A step that names a shape or a part of one shows it: a drawing (Figure type `geo`) in 2px ink lines with a light brand fill for the shape, brand for what the text points at (the ray, the hypotenuse, the transversal), arcs for angles (two or three arcs for equal ones), a small square for a right angle, and `bad-ink` for the "?" being asked. Letters appear only where the text has them; side labels sit clear of their lines; numbers in a drawing are its true sizes. A worked example (stage B) and a problem solved together (stage C) show their drawing under the problem where the maths is a picture (every angles and Pythagoras problem; the plane, lines, statistics and fractions where a plane, a dot plot, a bar chart or a fraction bar carries the idea, SK-STUDENT-1; since the student council's round 3, every worked example of the signed numbers, the expressions, the equations, percent and systems, with stage A's own pictures: the number line with the step's jump, the thermometer, the machine, the balance, the tiles, the rectangle, the percent bar, the two lines, the ray, the class's tables): built from the problem's own numbers, the asked angle or side marked "?" and never written. A step may draw the figure again with what it found (a worked example's step once shown, a step solved together once solved); a problem solved together never shows its last answer. On a short phone it shrinks (34dvh under 700px, 26dvh under 600px) so the first choice stays above the bottom bar. The "why" box is a bordered white card that turns `good-tint` when right and gets a `bad-line` border when not yet; the bottom bar turns `bad-tint` for "not yet".
+
+### Mascot מדי
+A stair-block character in the brand blue (its own tokens `--madi-*` in `tokens.css`). Used in feedback, empty and error states, results, the welcome screen, as the tutor's 34px chat avatar, and as the student's own avatar on the profile (96px, hidden from screen readers: the name is the heading). Not beside questions, in onboarding or in the teacher header.
+
+**מדי שלי (STUDENT-3).** In the student's own screens Madi wears what the student chose in the wardrobe (`/me/madi`, from the profile's "עיצוב מדי"): one of six colours (a completed unit gives its family's colour; a completed `sky` unit gives gold) and one accessory per slot (head, face, neck, low step). Accessories come three ways (PRODUCT2-36): a unit's chest (its first half mastered), the stages the student works through (the first piece with the very first stage, then one every `TRACK_EVERY` = 9 stages, about every 2-3 days at 10 minutes a day), and the daily quests' chest, where the student chooses one of the next two pieces next to the streak freeze. The wardrobe shows only what is owned, a meter of the next piece ("החלק הבא: עוד 2 שלבים") and the next few pieces with the count of the rest, never a wall of locked tiles. A new accessory gets its own moment: gold rays and the piece dropping onto Madi (still under reduced motion). The palette is `MADI_PALETTE` in `lib/wardrobe.js`, set as `--madi-*` on his own drawing; the accessories (`components/mascot/Accessories.jsx`) use tokens only and load only while something is worn. The teacher's and parents' screens show the default look. Nothing is bought or drawn at random: every piece says what earned it, and a chest says what it holds before it opens.
+
+### Settings
+Grouped sections under small headings. A student sees whether the assistant is on and how it comes (through a class); the class server's address and a personal Claude key are one quiet row away, on an adult-facing "מתקדם" screen that says who it is for.
+
+### Teacher's board
+White, its sections and groups as the standard card, headings at 18px/800, stat icons in brand.
+
+## Do's and Don'ts
+
+### Do:
+- **Do** use the brand blue for the one main action, selection, progress and the current place, and nothing else.
+- **Do** keep every screen white; use `ground` only under the maths or grouped content.
+- **Do** build every container as the one card: white, 2px `rule`, 16px corners, no soft shadow.
+- **Do** give every pressable thing a solid lip that collapses on press, and nothing else.
+- **Do** set body text at 17px and keep all text at 14px or larger, in ink or `ink-2`.
+- **Do** put a heading's label under it, at 15px `ink-2`.
+- **Do** isolate maths left to right inside Hebrew and keep inline expressions on one line.
+- **Do** show "not yet" in red and correct in green, each with an icon and words, in lessons and teaching stages alike.
+- **Do** keep touch targets at 44px or more and turn motion off under reduced motion. `e2e/targets.spec.js` measures every button, link, summary, radio and tab on Learn, Topics, Quests, Me, a lesson and a teaching step at 390 and 320 wide. A link inside running text is the only exception (it sits in a `<p>` or carries `data-inline`).
+- **Do** keep the controls of a teaching step above its result sheet: StepPlayer keeps the sheet's height in `--foot-h` and scrolls the object above it on "not yet".
+
+### Don't:
+- **Don't** colour a unit with the brand blue or a meaning colour (it wears its family, Unit colours), and don't give a topic or section a colour of its own.
+- **Don't** use black or dark screens, glow or neon effects.
+- **Don't** put scenery or tinted worlds behind the path or colour blocks behind page titles.
+- **Don't** put a small label or eyebrow above a heading, on any screen (the welcome screen's English line is gone too).
+- **Don't** use gold for "not yet"; gold is XP.
+- **Don't** colour a whole result tile; colour its icon and number.
+- **Don't** put מדי beside questions, in onboarding or in headers (the profile shows the student's own מדי).
+- **Don't** add a second typeface; Fredoka is gone.
+
+## History
+
+- **v1:** a "printed textbook" world.
+- **Early November 2026 ("The Friendly Staircase"):** a Duolingo-style rebuild: electric indigo brand, Fredoka for headings and Rubik for reading, a chapter colour per unit, a purple mascot. Layouts were then remeasured after Duolingo and Brilliant (`LAYOUT_SPEC.md`).
+- **Round 15 ("Electric Premium", 9 November):** black screens around white learning surfaces, `#0066FF` and glowing `#00C8FF`, generated dark stylesheets.
+- **Round 16:** the rules of successful apps: one brand colour mostly on the main action, one job per extra colour, readable text on coloured fills (black on green, white on red), green and red far apart in lightness.
+- **Dark mode (STUDENT-2, November 2026):** the app follows the phone's light or dark setting, and Settings → מראה lets the student choose "כמו במכשיר", "בהיר" or "כהה". Every colour is a token (`web/src/styles/tokens.css`; `npm run lint:colors` fails on a stray literal), and `web/src/styles/dark.css` holds the dark values: page `#0f1115`, cards `#181b22`, ink `#eef1f5`. Unit fills and the brand stay the same; a stop in a dark unit colour gets a 2px ring in its light `-ink`. `public/theme-boot.js` applies an explicit choice before the first paint. The notebook page, the QR code and printouts stay light. The old `theme-dark.css`, `dark.gen.css` and `scripts/theme-dark.cjs` were deleted.
+- **Round 17 (10 November 2026, current):** the owner called the UI childish, inconsistent, too colourful, too small and too dark, and chose the category standard. Light only, one blue `#1A5CF5`, Rubik only, one card and one button grammar. The dark files (`theme-dark.css`, `dark.gen.css`, `scripts/theme-dark.cjs`) are no longer imported. Source of truth: `web/src/styles/tokens.css` and `web/src/styles/canon.css` (loaded last).

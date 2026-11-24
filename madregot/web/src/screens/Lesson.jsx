@@ -1,0 +1,964 @@
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
+import { createRoot } from 'react-dom/client';
+import { Navigate, useBlocker, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import clsx from 'clsx';
+import { AnimatePresence, m } from 'motion/react';
+import { toast } from 'sonner';
+import { Lightbulb, Sparkles, Hand, NotebookPen, Keyboard, Flame, RotateCcw, Check, X, Maximize2, HelpCircle, Search } from 'lucide-react';
+import { afterStrike } from '@/lib/strike.js';
+import { qaOn } from '@/lib/qa.js';
+import { useApp } from '@/lib/store.js';
+import { TOPIC, makeItem, ensureGens, readAnswer, answerText, slotsFor, itemMath, displayTex, unitGrade, swappedLin, swapNote, figPlain } from '@/content/index.js';
+import { manipSolution, manipWrong } from '@/content/manip.js';
+import { FACTS } from '@/content/frac.js';
+import { piRow, questionWords } from '@/content/util.js';
+// a right value in a form the question does not take yet (lib/lesson.js answer): a note on its form, not a mistake
+import { PARTIAL } from '@/content/partial.js';
+import { startLesson, answer, next, withHint, withHelp, progressOf, resultOf, PARTS, lessonTopics, FACTS_LEN, inlineChoices } from '@/lib/lesson.js';
+import { unitNodes } from '@/lib/path.js';
+import { runAI, aiReady } from '@/lib/ai.js';
+import { buildTutorContext } from '@/lib/tutorContext.js';
+import { autoAskAllowed, gate, aiAccess, useAIStatus, needIntro, introSeen } from '@/lib/account.js';
+import AIAllowance from '@/components/AIAllowance.jsx';
+import ToolLocked from '@/components/ToolLocked.jsx';
+import { api, syncNow } from '@/lib/api.js';
+import { checkAssignment, reportWork, reportStairs } from '@/lib/classWork.js';
+import { thawItem } from '@/lib/exam.js';
+import { play, haptic, classQuiet } from '@/lib/sound.js';
+import { Tex, MathText, texText, FitDisplay, useFitLine } from '@/components/MathText.jsx';
+import { RichText } from '@/components/RichText.jsx';
+import Figure from '@/components/Figure.jsx';
+import Manip, { readoutLine } from '@/components/manip/Manip.jsx';
+import AIChat from '@/components/AIChat.jsx';
+import Notebook from '@/components/Notebook.jsx';
+import CheckResult from '@/components/CheckResult.jsx';
+import ReportAnswer, { checkText } from '@/components/ReportAnswer.jsx';
+import Mascot from '@/components/Mascot.jsx';
+import SupportCard from '@/components/SupportCard.jsx';
+import { Box, Button, Keypad, Sheet, Steps, StairStep, Thinking, useShake, typeInto } from '@/components/ui.jsx';
+import { detectDistress } from '@shared/distress.js';
+import LessonDone, { PlacementDone } from './LessonDone.jsx';
+import CheckDone from './CheckDone.jsx';
+import TutorSheet from '@/components/learn/TutorSheet.jsx';
+import { lessonWrong } from '@/learn/tutor.ts';
+import RemedyFlow from '@/components/learn/RemedyFlow.jsx';
+import { contentOf, metaOf } from '@/learn/content/index.ts';
+import { useTopics } from '@/learn/useStairContent.js';
+import { skillId, parseSkill, BRIDGE_SKILLS } from '@/learn/skills.ts';
+import { ProgressHeader, FeedbackBadge } from '@/components/lesson/LessonParts.jsx';
+import MissNote, { missNote } from '@/components/lesson/MissNote.jsx';
+// the motion preset `leave` as `exit`: this screen's own leave(to) goes somewhere else (the exit sheet)
+import { DUR, SPRING, enter, leave as exit, swap, entrance } from '@/lib/motion.js';
+import { HELP_IMAGE_MAX } from '@/lib/fitImage.js';
+import { CHECK_IMAGE_MAX } from '@shared/ai.js';
+import '@/styles/lazy/shared.css'; // the rules this screen shares with other screens loaded on demand, out of the first load (COUNCIL2-20)
+import '@/styles/lazy/lesson.css'; // this screen's own rules, out of the first load (COUNCIL2-20)
+
+/** True while a media query matches (and follows it as the window changes). */
+function useMedia(query) {
+  const get = () => (typeof window !== 'undefined' && window.matchMedia ? window.matchMedia(query).matches : false);
+  const [on, setOn] = useState(get);
+  useEffect(() => {
+    if (!window.matchMedia) return undefined;
+    const mq = window.matchMedia(query); const f = () => setOn(mq.matches);
+    mq.addEventListener?.('change', f); f();
+    return () => mq.removeEventListener?.('change', f);
+  }, [query]);
+  return on;
+}
+
+/**
+ * The hint above the answer. On a short phone it shows two lines first; the button for the rest sits under the
+ * word "רמז", so it does not cost the drawing another line.
+ */
+function HintBox({ text, clamp }) {
+  const ref = useRef(null);
+  const [open, setOpen] = useState(false);
+  const [more, setMore] = useState(false);
+  useEffect(() => { setOpen(false); }, [text]);
+  useEffect(() => { const el = ref.current; setMore(!!el && clamp && el.scrollHeight > el.clientHeight + 2); }, [text, clamp, open]);
+  return (
+    <section className="box box-hint hint-box" aria-labelledby="hint-title">
+      <div className="hint-side">
+        <h3 className="box-tab" id="hint-title">רמז</h3>
+        {clamp && (more || open) && <button type="button" className="hint-more" aria-expanded={open} aria-controls="hint-text" onClick={() => setOpen(!open)}>{open ? 'פחות' : 'עוד'}</button>}
+      </div>
+      <div ref={ref} id="hint-text" className={clsx('hint-text', clamp && !open && 'clamp2')}><MathText as="p" text={text} /></div>
+    </section>
+  );
+}
+
+const SLOT_LABEL = { v: 'התשובה', x: 'שיעור x', y: 'שיעור y', m: 'השיפוע m', b: 'b', k: 'המקדם של x', c: 'המספר החופשי', n: 'המונה', d: 'המכנה' };
+/** A slot's name for a screen reader; an expression's letter may be another one than x (3n + 1). */
+const slotLabel = (item, k) => (k === 'k' && item?.var ? `המקדם של ${item.var}` : k === 'v' && piRow(item) ? 'התשובה: המספר שלפני פאי' : SLOT_LABEL[k]);
+/** "to" a slot: ל־ takes the place of the article (למונה, לשיפוע m), as people say it. */
+const toSlot = (label) => (!label ? 'לשדה הבא' : /^[a-z]/i.test(label) ? `ל־${label}` : `ל${label.startsWith('ה') ? label.slice(1) : label}`);
+/** A fraction's two fields, as a screen reader names them. */
+const FRAC_FIELD = { n: 'מונה', d: 'מכנה' };
+/**
+ * A mixed number typed half: a whole number, the space key, and nothing or not yet a fraction after it ("5 ", "1 3",
+ * "1 3/"). The lesson says how one is written: the example stands inside the sentence, kept left to right, so the
+ * sentence's full stop never lands beside it (at the end of a line it read as ".5 1/3").
+ */
+const HALF_MIXED = /^\s*[-+−–—]?\s*\d+\s+[\d\s/]*$/;
+const MIXED_HOW = 'מספר מעורב, כמו \u20665\u00a01/3\u2069, כותבים כך: שלם, רווח ושבר.';
+/** What to type when a slot is empty or unreadable. */
+const INVALID = { pt: 'מלאו את שני השיעורים.', line: 'מלאו את m ואת b.', lin: 'מלאו את המקדם ואת המספר החופשי.', frac: 'מלאו מונה ומכנה, מספרים שלמים.' };
+
+const PRAISE = ['מצוין!', 'יפה מאוד!', 'בדיוק!', 'נכון!', 'כל הכבוד!'];
+// Help named honestly (ai spec AI-3 Hebrew copy): a first try that was right with the hint or the tutor open is not
+// "fixed"; a right second try still is. The tutor opens by where the exercise stands, and on an open exercise one quiet
+// line under its first reply says what help means for the record.
+const ASSISTED_TITLE = 'נכון! פתרתם עם קצת עזרה.';
+const HELP_NOTE = 'תשובה אחרי עזרה נספרת כתרגול, וזה בסדר גמור. בבדיקת השליטה עונים בלי עזרה.';
+const CHAT_INTRO = {
+  open: 'אני רואה את התרגיל. אעזור לכם להגיע לתשובה בעצמכם, צעד אחר צעד. מה לא ברור?',
+  retry: 'אני רואה את התרגיל ואת מה שכתבתם. נבין יחד מה קרה, ואת התשובה תמצאו אתם.',
+  shown: 'אני רואה את התרגיל, את מה שכתבתם ואת הפתרון. מה לא ברור?',
+};
+/** An exercise still being solved: no answer yet, or after a first miss (the tutor withholds the answer there). */
+const openExercise = (s) => s?.phase === 'answer' || s?.phase === 'retry';
+const chatIntro = (s) => (s?.phase === 'retry' ? CHAT_INTRO.retry : openExercise(s) ? CHAT_INTRO.open : CHAT_INTRO.shown);
+/** Choices that are drawings (four nets of a cube): two by two, each drawing as wide as a phone allows. */
+const figChoices = (item) => item.choices.length > 1 && item.choices.every((c) => c.fig);
+
+/** Under an expression's two slots: what to write for x alone, for −x and for no constant. */
+const LIN_NOTE = (v) => `$${v}$ בלי מספר לפניו: המקדם $1$, ו־$-${v}$: המקדם $-1$. אין $${v}$ או אין מספר חופשי? כתבו $0$ בתיבה שלו.`;
+
+/** An answer that is one number (not a question that asks for a decimal) can be a mixed number: the keypad has a space. */
+const takesMixed = (it) => it?.form === 'num' && !it.askDec;
+const MIXED_TYPED = /^(-?)(\d+) (\d+)\/(\d+)$/;
+
+/**
+ * A mixed number typed as "5 1/3" is shown beside the slot as it is written, 5⅓, so the student sees the space read as
+ * a whole number and a fraction. The slot itself is what a screen reader reads ("5 1/3"), so this is for the eye only.
+ */
+function MixedEcho({ text }) {
+  const m = String(text ?? '').match(MIXED_TYPED);
+  if (!m || Number(m[4]) === 0) return null;
+  return <span className="answer-lab answer-echo" aria-hidden="true"><Tex tex={`=\\,${m[1]}${m[2]}\\tfrac{${m[3]}}{${m[4]}}`} /></span>;
+}
+
+function AnswerSlots({ item, slots, setSlots, active, setActive, locked, shakeKey, onEnter, struck, unstrike, good }) {
+  const shakeRef = useShake(shakeKey);
+  const names = slotsFor(item);
+  // every typed digit stays in sight: the slot is sized for the stairs' answers (styles/app.css), and a longer number
+  // (153.86 in the narrow slot of a 320 phone) is set smaller until it shows whole, down to 60% of the size
+  const rowRef = useRef(null);
+  useLayoutEffect(() => {
+    for (const el of rowRef.current?.querySelectorAll('input.slot') || []) {
+      el.style.fontSize = '';
+      if (el.scrollWidth - el.clientWidth > 1) {
+        const base = parseFloat(getComputedStyle(el).fontSize);
+        if (base > 0) el.style.fontSize = `${Math.max(0.6, (el.clientWidth / el.scrollWidth) * 0.95) * base}px`;
+      }
+    }
+  }, [slots]);
+  const input = (k, extra = {}) => (
+    <input
+      key={k} id={`slot-${k}`} dir="ltr" inputMode="none" autoComplete="off" spellCheck={false}
+      className={clsx('slot', active === k && !struck && !locked && 'active', struck && 'struck', good && 'good')}
+      aria-label={struck ? `${extra.aria || slotLabel(item, k)}, התשובה הקודמת: ${slots[k] || ''}. כתבו תשובה חדשה` : extra.aria || slotLabel(item, k)} placeholder={extra.ph || '?'}
+      value={slots[k] || ''} readOnly={locked}
+      // a one-number answer widens with what is typed (a mixed number, 5 1/3, or -1.333) rather than scroll inside its slot
+      style={k === 'v' ? { '--len': String(slots[k] || '').length } : undefined}
+      onFocus={() => setActive(k)}
+      onChange={(e) => {
+        // a computer keyboard may also type a space: "2 1/2" is a mixed number (the phone keypad has no space)
+        const typed = e.target.value.replace(/[^\d\-−./, ]/g, '').slice(0, 9);
+        if (struck) { unstrike(); setSlots({ [k]: afterStrike(slots[k], typed) }); return; }
+        setSlots({ ...slots, [k]: typed });
+      }}
+      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); onEnter(); } }}
+    />
+  );
+  return (
+    <div className="answer" ref={shakeRef}>
+      <div className="answer-row" dir="ltr" ref={rowRef}>
+        {item.form === 'pt' && (<><span className="answer-lab"><Tex tex={`${item.label ?? 'P'}\\,(`} /></span>{input('x', { ph: 'x' })}<span className="answer-lab">,</span>{input('y', { ph: 'y' })}<span className="answer-lab">)</span></>)}
+        {item.form === 'line' && (<><span className="answer-lab"><Tex tex="y =" /></span>{input('m', { ph: 'm' })}<span className="answer-lab"><Tex tex="x\,+" /></span>{input('b', { ph: 'b' })}</>)}
+        {/* an expression: the coefficient, the letter, the constant (□x + □) */}
+        {item.form === 'lin' && (<>{input('k')}<span className="answer-lab"><Tex tex={`${item.var || 'x'}\\,+`} /></span>{input('c')}</>)}
+        {/* a number, with maths before its slot (x =) and after it (□π: the student types the number before π), and a
+            mixed number typed as "5 1/3" echoed beside the slot as it is written */}
+        {item.form === 'num' && (<>{item.label && <span className="answer-lab"><Tex tex={item.label} /></span>}{input('v')}{item.after && <span className="answer-lab answer-after" aria-hidden="true"><Tex tex={item.after} /></span>}<MixedEcho text={slots.v} /></>)}
+        {/* a fraction: the numerator over a bar over the denominator */}
+        {item.form === 'frac' && (<>{item.label && <span className="answer-lab"><Tex tex={item.label} /></span>}
+          <span className="answer-frac" role="group" aria-label="שבר">{input('n', { aria: FRAC_FIELD.n })}<span className="answer-frac-bar" aria-hidden="true" />{input('d', { aria: FRAC_FIELD.d })}</span></>)}
+      </div>
+      {item.unit && <span className="answer-unit">{item.unit}</span>}
+      {item.form === 'line' && <p className="answer-note">b שלילי? כותבים מינוס בתיבה. שבר כותבים כך: 3/4</p>}
+      {item.form === 'lin' && <MathText as="p" className="answer-note" text={LIN_NOTE(item.var || 'x')} />}
+      {names.length > 0 && <span className="visually-hidden" aria-live="polite">{`השדה הפעיל: ${slotLabel(item, active) || ''}`}</span>}
+    </div>
+  );
+}
+
+/** The class exam a route runs (/class/exam/:id/run), or null. */
+/** An answer written for plain text (A′(2, 0)) as TeX: the prime sign as TeX's own prime, a raised stroke after the letter. */
+const primeTex = (t) => String(t).replace(/′/g, "'");
+
+const classExamOf = (pathname) => pathname.match(/^\/class\/exam\/([a-f0-9]{16})\/run$/)?.[1] || null;
+
+/** Which lesson a route asks for: /lesson/:topic/:level?kind=&part= or the older /practice/:topic?level= */
+function useLessonSpec() {
+  const { topic: tParam, id, level: lParam } = useParams();
+  const [params] = useSearchParams();
+  const { pathname } = useLocation();
+  const { path, progress, profile } = useApp.getState();
+  // the teacher's class exam (TEACHER-5 §4): its frozen questions, fetched by its start card and kept on the device
+  const examId = classExamOf(pathname);
+  if (examId) {
+    const items = useApp.getState().classWork?.exams?.[examId];
+    if (!items?.length || !TOPIC[items[0].topic]) return null;
+    return { kind: 'check', purpose: 'class', fixedItems: items.map(thawItem), assignmentId: examId, topic: items[0].topic, level: items[0].level };
+  }
+  if (pathname === '/placement') return { kind: 'placement', grade: ['7', '8'].includes(params.get('grade')) ? params.get('grade') : profile?.grade || '7', know: profile?.know ?? 1 };
+  // the floor check (בדיקת יסודות): a question of each fractions stair and two multiplication facts
+  if (pathname === '/floor') return { kind: 'check', purpose: 'floor', skills: BRIDGE_SKILLS, topic: 'frac', level: 1 };
+  // multiplication facts: a short practice on no stair (not /practice/:id, which reads its id as a topic)
+  if (pathname === '/facts') return { kind: 'facts', n: FACTS_LEN };
+  // Exam Rescue: the diagnostic and the practice exam run over the exam's stairs
+  if (pathname === '/rescue/check' || pathname === '/rescue/exam') {
+    const ex = useApp.getState().learn?.exam;
+    if (!ex?.skills?.length) return null;
+    // the evening's quick check of one of the exam's stairs (EXAM-MATERIAL 2): ?skill=topic:level
+    const one = pathname === '/rescue/check' ? params.get('skill') : null;
+    if (one && ex.skills.includes(one)) { const q = parseSkill(one); return { kind: 'check', purpose: 'quick', skill: one, skills: [one], topic: q.topic, level: q.level }; }
+    // the evening's practice exam on the stairs reviewed tonight only (?skills=a,b: teach before test); any other stair is
+    // not the plan's and is dropped, and none left means the whole plan's
+    const some = pathname.endsWith('exam') ? (params.get('skills') || '').split(',').filter((s) => ex.skills.includes(s)) : [];
+    const skills = some.length ? ex.skills.filter((s) => some.includes(s)) : ex.skills;
+    const first = parseSkill(skills[0]);
+    return { kind: 'check', purpose: pathname.endsWith('exam') ? 'exam' : 'diagnostic', skills, topic: first.topic, level: first.level };
+  }
+  const topic = tParam || id;
+  if (!TOPIC[topic]) return null;
+  if (params.get('kind') === 'check') {
+    const lv = Math.min(Math.max(Number(lParam) || 1, 1), TOPIC[topic].levels.length);
+    const purpose = ['mastery', 'review', 'verify'].includes(params.get('purpose')) ? params.get('purpose') : 'mastery';
+    // a mastery check the teacher gave: its address names the assignment (TEACHER-5 §4)
+    const assignment = params.get('assignment');
+    const assignmentId = purpose === 'mastery' && /^[a-f0-9]{16}$/.test(assignment || '') ? assignment : null;
+    return { kind: 'check', purpose, skill: skillId(topic, lv), misc: purpose === 'verify' ? params.get('misc') : null, topic, level: lv, assignmentId };
+  }
+  const kind = ['review', 'jump'].includes(params.get('kind')) ? params.get('kind') : 'node';
+  const nodes = unitNodes(topic, path);
+  const current = nodes.find((n) => n.kind === 'node' && n.state === 'current');
+  const level = Number(lParam || params.get('level')) || current?.level || TOPIC[topic].levels.length;
+  const node = nodes.find((n) => n.kind === 'node' && n.level === level);
+  const part = Number(params.get('part')) || (node?.state === 'done' ? PARTS : Math.min(PARTS, (node?.parts || 0) + 1));
+  const max = progress[topic]?.max || level;
+  return { kind, topic, level, part, max, fromJourney: params.get('from') === 'journey' };
+}
+
+/**
+ * A choice's text. Maths wider than its button (the class's line of five terms on a 320 phone) is set smaller until it
+ * fits, never below 15px (useFitLine, as a step of a solution): it scrolled sideways inside the button, and the first
+ * term's sign, which is what tells two such choices apart, was cut off.
+ */
+function ChoiceText({ c }) {
+  const ref = useRef(null);
+  useFitLine(ref, c.tex || c.text);
+  return <span ref={ref} className="choice-text">{c.tex ? <Tex tex={c.tex} /> : c.text}</span>;
+}
+
+export default function Lesson() {
+  const spec = useLessonSpec();
+  const examPath = classExamOf(useLocation().pathname);
+  // the lesson's questions come from its topics' teaching content: the app's loading screen shows until it is here
+  useTopics(lessonTopics(spec));
+  const navigate = useNavigate();
+  const st = useApp();
+  const [s, setS] = useState(() => (spec ? startLesson(spec) : null));
+  const [slots, setSlots] = useState({});
+  const [choice, setChoice] = useState(null);
+  const [struck, setStruck] = useState(false);
+  const [active, setActive] = useState('v');
+  const [shakeKey, setShakeKey] = useState(0);
+  const [last, setLast] = useState(null);
+  // the last wrong answer's diagnosis on this exercise, for מדי: the feedback (last) is cleared by "נסו שוב", the mistake is not
+  const [miss, setMiss] = useState(null);
+  const [explain, setExplain] = useState({ state: 'idle', text: '' });
+  const [showSteps, setShowSteps] = useState(false);
+  const [guide, setGuide] = useState(false); // "איך מתחילים?": the first step of the solution, after a first miss
+  // a short phone with an object: the feedback after a miss opens as its title and its button, the explanation on a tap,
+  // so the object keeps its size (a plot shrunk to a thumbnail cannot be read)
+  const [fbOpen, setFbOpen] = useState(null); // which feedback was opened (a new miss folds again)
+  const [chatOpen, setChatOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [exitOpen, setExitOpen] = useState(false);
+  const leaving = useRef(false);
+  // While a lesson is under way (open, not finished), Back asks first, exactly like the close button.
+  const underway = useRef(false);
+  const blocker = useBlocker(({ currentLocation, nextLocation }) => underway.current && !leaving.current && currentLocation.pathname !== nextLocation.pathname);
+  // Each time the question opens it is a fresh dialog: reopening one that is still closing (a quick second
+  // back press) could otherwise leave it hidden while the lesson waits for an answer.
+  const [exitKey, setExitKey] = useState(0);
+  const askExit = () => { setExitKey((k) => k + 1); setExitOpen(true); };
+  // Every blocked back press is a new blocker object: react to each one, even when "stay" and the next
+  // back press land in the same render (blocked, reset, blocked again).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { if (blocker.state === 'blocked') askExit(); }, [blocker]);
+  const stay = () => { setExitOpen(false); if (blocker.state === 'blocked') blocker.reset(); };
+  const leave = (to, opts) => {
+    leaving.current = true; setExitOpen(false); syncNow();
+    if (blocker.state === 'blocked') blocker.proceed(); else navigate(to, opts);
+  };
+  // the combo moment: the run it celebrates, for a moment (a pill over the bar, LessonParts.jsx ComboPop); none in a quiet
+  // class, where the run's chip beside the bar still counts
+  const [combo, setCombo] = useState(null);
+  const comboTimer = useRef(0);
+  const quietClass = useApp(classQuiet);
+  useEffect(() => () => clearTimeout(comboTimer.current), []);
+  // How each exercise went, for the steps in the header: first | fixed | shown | redone (by slot)
+  const [marks, setMarks] = useState([]);
+  const [done, setDone] = useState(null); // { result, award } once the lesson ends
+  const [nbOn, setNbOn] = useState(false);
+  const [pages, setPages] = useState({});
+  const [nbCheck, setNbCheck] = useState({ state: 'idle' });
+  const [zoom, setZoom] = useState(false); // the drawing, enlarged in a sheet (small phones)
+  const [chat, setChat] = useState([]); // the tutor conversation about this exercise
+  // Short phones: the hint opens as two lines, and typed answers get the compact bottom (see `compact`).
+  const short = useMedia('(max-height: 700px) and (max-width: 899px)');
+  const nbRef = useRef(null);
+  const qRef = useRef(null);
+  const nbResRef = useRef(null);
+  const item = s?.item;
+  // A placement test moves across topics: the colours and the misconceptions follow the question. A multiplication
+  // fact belongs to no topic: it takes its own name and the colour of the fractions floor.
+  const isFacts = (x) => x === 'facts';
+  const t = !spec ? null : isFacts(item?.topic) || spec.kind === 'facts' ? FACTS : TOPIC[item?.topic] || TOPIC[spec.topic];
+  const placement = spec?.kind === 'placement';
+  const isTest = (k) => k === 'jump' || k === 'placement' || k === 'check'; // a check, not practice: one try, no hints
+  const isCheck = spec?.kind === 'check';
+  const classExam = spec?.purpose === 'class';
+  const [tutorOpen, setTutorOpen] = useState(false);
+  const [tutorIntent, setTutorIntent] = useState(null); // Madi's sheet opened on a question already asked (the mistake)
+  const [remedy, setRemedy] = useState(null); // a misconception's repair, opened from the feedback
+  // what the tutor can do here today (the free taste, a plan, a class licence): the buttons follow it
+  const aiStatus = useAIStatus((x) => x.status);
+  const explainState = aiAccess('explain', aiStatus).state;
+  const chatState = aiAccess('chat', aiStatus).state;
+  // when the tutor is done for today, Madi explains the mistake instead (no request)
+  const askMadi = () => { setChatOpen(false); setTutorIntent(s?.wrong?.length && s.phase !== 'correct' ? 'mistake' : null); setTutorOpen(true); };
+  // help from the tutor or Madi on an open exercise is help: no first-try credit, no combo, not independent (AI-3)
+  const helped = () => setS((cur) => withHelp(cur));
+  const names = item ? slotsFor(item) : [];
+  // An interactive exercise: the state of the object the student moves. It belongs to one exercise, so a new
+  // exercise starts from its own starting state even before the reset effect runs (the shapes differ by kind).
+  const mkey = item ? `${item.key}:${s.slot}` : null;
+  const [mvs, setMvs] = useState({ key: null, v: null, touched: false });
+  // QA hooks only: the exercise on screen drawn as a check draws it (__madregotAsCheck), for an object whose items are
+  // all practice only (the transform object) and so never reach a check; keyed to the exercise, so the next is normal
+  const [qaCheck, setQaCheck] = useState(null);
+  const isManip = item?.form === 'manip';
+  const mv = isManip ? (mvs.key === mkey ? mvs.v : item.manip.start ?? null) : null;
+  const touched = isManip && mvs.key === mkey && mvs.touched;
+  // a practice first try hides an object's readout of the quantity asked (Manip.jsx readoutLine): it shows after a miss
+  // (the retry is an answer with help, as after the hint) or once the hint is open
+  const readoutHidden = isManip && !isTest(s.kind) && s.attempt === 1 && !s.hint && !!readoutLine(item);
+
+  useEffect(() => {
+    if (!item) return;
+    setSlots({}); setChoice(null); setStruck(false); setActive(names[0] || 'v'); setExplain({ state: 'idle', text: '' }); setShowSteps(false); setGuide(false); setFbOpen(null); setNbCheck({ state: 'idle' }); setZoom(false); setChat([]);
+    qRef.current?.focus({ preventScroll: true });
+    qRef.current?.scrollTo?.({ top: 0 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [item?.key, s?.slot]);
+
+
+  // Test hook for automated checks: the current exercise (with its answer) as window.__madregotItem and, for tools
+  // that run their scripts in an isolated context and cannot see page variables, as JSON in <html data-qa-item>.
+  // Only in a build made for testing (lib/qa.js): never in a build that ships, so no student can read an answer here.
+  useEffect(() => {
+    if (!qaOn()) return undefined;
+    window.__madregotItem = item;
+    // __madregotSolve(true) puts an interactive exercise in a right state, (false) in a near miss
+    window.__madregotSolve = (ok = true) => {
+      if (item?.form !== 'manip') return false;
+      setMvs({ key: mkey, v: ok ? manipSolution(item) : manipWrong(item), touched: true }); setStruck(false);
+      return true;
+    };
+    window.__madregotAsCheck = (on = true) => { setQaCheck(on ? mkey : null); return item?.form === 'manip'; };
+    const solve = window.__madregotSolve;
+    const root = document.documentElement;
+    try { root.setAttribute('data-qa-item', JSON.stringify(item ?? null)); } catch { /* not serialisable */ }
+    // cleared when this exercise goes: a lesson that closes leaves no exercise behind, so the next lesson's first one is
+    // never read from the last one's while it loads (the next run of this effect sets them again in the same commit)
+    return () => {
+      root.removeAttribute('data-qa-item');
+      if (window.__madregotItem === item) window.__madregotItem = null;
+      if (window.__madregotSolve === solve) delete window.__madregotSolve;
+    };
+  }, [item, mkey]);
+
+  // Test hooks for e2e/solutions-fit.spec.js (QA only, as above): every step of the generated solutions of a stair, each
+  // line once at the furthest-in place it takes (its step number), and those steps drawn into a list as the feedback
+  // draws them (StairStep), so the test can measure each one inside the real feedback panel of a 320 phone
+  useEffect(() => {
+    if (!qaOn()) return undefined;
+    // async: a topic's generators load on demand (the boot split), so they are loaded first
+    window.__madregotSolutionLines = async (topic, level, n = 200) => {
+      await ensureGens([topic]);
+      const at = new Map();
+      for (let k = 0; k < n; k += 1) {
+        const it = makeItem(topic, level);
+        (it.solution || []).forEach((line, i) => { if (!(at.get(line)?.i >= i)) at.set(line, { i, key: it.key }); });
+      }
+      return [...at].map(([text, { i, key }]) => ({ text, i, key }));
+    };
+    window.__madregotDrawSteps = (list, lines) => {
+      const root = createRoot(list);
+      flushSync(() => root.render(lines.map(({ text, i }, k) => <StairStep key={k} i={i} text={text} />)));
+      return () => root.unmount();
+    };
+    return () => { delete window.__madregotSolutionLines; delete window.__madregotDrawSteps; };
+  }, []);
+
+  const focusSlot = useCallback((k) => { document.getElementById(`slot-${k}`)?.focus({ preventScroll: true }); }, []);
+
+  // the learning record: a lesson or a check started (for the outcome metrics, on this device only)
+  useEffect(() => { if (spec && !placement) useApp.getState().learnEvent({ e: 'lesson-start', ...(spec.kind === 'facts' || spec.purpose === 'floor' ? {} : { s: skillId(spec.topic, spec.level) }), p: spec.kind === 'check' ? spec.purpose : spec.kind }); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // a mastery check the teacher gave (named by the address, or an open one on this stair): the teacher sees it started
+  // a class exam is its own assignment
+  const [workId] = useState(() => (classExam ? spec.assignmentId : spec?.kind === 'check' && spec.purpose === 'mastery' ? checkAssignment(spec.skill, spec.assignmentId) : null));
+  // a class exam's report: sending (null), or whether it is still waiting on the device for a connection
+  const [workSent, setWorkSent] = useState(null);
+  useEffect(() => { if (workId) reportWork(workId, { state: 'started' }); }, [workId]);
+
+  // What the tutor is told (ai spec AI-1): the exercise, the app's diagnosis of each wrong answer, the lines on screen, the
+  // stair's teaching, a learner summary with nothing personal, and the final-answer policy for this phase. `st` and `res`
+  // are the lesson state and the result being shown (after a second miss they are newer than this render's s and last).
+  const tutorCtx = (st = s, res = last, surface = 'lesson') => buildTutorContext({
+    // the student's grade when the unit is on their path (a ז׳ unit ח׳ also learns this year), else the unit's own
+    surface, item: st.item, s: st, last: res, spec, guide, learn: useApp.getState().learn, grade: unitGrade(t, useApp.getState().profile?.grade), now: new Date().toISOString(),
+  });
+
+  const askExplain = async () => {
+    // the first AI action on this device: the introduction first, then this same question
+    if (needIntro(askExplain)) return;
+    setExplain({ state: 'loading', text: '' });
+    try { const r = await runAI('explain', { ctx: tutorCtx() }, { onMadi: askMadi }); setExplain({ state: 'done', text: r.text, care: r.care === true, blocked: r.blocked === true }); } catch (e) { setExplain(e.limit ? { state: 'idle', text: '' } : { state: 'error', text: e.message }); }
+  };
+
+  const commit = (event) => {
+    st.recordAnswer(event, 0);
+    if (st.profile?.token && useApp.getState().outbox.length >= 5) syncNow();
+  };
+
+  const onKey = (k) => {
+    if (s.phase !== 'answer' && s.phase !== 'retry') return;
+    const base = struck ? {} : slots;
+    if (struck) setStruck(false);
+    setSlots({ ...base, [active]: typeInto(base[active] || '', k) });
+    focusSlot(active);
+  };
+
+  // Two answer fields (a point, a line, a fraction): the keypad's last key moves to the other one.
+  const nextSlot = () => { const k = names[(names.indexOf(active) + 1) % names.length]; setActive(k); focusSlot(k); };
+
+  const canCheck = item && (item.form === 'mc' ? choice != null : isManip ? touched && !struck && mv != null : !struck && names.every((k) => String(slots[k] || '').trim()));
+
+  const check = () => {
+    if (!item || !canCheck || (s.phase !== 'answer' && s.phase !== 'retry')) return;
+    const u = item.form === 'mc' ? choice : isManip ? mv : readAnswer(item, slots);
+    if (u == null) {
+      const missing = names.find((k) => !String(slots[k] || '').trim()) || names[0];
+      // a question that asks for a decimal, answered with the fraction: say what it wants
+      const asFraction = item.askDec && /\//.test(String(slots.v || ''));
+      // a whole number, a space and no fraction yet is a mixed number not typed whole ("5 ", "1 3"): say how one is
+      // written. Anything else unreadable (letters from a computer keyboard) gets the usual line
+      const halfMixed = !asFraction && HALF_MIXED.test(String(slots.v || ''));
+      setLast({ invalid: true, text: asFraction ? 'כתבו את התשובה כמספר עשרוני, עם נקודה.' : halfMixed ? MIXED_HOW : INVALID[item.form] || 'כתבו מספר. מינוס יש במקלדת.' });
+      setShakeKey((v) => v + 1); setActive(missing); focusSlot(missing);
+      return;
+    }
+    const { s: ns, result } = answer(s, u);
+    // the right value in a form the question does not take yet (a fraction that can still be reduced): say so and keep
+    // the question open; answer() changed nothing, so no attempt and no answer event are recorded
+    if (result.partial) {
+      setLast({ invalid: true, partial: true, text: PARTIAL[result.partial] });
+      setActive(names[0]); focusSlot(names[0]);
+      return;
+    }
+    if (!placement && (result.ok || result.reveal)) {
+      setMarks((mk) => {
+        const out = [...mk];
+        if (s.slot < s.total) out[s.slot] = result.ok ? (result.first ? 'first' : 'fixed') : 'shown';
+        else if (result.ok) { const k = out.indexOf('shown'); if (k >= 0) out[k] = 'redone'; } // a returned exercise, solved
+        return out;
+      });
+    }
+    // an expression written constant-first on expr:3 is right; a quiet note says which box holds the coefficient. A
+    // first try whose readout was hidden: the retry's feedback says what can be seen now
+    setLast({ ...result, praise: PRAISE[Math.floor(Math.random() * PRAISE.length)], ...(result.ok && swappedLin(item, u) ? { swap: swapNote(item) } : {}), readout: !!result.retry && readoutHidden });
+    if (result.ok) { play('correct'); haptic('correct'); commit(result.event); }
+    else {
+      play('wrong'); haptic('wrong'); setShakeKey((v) => v + 1);
+      setMiss({ cat: result.cat ?? null, diagnosis: result.diagnosis ?? null });
+      if (result.reveal) {
+        commit(result.event);
+        if (item.form !== 'mc') setStruck(true);
+        // The second miss is the moment help matters most: ask the tutor without waiting to be asked.
+        // (only when that is not one of the few free questions: on the free taste the student chooses when to ask; and
+        // never before the introduction to the tutor was read: then "למה טעיתי?" waits for the student to ask)
+        if (aiReady() && !isTest(ns.kind) && autoAskAllowed() && introSeen() && aiAccess('explain').state === 'open') setTimeout(() => askExplainFor(ns, result), 0);
+      }
+      if (result.retry) { setStruck(true); setActive(names[0] || 'v'); if (item.form === 'mc') setChoice(null); if (result.event) st.noteLearn(result.event); }
+    }
+    setS(ns);
+  };
+  const askExplainFor = async (ns, res) => {
+    setExplain({ state: 'loading', text: '' });
+    try {
+      const r = await runAI('explain', { ctx: tutorCtx(ns, res) }, { onMadi: askMadi });
+      setExplain({ state: 'done', text: r.text, care: r.care === true, blocked: r.blocked === true });
+    } catch (e) { setExplain(e.limit ? { state: 'idle', text: '' } : { state: 'error', text: e.message }); }
+  };
+
+  const finish = (ns) => {
+    const result = resultOf(ns);
+    const app = useApp.getState();
+    let award = placement ? app.completePlacement(result) : isCheck ? app.completeCheck(result) : app.completeLesson(result);
+    // a finished activity completes its item of today's mission (a class exam is the teacher's, not a mission item).
+    // Multiplication facts are on no stair (level 0), and the floor check is about the whole floor, not one stair: it
+    // completes the floor check's own item only. When that finishes the mission and its quest is the day's last, the
+    // chest opens: the celebration says so.
+    const ticked = (m) => { if (m?.questsDone) award = { ...award, questsDone: true, freezeEarned: award.freezeEarned || m.freezeEarned }; };
+    const onStair = !!(result.topic && result.level) && result.purpose !== 'floor';
+    if (result.purpose === 'floor') ticked(app.completeMission({ kind: 'floor' }));
+    if (!placement && onStair && !classExam) {
+      const kindOf = { mastery: 'mastery', review: 'review', verify: 'repair', diagnostic: 'exam', exam: 'exam', quick: 'exam' };
+      // practice (stage D) or a check: each completes only the mission item it is
+      (result.skills || [skillId(result.topic, result.level)]).forEach((sk) => ticked(app.completeMission({ skill: sk, kind: isCheck ? kindOf[result.purpose] : 'continue', stage: isCheck ? (result.purpose === 'mastery' ? 'E' : undefined) : result.kind === 'node' ? 'D' : undefined, misc: result.misc || undefined, ...(result.purpose === 'quick' ? { rescue: 'quick' } : {}) })));
+    }
+    if (!placement) app.learnEvent({ e: 'lesson-done', ...(onStair ? { s: skillId(result.topic, result.level) } : {}), p: isCheck ? result.purpose : result.kind, ok: result.passed });
+    // the teacher's work: a mastery check or a class exam reports its first finished result (an exam, how each question
+    // went); the stairs report how far they are
+    if (workId && classExam) {
+      reportWork(workId, { state: 'done', right: result.right, asked: result.asked, questions: result.questions })
+        .finally(() => setWorkSent(true));
+    } else if (workId) reportWork(workId, { state: 'done', right: result.right, asked: result.asked, passed: !!result.passed });
+    reportStairs();
+    syncNow();
+    // the end of a lesson, a check or the placement test: the sound and its vibration, as the end screen appears; a
+    // stair mastered (award.mastered, the test CheckDone's gold moment reads too) or a unit done is a level up (PRODUCT2-38)
+    const endSound = !result.passed ? 'wrong' : award?.mastered || award?.unitDone ? 'levelup' : 'complete';
+    play(endSound); haptic(endSound);
+    setDone({ result, award });
+  };
+
+  const tryAgain = () => {
+    setLast(null);
+    if (isManip) requestAnimationFrame(() => qRef.current?.querySelector('.manip-canvas[tabindex="0"], .manip .step-btn:not(:disabled)')?.focus({ preventScroll: true }));
+    else focusSlot(active);
+  };
+  const goOn = () => {
+    if (s.phase === 'retry') { tryAgain(); return; }
+    const mark = last?.comboMark;
+    const ns = next(s);
+    setLast(null);
+    if (ns.finished) { finish(ns); return; }
+    setS(ns);
+    if (mark) {
+      play('combo', mark); haptic('combo');
+      if (!quietClass) { clearTimeout(comboTimer.current); setCombo(mark); comboTimer.current = setTimeout(() => setCombo(null), 1400); }
+    }
+  };
+
+  useEffect(() => {
+    const onDoc = (e) => {
+      if (done || chatOpen || helpOpen || exitOpen || tutorOpen || remedy) return;
+      // A computer keyboard types into the answer even when the focus is elsewhere on the screen.
+      const tag = document.activeElement?.tagName;
+      // Enter goes on from the feedback, unless it is pressing another button there ("the next step", "how to solve")
+      const innerButton = tag === 'BUTTON' && !document.activeElement.closest('.fb-actions');
+      if (e.key === 'Enter' && last && !last.invalid && !innerButton) { e.preventDefault(); goOn(); return; }
+      if (e.key === 'Enter' && !last && canCheck && !['INPUT', 'TEXTAREA', 'BUTTON', 'A', 'SUMMARY'].includes(tag)) { e.preventDefault(); check(); return; }
+      // the numbers printed on the choices pick them
+      if (item?.form === 'mc' && /^[1-9]$/.test(e.key) && tag !== 'INPUT' && tag !== 'TEXTAREA' && !locked) {
+        const n = Number(e.key) - 1;
+        if (n < item.choices.length && !s.wrong.includes(n)) { e.preventDefault(); setChoice(n); if (feedback === 'retry') setLast(null); }
+        return;
+      }
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || e.ctrlKey || e.metaKey || e.altKey || !item || item.form === 'mc' || isManip || nbOn) return;
+      // the space of a mixed number (5 1/3), where the keypad has it; never while a button has the focus (Space presses it)
+      const space = e.key === ' ' && takesMixed(item) && !['BUTTON', 'A', 'SUMMARY'].includes(tag);
+      const k = /^[0-9./]$/.test(e.key) ? e.key : e.key === '-' ? '-' : e.key === 'Backspace' ? 'del' : space ? ' ' : null;
+      if (k) { e.preventDefault(); onKey(k); }
+    };
+    window.addEventListener('keydown', onDoc);
+    return () => window.removeEventListener('keydown', onDoc);
+  });
+
+  // Once the right choice is marked, it is brought into view: on a small phone the feedback panel
+  // shrinks the maths region and the choice could otherwise sit below its fold.
+  const marked = !!(last && !last.invalid && (last.ok || s?.phase !== 'retry') && item?.form === 'mc');
+  useEffect(() => {
+    if (marked) qRef.current?.querySelector('.choice.good')?.scrollIntoView?.({ block: 'nearest' });
+  }, [marked]);
+  // After checking, the focus goes to the feedback's button, so a keyboard or a screen reader is where the action is.
+  const fbKey = last && !last.invalid ? `${item?.key}:${s?.phase}:${last.ok}` : null;
+  useEffect(() => {
+    if (fbKey) requestAnimationFrame(() => document.querySelector('section.fb .fb-actions .btn')?.focus({ preventScroll: true }));
+  }, [fbKey]);
+  // Arrow keys move between the choices (one tab stop for the group, as a radio group should be).
+  const onChoiceKeys = (e) => {
+    // Enter on the chosen answer checks it (as Enter in an answer field does)
+    if (e.key === 'Enter' && !last && choice != null) { e.preventDefault(); e.stopPropagation(); check(); return; }
+    const dir = { ArrowDown: 1, ArrowLeft: 1, ArrowUp: -1, ArrowRight: -1 }[e.key];
+    if (!dir || !item || item.form !== 'mc' || locked) return;
+    e.preventDefault();
+    const open = item.choices.map((_, i) => i).filter((i) => !s.wrong.includes(i));
+    const at = open.indexOf(choice ?? open[0]);
+    const nextI = open[(at + dir + open.length) % open.length];
+    setChoice(nextI); if (feedback === 'retry') setLast(null);
+    qRef.current?.querySelectorAll('.choice')[nextI]?.focus();
+  };
+
+  // The notebook check (waiting, result or error) appears under the notebook: bring it into view.
+  useEffect(() => {
+    if (nbCheck.state === 'idle') return;
+    const el = nbResRef.current; const box = qRef.current;
+    if (el && box) box.scrollTo({ top: Math.max(0, box.scrollTop + el.getBoundingClientRect().top - box.getBoundingClientRect().top - 12), behavior: 'smooth' });
+  }, [nbCheck.state]);
+
+  const checkWork = async () => {
+    // the photo check is the full tutor's: on the free taste its info state shows instead (and the teacher is one tap away)
+    const g = gate('check', { onMadi: askMadi, then: checkWork });
+    if (g === 'locked' || g === 'economy') { setNbCheck({ state: 'locked', kind: g }); return; }
+    if (g) return;
+    // at most the server's limit for a check's photo (shared/ai.js CHECK_IMAGE_MAX): a tall page is encoded smaller
+    const image = nbRef.current?.toImage({ max: CHECK_IMAGE_MAX });
+    if (!image) { setNbCheck({ state: 'error', message: 'כתבו קודם את הדרך במחברת.' }); return; }
+    setNbCheck({ state: 'loading' });
+    const ctx = tutorCtx(s, last, 'notebook');
+    try {
+      const r = await runAI('check', { ctx, image, mediaType: 'image/jpeg' }, { onMadi: askMadi });
+      // the tutor's check of the way on an open exercise is help with it (ai spec AI-3 Design 5), once it came back
+      // readable: a check that failed, could not read the page or answered as care helped with nothing (the AI review)
+      if (r && r.readable !== false && !r.care) setS((cur) => withHelp(cur));
+      setNbCheck({ state: 'done', r });
+    } catch (e) { setNbCheck(e.limit ? { state: 'idle' } : { state: 'error', message: e.message }); }
+  };
+
+  underway.current = !!(spec && t && !done);
+  // a class exam opened before its questions are on this device: its start card fetches them
+  if (!spec && examPath) return <Navigate to={`/class/exam/${examPath}`} replace />;
+  if (!spec || !t) {
+    return (
+      <div className="page not-found">
+        <Mascot mood="oops" size={96} />
+        <h1 className="h-page">השיעור הזה לא נמצא</h1>
+        <p className="muted">אולי הקישור ישן. כל השיעורים מחכים במפה.</p>
+        <Button className="btn-block btn-lg" onClick={() => navigate('/', { replace: true })}>חזרה למפה</Button>
+      </div>
+    );
+  }
+  if (done) leaving.current = true; // the end screens lead back to the map without asking
+  if (done && placement) return <PlacementDone {...done} onExit={() => navigate('/topics', { replace: true, state: { placed: true } })} />;
+  if (done && classExam) return <CheckDone result={done.result} award={done.award} work={{ id: workId, tried: !!workSent }} onExit={() => navigate('/quests', { replace: true })} />;
+  // back on the map after a stair mastered, מדי walks from that stair's stop (kept and placed stairs too); the stop he
+  // reaches opens in front of the student only when the path changed (stairDone: a kept stair was drawn done already)
+  if (done && isCheck) return <CheckDone result={done.result} award={done.award} onExit={() => navigate('/', { replace: true, preventScrollReset: true, state: done.award?.mastered ? { from: spec.topic, nodeDone: true, stop: `${done.result.topic}:node:${done.result.level}`, opened: !!done.award.stairDone } : undefined })} />;
+  if (done) return <LessonDone {...done} topic={t} onExit={() => (spec.fromJourney ? navigate(`/learn/${spec.topic}/${spec.level}`, { replace: true }) : navigate('/', { replace: true, preventScrollReset: true, state: spec.kind === 'facts' ? undefined : { from: spec.topic, nodeDone: !!done.award.unitDone } }))} onAgain={() => { setDone(null); setMarks([]); setS(startLesson(spec)); }} />;
+
+  const feedback = last && !last.invalid ? (last.ok ? 'good' : s.phase === 'retry' ? 'retry' : 'reveal') : null;
+  const fbToken = `${item.key}|${feedback}|${s.wrong.length}`;
+  const folded = short && isManip && (feedback === 'retry' || feedback === 'reveal') && fbOpen !== fbToken;
+  const inClass = !!st.profile?.token;
+  const page = pages[item.key] || { strokes: [], height: 420 };
+  const setPage = (patch) => setPages((all) => ({ ...all, [item.key]: { ...page, ...patch } }));
+  const locked = feedback === 'good' || feedback === 'reveal';
+  const pct = Math.round(progressOf(s) * 100);
+
+  // מדי follows the work: curious while the student experiments with the object, then glad or encouraging
+  const mood = feedback === 'good' ? 'happy' : feedback ? 'encouraging' : s.hint || nbOn || touched ? 'thinking' : 'idle';
+  const onManip = (v) => { setMvs({ key: mkey, v, touched: true }); if (struck) setStruck(false); if (feedback === 'retry') setLast(null); };
+  const stage = `${s.slot}-${item.key}`;
+  // Each exercise slides in from the reading side; the last one leaves the other way, in half the time (lib/motion.js swap).
+  const slide = swap();
+  const typed = item.form !== 'mc' && !isManip && !nbOn;
+  // On a short phone a typed answer gets the room it needs: the check button joins the answer row and the help
+  // buttons move up beside the progress bar, so the drawing keeps the height of a whole row.
+  const compact = short && typed;
+  const tools = (
+    <div className="tools" role="group" aria-label="עזרה">
+      {!isTest(s.kind) && <button type="button" className={clsx('tool', s.hint && 'on')} onClick={() => setS(withHint(s))} disabled={s.hint} aria-pressed={!!s.hint} aria-label="רמז"><Lightbulb size={20} aria-hidden="true" /><span className="tool-label">רמז</span></button>}
+      {!isTest(s.kind) && <button type="button" className="tool" aria-label="שאלה למדי" onClick={() => setTutorOpen(true)}><HelpCircle size={20} aria-hidden="true" /><span className="tool-label">מדי</span></button>}
+      {aiReady() && !isTest(s.kind) && <button type="button" className="tool ai" aria-label="שאלו את העוזר" onClick={() => setChatOpen(true)}><Sparkles size={20} aria-hidden="true" /><span className="tool-label">העוזר</span></button>}
+      <button type="button" className={clsx('tool', nbOn && 'on')} aria-pressed={nbOn} aria-label={nbOn ? 'תשובה' : 'מחברת'} onClick={() => setNbOn(!nbOn)}>{nbOn ? <Keyboard size={20} aria-hidden="true" /> : <NotebookPen size={20} aria-hidden="true" />}<span className="tool-label">{nbOn ? 'תשובה' : 'מחברת'}</span></button>
+      {inClass && !classExam && <button type="button" className="tool" aria-label="למורה" onClick={() => setHelpOpen(true)}><Hand size={20} aria-hidden="true" /><span className="tool-label">למורה</span></button>}
+    </div>
+  );
+  const checkButton = <Button className="check-btn btn-lg" onClick={check} disabled={!canCheck}>בדיקה</Button>;
+  // The question stays pinned on top, as in a Duolingo exercise. With no drawing on the screen מדי says it, in a speech
+  // bubble beside him (v6): he stands still while the student works (the most-used screen moves least, ux-motion 20)
+  // and reacts once to the answer (a hop when right, a lean when not: ux-motion 7). A drawing needs the room, so beside
+  // one the question is the screen's bold title, as before; on a short phone he steps aside (lazy/shared.css).
+  const talk = !item.fig && !isManip;
+  // the line on how to write the answer comes after the expression, not between "חשבו:" and it (util.js questionWords)
+  const words = questionWords(item);
+  const question = talk ? (
+    <div className="lesson-q is-talk" data-region="question">
+      <Mascot mood={mood} size={64} still={!feedback} className="q-madi" />
+      <div className="q-say"><h1 className="qtext q-bubble" id="qtext"><MathText text={words.lead} /></h1></div>
+    </div>
+  ) : (
+    <div className="lesson-q is-title" data-region="question">
+      <h1 className="qtext q-title" id="qtext"><MathText text={words.lead} /></h1>
+    </div>
+  );
+
+  return (
+    <div className={clsx('lesson', `ch-${t.color}`, feedback && 'fb-open', typed && 'is-typed', isManip && !nbOn && 'is-manip', folded && 'fb-folded-on', feedback === 'reveal' && 'is-reveal')}>
+      {/* top: progress and the question, always on screen */}
+      <header className="lesson-head" data-region="header">
+        <ProgressHeader extra={tools} pct={pct} marks={placement ? null : marks} total={s.total} label={placement ? 'התקדמות בבדיקת הרמה' : classExam ? 'התקדמות במבחן' : isCheck ? 'התקדמות בבדיקה' : 'התקדמות בשיעור'} onExit={askExit} exitLabel={classExam ? 'יציאה מהמבחן' : undefined} combo={s.combo} topic={placement ? t.title : null} pop={combo} onPopClose={() => setCombo(null)} />
+        <AnimatePresence mode="wait" initial={false}>
+          <m.div key={stage} className="q-pin" {...slide}>{question}</m.div>
+        </AnimatePresence>
+      </header>
+
+      {/* middle: the maths (expression, drawing, table, choices); the only part that scrolls */}
+      <main className="lesson-main" ref={qRef} tabIndex={-1} aria-labelledby="qtext" data-region="content">
+        <AnimatePresence mode="wait" initial={false}>
+        <m.div key={stage} className="q-stage" {...slide}>
+        {item.redo && <p className="redo-note"><RotateCcw size={16} aria-hidden="true" />תרגיל דומה לזה שהיה קשה קודם</p>}
+        {item.extra && <p className="redo-note"><Search size={16} aria-hidden="true" />עוד שאלה אחת, כדי להבין מה בדיוק בלבל</p>}
+        {item.display && <FitDisplay tex={displayTex(item)} />}
+        {words.after && <MathText as="p" className="q-format" text={words.after} />}
+        {item.fig && (
+          <div className="fig-zoomable">
+            <Figure fig={item.fig} />
+            {item.fig.type !== 'table' && item.fig.type !== 'outcomes' && (
+              <button type="button" className="fig-zoom" aria-label="הגדלת השרטוט" onClick={() => setZoom(true)}><Maximize2 size={18} aria-hidden="true" /></button>
+            )}
+          </div>
+        )}
+        {isManip && !nbOn && <Manip item={item} value={mv} onChange={onManip} locked={locked} reveal={feedback === 'reveal'} good={feedback === 'good'} touched={touched} mood={mood} hint={!!s.hint} test={isTest(s.kind) || (!!qaCheck && qaCheck === mkey)} checked={feedback === 'retry'} firstTry={readoutHidden} />}
+        {item.form === 'mc' && (
+          <div className={clsx('choices', inlineChoices(item) && 'inline', figChoices(item) && 'figs')} role="radiogroup" aria-label="אפשרויות" onKeyDown={onChoiceKeys} data-region="answers">
+            {item.choices.map((c, i) => {
+              const state = locked && i === item.answer ? 'good' : (feedback && choice === i && i !== item.answer) || s.wrong.includes(i) ? 'bad' : '';
+              return (
+                <m.button key={i} type="button" role="radio" aria-checked={choice === i} tabIndex={(choice ?? item.choices.findIndex((_, k) => !s.wrong.includes(k))) === i ? 0 : -1} aria-label={c.tex ? texText(c.tex) : c.fig ? `${c.text}: ${figPlain(c.fig)}` : undefined} className={clsx('choice', choice === i && 'on', state)}
+                  animate={state === 'good' ? { scale: [1, 1.06, 1] } : { scale: 1 }} transition={{ duration: 0.35 }}
+                  disabled={locked || s.wrong.includes(i)} onClick={() => { setChoice(i); play('tap'); if (feedback === 'retry') setLast(null); }}>
+                  <span className="choice-key" aria-hidden="true">{state === 'good' ? <Check size={18} strokeWidth={3.4} /> : state === 'bad' ? <X size={18} strokeWidth={3.4} /> : i + 1}</span>
+                  {c.fig
+                    ? <span className="choice-fig"><Figure fig={c.fig} /><span className="choice-cap">{c.text}</span></span>
+                    : <ChoiceText c={c} />}
+                </m.button>
+              );
+            })}
+          </div>
+        )}
+        {nbOn && (
+          <>
+            <Notebook ref={nbRef} strokes={page.strokes} onStrokes={(strokes) => { setPage({ strokes }); if (nbCheck.state !== 'loading') setNbCheck({ state: 'idle' }); }} height={page.height} onGrow={() => setPage({ height: page.height + 240 })} />
+            <p className="nb-note">כתבו את הדרך כמו במחברת. כשמסיימים, חוזרים ל"תשובה" וכותבים את התוצאה.</p>
+            {/* a class whose tutor is off (TRUST-11) offers no AI check at all */}
+            {aiReady() && explainState !== 'class_off' && <Button variant="ai" className="btn-sm" onClick={checkWork} disabled={nbCheck.state === 'loading' || !page.strokes.length}><Sparkles size={16} aria-hidden="true" />בדיקת הדרך עם העוזר</Button>}
+            <div className="nb-anchor" ref={nbResRef} aria-hidden="true" />
+            {nbCheck.state === 'loading' && <Box tone="ai" title="בדיקת הדרך"><Thinking states={['קורא את מה שכתבתם', 'בודק כל שורה', 'מסכם']} /></Box>}
+            {nbCheck.state === 'error' && <p className="form-error" role="alert">{nbCheck.message}</p>}
+            {nbCheck.state === 'done' && <CheckResult r={nbCheck.r} />}
+            {nbCheck.state === 'done' && <div className="ai-report-row"><ReportAnswer kind="check" reply={checkText(nbCheck.r)} /></div>}
+            {nbCheck.state === 'done' && nbCheck.r?.care && <SupportCard variant="after-message" />}
+            {nbCheck.state === 'locked' && <ToolLocked kind="check" state={nbCheck.kind} compact onTeacher={inClass ? () => setHelpOpen(true) : undefined} />}
+          </>
+        )}
+        </m.div>
+        </AnimatePresence>
+      </main>
+
+      {/* bottom: the answer row, then the keypad and the check button (or the feedback that replaces them) */}
+      <div className="lesson-foot" data-region="footer">
+        {/* the hint sits above the answer, on the first try and again on the second; the drawing above makes room */}
+        <AnimatePresence>
+          {s.hint && (s.phase === 'answer' || s.phase === 'retry') && !feedback && (
+            <m.div key="hint" className="hint-bar" initial={entrance({ opacity: 0, y: 8 })} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, transition: exit(DUR.micro) }} transition={enter(DUR.fast)}>
+              <HintBox text={item.hint} clamp={short} />
+            </m.div>
+          )}
+        </AnimatePresence>
+        {typed && (
+          <div className={clsx('answer-bar', compact && 'with-check')} data-region="answers">
+            <AnswerSlots item={item} slots={slots} setSlots={(v) => { setSlots(v); if (feedback === 'retry') setLast(null); }} active={active} setActive={setActive} locked={locked} shakeKey={shakeKey} onEnter={() => (feedback ? goOn() : check())} struck={struck} unstrike={() => setStruck(false)} good={feedback === 'good'} />
+            {compact && !feedback && checkButton}
+          </div>
+        )}
+        {last?.invalid && (last.partial
+          ? <p className="answer-error answer-partial" role="status"><MathText text={last.text} /></p>
+          : <p className="form-error answer-error" role="alert">{last.text}</p>)}
+        {last?.swap && <p className="answer-error answer-partial answer-swap" role="status"><MathText text={last.swap} /></p>}
+        {feedback ? (
+          <m.section className={clsx('fb', `fb-${feedback}`, folded && 'fb-folded')} aria-live="assertive" aria-labelledby="fb-title" data-region="feedback"
+            initial={entrance({ y: 40, opacity: 0 })} animate={{ y: 0, opacity: 1 }} transition={SPRING.settle}>
+            <div className="fb-scroll">
+              <div className="fb-head">
+                <FeedbackBadge good={feedback === 'good'} />
+                <h2 id="fb-title" className="fb-title">{feedback === 'good' ? (last.first ? last.praise : last.assisted ? ASSISTED_TITLE : 'יפה, תיקנתם!') : feedback === 'retry' ? 'עוד לא. נסו שוב' : 'התשובה הנכונה:'}</h2>
+                {feedback === 'good' && s.combo >= 2 && <span className="fb-combo"><Flame size={16} aria-hidden="true" />{s.combo} ברצף</span>}
+              </div>
+              {folded && (
+                <div className="fb-body">
+                  {feedback === 'retry' && last?.readout && <p className="readout-line">{readoutLine(item)}</p>}
+                  {/* an object's miss, folded on a short phone, still names what probably happened (PRODUCT2-18) */}
+                  {feedback === 'retry' && <MissNote note={missNote(item.topic || spec.topic, item.level, last, { test: isTest(s.kind) })} onRepair={setRemedy} />}
+                  {feedback === 'reveal' && <p className="fb-answer">{/[\u0590-\u05FF\u0600-\u06FF]/.test(answerText(item)) ? answerText(item) : <Tex tex={primeTex(answerText(item))} />}</p>}
+                  <button type="button" className="link-btn" onClick={() => setFbOpen(fbToken)} aria-expanded="false">{feedback === 'retry' ? 'רמז' : 'הפתרון'}</button>
+                </div>
+              )}
+              {feedback === 'retry' && !folded && (
+                <div className="fb-body">
+                  {last?.readout && <p className="readout-line">{readoutLine(item)}</p>}
+                  <MissNote note={missNote(item.topic || spec.topic, item.level, last, { test: isTest(s.kind) })} onRepair={setRemedy} />
+                  <p className="hint-line"><Lightbulb size={16} aria-hidden="true" /><MathText text={item.hint} /></p>
+                  {/* guide, don't just say "again": the first step of the way, never the whole solution */}
+                  {item.solution?.length > 1 && !isTest(s.kind) && (guide ? (
+                    <ol className="stair-list guide-step" aria-live="polite"><StairStep i={0} text={item.solution[0]} /></ol>
+                  ) : (
+                    <button type="button" className="link-btn" onClick={() => setGuide(true)}>איך מתחילים?</button>
+                  ))}
+                </div>
+              )}
+              {feedback === 'reveal' && !folded && (
+                <div className="fb-body">
+                  <p className="fb-answer">{/[\u0590-\u05FF\u0600-\u06FF]/.test(answerText(item)) ? answerText(item) : <Tex tex={primeTex(answerText(item))} />}</p>
+                  {placement ? <p className="fb-note">זה בסדר. כך יודעים מאיפה להתחיל בנושא הזה.</p> : <Steps steps={item.solution} stepwise />}
+                  {explain.state === 'loading' && <Box tone="ai" title="העוזר"><Thinking states={['בודק את התשובה שלכם', 'מחפש איפה זה התפספס', 'מנסח הסבר']} /></Box>}
+                  {explain.state === 'done' && <Box tone="ai" title="העוזר"><RichText>{explain.text}</RichText></Box>}
+                  {explain.state === 'done' && !explain.blocked && <div className="ai-report-row"><ReportAnswer kind="explain" reply={explain.text} /></div>}
+                  {explain.state === 'done' && explain.care && <SupportCard variant="after-message" />}
+                  {explain.state === 'error' && <p className="form-error" role="alert">{explain.text}</p>}
+                  {explain.state === 'idle' && !isTest(s.kind) && ['free', 'open'].includes(explainState) && (
+                    <>
+                      <Button variant="ai" className="btn-sm" onClick={askExplain}><Sparkles size={16} aria-hidden="true" />למה טעיתי?</Button>
+                      <AIAllowance />
+                    </>
+                  )}
+                  {explain.state === 'idle' && !isTest(s.kind) && ['used', 'paused', 'resting', 'class_off', 'parent_ok_needed'].includes(explainState) && (
+                    <Button variant="secondary" className="btn-sm" onClick={askMadi}><HelpCircle size={16} aria-hidden="true" />שאלה למדי</Button>
+                  )}
+                  {!isTest(s.kind) && <p className="fb-note">תרגיל דומה יחזור בסוף השיעור.</p>}
+                  {!isTest(s.kind) && last?.cat && metaOf(skillId(item.topic || spec.topic, item.level))?.misconceptions.some((x) => x.id === last.cat) && (
+                    <button type="button" className="link-btn" onClick={() => setRemedy(last.cat)}>בואו נראה את זה אחרת</button>
+                  )}
+                </div>
+              )}
+              {feedback === 'good' && (
+                <div className="fb-body">
+                  <button type="button" className="link-btn" onClick={() => setShowSteps(!showSteps)} aria-expanded={showSteps}>{showSteps ? 'להסתיר את הפתרון' : 'איך פותרים?'}</button>
+                  {showSteps && <Steps steps={item.solution} stepwise />}
+                </div>
+              )}
+            </div>
+            <div className="fb-actions">
+              <Button variant={feedback === 'good' ? 'good' : 'bad'} className="btn-block btn-lg" onClick={goOn} autoFocus>
+                {feedback === 'retry' ? 'לנסות שוב' : feedback === 'good' ? 'המשך' : 'הבנתי'}
+              </Button>
+            </div>
+          </m.section>
+        ) : (
+          <div className="lesson-dock">
+            {/* as in Duolingo's maths exercises: the full-width check button sits right above the number pad, and the
+                pad fills the bottom of the screen; help sits in the top bar, where Duolingo keeps its counter */}
+            {!compact && <div className="dock-row" data-region="primary">{checkButton}</div>}
+            {typed && <div className="pad-panel"><Keypad onKey={onKey} mixed={takesMixed(item)} onNext={names.length > 1 ? nextSlot : undefined} nextLabel={`מעבר ${toSlot(slotLabel(item, names[(names.indexOf(active) + 1) % names.length]))}`} /></div>}
+          </div>
+        )}
+      </div>
+
+      <Sheet open={zoom} onOpenChange={setZoom} title="השרטוט" wide>
+        <div className="fig-big"><Figure fig={item.fig} /></div>
+      </Sheet>
+      <Sheet key={`exit-${exitKey}`} open={exitOpen} onOpenChange={(o) => (o ? setExitOpen(true) : stay())} title={placement ? 'לצאת מבדיקת הרמה?' : classExam ? 'לצאת מהמבחן?' : 'לצאת מהשיעור?'}>
+        <div className="exit-sheet">
+          <Mascot mood="oops" size={96} />
+          <p className="lead">{placement ? 'כל נושא יתחיל מהמדרגה הראשונה. אפשר לחזור לבדיקה מהלוח בכל זמן.' : classExam ? 'אם יוצאים עכשיו, המבחן לא יישלח למורה. בפעם הבאה הוא יתחיל מהשאלה הראשונה.' : 'ההתקדמות בשיעור הזה לא תישמר. התשובות שכבר עניתם נשמרות בתרגול שלכם.'}</p>
+          <Button className="btn-block btn-lg" onClick={stay}>{placement ? 'להמשיך בבדיקה' : classExam ? 'להמשיך במבחן' : 'להמשיך ללמוד'}</Button>
+          <Button variant="ghost" className="btn-block exit-quit" onClick={() => leave(classExam ? '/quests' : '/', { replace: true })}>יציאה</Button>
+        </div>
+      </Sheet>
+      {/* every sheet in a lesson has the same build: its title and the way out at the top, the content, and its one
+          action pinned at the bottom (the chat's input, the remedy's button, the help request's "send") */}
+      <Sheet open={chatOpen} onOpenChange={setChatOpen} title="שאלו את העוזר" className="chat-sheet">
+        <div className="chat-context"><span className="muted">על התרגיל:</span> <MathText text={words.lead} />{item.display && <> <Tex tex={item.display} /></>}{words.after && <> <MathText text={words.after} /></>}</div>
+        <AIChat context={chatOpen ? tutorCtx() : null} messages={chat} onMessages={setChat} intro={chatIntro(s)} onDone={() => setChatOpen(false)} onMadi={askMadi}
+          onAsk={helped} footnote={openExercise(s) ? HELP_NOTE : null} />
+      </Sheet>
+      <TutorSheet open={tutorOpen} onOpenChange={(o) => { setTutorOpen(o); if (!o) setTutorIntent(null); }} content={contentOf(skillId(item.topic || spec.topic, item.level))} item={item}
+        wrong={lessonWrong(s, miss)} onAskAI={aiReady() ? () => { setTutorOpen(false); setChatOpen(true); } : null}
+        aiState={chatState} startIntent={tutorIntent} onAsk={helped} />
+      <Sheet open={!!remedy} onOpenChange={(o) => { if (!o) setRemedy(null); }} title="בואו נראה את זה אחרת" className="flow-sheet">
+        {remedy && <RemedyFlow content={contentOf(skillId(item.topic || spec.topic, item.level))} misc={remedy} compact onDone={() => setRemedy(null)} doneLabel="חזרה לשיעור" />}
+      </Sheet>
+      <HelpSheet open={helpOpen} onOpenChange={setHelpOpen} payload={{ topic: item.topic, level: item.level, question: itemMath(item), answer: s.wrong.map((w) => answerText(item, w)).join(' ; ') }} getImage={() => (page.strokes.length ? nbRef.current?.toImage({ max: HELP_IMAGE_MAX }) || null : null)} hasPage={page.strokes.length > 0} />
+    </div>
+  );
+}
+
+/**
+ * Ask the teacher for help with this exercise, with an optional note and the notebook page. A note that reads as
+ * distress (trust spec TRUST-3 §3.5, Appendix E.2): after sending, the sheet stays open and says the request went,
+ * above the support card, in place of the toast. The server checks the note again on its own and marks the request
+ * for the teacher; the child's own words go only to the teacher they chose to write to.
+ */
+function HelpSheet({ open, onOpenChange, payload, getImage, hasPage }) {
+  const [note, setNote] = useState('');
+  const [busy, setBusy] = useState(false);
+  // a note that read as distress: 'sent' (the sheet shows the card) or 'failed' (the card still shows, and the note
+  // waits in the form to be sent again)
+  const [care, setCare] = useState(null);
+  const close = (o) => { if (!o) setCare(null); onOpenChange(o); };
+  const send = async () => {
+    setBusy(true);
+    const flagged = detectDistress(note).flag;
+    try {
+      // the page goes only as large as the server keeps it (shrunk if needed); a page that cannot fit stays behind
+      const image = getImage();
+      const sent = await api('/api/help', { method: 'POST', body: { ...payload, note, image } });
+      setNote('');
+      if (flagged) { setCare('sent'); return; }
+      // the reply comes back on the missions screen (TEACHER-6 §4). The page may stay behind: too big to send, or the
+      // day's pictures are used up on the server (noImage: the request itself arrived)
+      toast.success(hasPage && !image ? 'הבקשה נשלחה למורה, בלי הדף מהמחברת: הוא גדול מדי לשליחה. התשובה תופיע במסך המשימות.'
+        : image && sent?.noImage ? 'הבקשה נשלחה למורה, בלי הדף מהמחברת: היום כבר נשלחו הרבה דפים. התשובה תופיע במסך המשימות.'
+          : 'הבקשה נשלחה למורה. התשובה תופיע במסך המשימות.');
+      onOpenChange(false);
+    } catch (e) {
+      if (flagged) setCare('failed'); else toast.error(e.message);
+    } finally { setBusy(false); }
+  };
+  const footer = useMemo(() => (care === 'sent'
+    ? <Button variant="secondary" className="btn-block" onClick={() => close(false)}>חזרה</Button>
+    : care === 'failed'
+      ? <Button className="btn-block btn-lg" onClick={() => setCare(null)}>לנסות לשלוח שוב</Button>
+      : <Button className="btn-block btn-lg" onClick={send} disabled={busy}>{busy ? 'שולחים…' : 'שליחה למורה'}</Button>), [busy, note, care]); // eslint-disable-line react-hooks/exhaustive-deps
+  return (
+    <Sheet open={open} onOpenChange={close} title="לבקש עזרה מהמורה" footer={footer}>
+      {care ? (
+        <div className="help-sent">
+          <p className={clsx('help-sent-line', care !== 'sent' && 'is-quiet')} role="status">{care === 'sent' ? 'הבקשה נשלחה למורה.' : 'לא הצלחנו לשלוח את הבקשה למורה. בדקו את החיבור לאינטרנט ונסו שוב.'}</p>
+          {/* when it did not go (the server never read it: askHelp refuses nothing after its check), the card says the
+              note waits here, and nothing about the teacher seeing it or about the tutor (FOLLOWUP-9) */}
+          <SupportCard variant={care === 'sent' ? 'help-note' : 'help-unsent'} />
+        </div>
+      ) : (
+        <>
+          <div className="ob-ask sheet-ask">
+            <p className="ob-bubble">המורה יראה את התרגיל ואת מה שכתבתם{hasPage ? ', כולל הדף מהמחברת' : ''}, ויוכל לעבור עליו איתכם.</p>
+          </div>
+          <label htmlFor="help-note" className="field-label">מה לא ברור? (לא חובה)</label>
+          <textarea id="help-note" className="input" rows={3} value={note} onChange={(e) => setNote(e.target.value)} maxLength={300} aria-describedby="help-kept" />
+          {/* where the request is kept, and for how long (trust spec TRUST-1 §5; shared/retention.js) */}
+          <p className="footnote" id="help-kept">הבקשה נשמרת בשרת של הכיתה.{hasPage ? ' דף המחברת נמחק חודש אחרי שהמורה סוגר את הבקשה.' : ''}</p>
+        </>
+      )}
+    </Sheet>
+  );
+}

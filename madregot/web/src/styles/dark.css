@@ -1,0 +1,107 @@
+/* Dark mode (STUDENT-2): the app follows the phone's setting, and the student can choose in Settings (מראה).
+   Every colour on screen is a token (tokens.css, kept so by scripts/check-colors.mjs), so the dark theme is only a swap of
+   token values. Loaded last (main.jsx).
+
+   The same body is written twice and the two must stay byte-identical (styles.test.js checks it):
+   - under the phone's dark setting, unless the student chose "בהיר" (data-theme="light");
+   - when the student chose "כהה" (data-theme="dark"), whatever the phone says.
+   public/theme-boot.js sets data-theme before the first paint, so an explicit choice never flashes.
+
+   Measured contrasts (tokens.test.js): ink 17.1 and ink-2 8.6 on the page (the night notebook, v5), brand-d 8.4, every -ink at least 5.5 on its
+   own tint, control-line 4.05 on a card. The unit fills and the brand stay the same so a unit keeps its identity; a
+   stop in a dark unit colour gets a 2px ring in its -ink (--stop-ring), so it still reaches 3:1 against the page. */
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --paper: #0e1024; --surface: #181b34; --ground: #14172d;
+    --ink: #eef0fb; --ink-2: #a8aecb; --ink-3: #8088a8;
+    --rule: #2a2f4d; --rule-strong: #3a4064; --rule-press: #20243f;
+    --control-line: #7a83a6;
+    --track: #252945; --track-edge: #1c1f38;
+    --disabled-bg: #21253f; --disabled-ink: #8a91ae; --disabled-lip: #1a1d35;
+    --scrim: rgba(0, 0, 0, 0.6);
+    --brand-d: #9fe06b; --brand-ink: #9fe06b; --brand-tint: #1b2e12; --brand-lip: #24500a; --brand-line: #4d8a2a;
+    --select: #4cbcf5; --select-tint: #0f2a3b; --select-ink: #8fd6ff;
+    --bar-fill: #2f6f00;
+    --p-50: #142310; --glow-ink: #9fe06b; --hl: #0f3a55; --on-hl: #bfeaff;
+    --good-tint: #12301c; --good-ink: #6ee68a; --good-line: #24573a; --good-mid: #257538;
+    --bad-tint: #3a1620; --bad-ink: #ff8a9b; --bad-line: #6b2a39; --bad-mid: #901f34;
+    --streak-ink: #7fd3ff; --streak-tint: #0f2a3b;
+    --gold-ink: #9fe06b; --gold-tint: #1b2e12; --gold-line: #3e6b22;
+    --ai-tint: #0f2a3b; --ai-ink: #8fd6ff;
+    --ch-sky-tint: #122635; --ch-sky-ink: #86c2ee;
+    --ch-petrol-tint: #0e2a13; --ch-petrol-ink: #6fdc82;
+    --ch-violet-tint: #122637; --ch-violet-ink: #8dc1ef;
+    --ch-fuchsia-tint: #0e2a12; --ch-fuchsia-ink: #7ddb8a;
+    --ch-cobalt-tint: #13253a; --ch-cobalt-ink: #95bff0;
+    --marker-strong: #24401a;
+    --shadow-lift: 0 0 0 1px var(--rule), 0 12px 32px rgba(0, 0, 0, 0.5);
+    --shadow-dock: 0 -1px 0 var(--rule), 0 -8px 24px rgba(0, 0, 0, 0.4);
+    --stop-ring: 2px;
+  }
+}
+
+:root[data-theme="dark"] {
+    color-scheme: dark;
+    --paper: #0e1024; --surface: #181b34; --ground: #14172d;
+    --ink: #eef0fb; --ink-2: #a8aecb; --ink-3: #8088a8;
+    --rule: #2a2f4d; --rule-strong: #3a4064; --rule-press: #20243f;
+    --control-line: #7a83a6;
+    --track: #252945; --track-edge: #1c1f38;
+    --disabled-bg: #21253f; --disabled-ink: #8a91ae; --disabled-lip: #1a1d35;
+    --scrim: rgba(0, 0, 0, 0.6);
+    --brand-d: #9fe06b; --brand-ink: #9fe06b; --brand-tint: #1b2e12; --brand-lip: #24500a; --brand-line: #4d8a2a;
+    --select: #4cbcf5; --select-tint: #0f2a3b; --select-ink: #8fd6ff;
+    --bar-fill: #2f6f00;
+    --p-50: #142310; --glow-ink: #9fe06b; --hl: #0f3a55; --on-hl: #bfeaff;
+    --good-tint: #12301c; --good-ink: #6ee68a; --good-line: #24573a; --good-mid: #257538;
+    --bad-tint: #3a1620; --bad-ink: #ff8a9b; --bad-line: #6b2a39; --bad-mid: #901f34;
+    --streak-ink: #7fd3ff; --streak-tint: #0f2a3b;
+    --gold-ink: #9fe06b; --gold-tint: #1b2e12; --gold-line: #3e6b22;
+    --ai-tint: #0f2a3b; --ai-ink: #8fd6ff;
+    --ch-sky-tint: #122635; --ch-sky-ink: #86c2ee;
+    --ch-petrol-tint: #0e2a13; --ch-petrol-ink: #6fdc82;
+    --ch-violet-tint: #122637; --ch-violet-ink: #8dc1ef;
+    --ch-fuchsia-tint: #0e2a12; --ch-fuchsia-ink: #7ddb8a;
+    --ch-cobalt-tint: #13253a; --ch-cobalt-ink: #95bff0;
+    --marker-strong: #24401a;
+    --shadow-lift: 0 0 0 1px var(--rule), 0 12px 32px rgba(0, 0, 0, 0.5);
+    --shadow-dock: 0 -1px 0 var(--rule), 0 -8px 24px rgba(0, 0, 0, 0.4);
+    --stop-ring: 2px;
+}
+
+/* Printouts stay black on white whatever the theme (the practice exam, the legal pages). A plain :root would lose to
+   the two blocks above, which are more specific (0,2,0). These two selectors have the same specificity, one with and
+   one without data-theme, so one always matches and wins by coming last. The values are the light ones from tokens.css
+   (styles.test.js checks they match), but for the paper: a printout is white (--paper). */
+@media print {
+  :root:not([data-theme]), :root[data-theme] {
+    color-scheme: light;
+    --paper: #ffffff; --surface: #ffffff; --ground: #f8f9fe;
+    --ink: #141a3a; --ink-2: #4c5374; --ink-3: #676e8c;
+    --rule: #dce1ef; --rule-strong: #c4cbe0; --rule-press: #ced4e8;
+    --control-line: #7d85a3;
+    --track: #e6e9f4; --track-edge: #cdd3e6;
+    --disabled-bg: #eceef5; --disabled-ink: #616886; --disabled-lip: #dde1ec;
+    --scrim: rgba(20, 26, 58, 0.5);
+    --brand-d: #2b6000; --brand-ink: #367a00; --brand-tint: #e7f8d8; --brand-lip: #2b6000; --brand-line: #a9df7f;
+    --select: #1899d6; --select-tint: #ddf4ff; --select-ink: #1270a8;
+    --bar-fill: #a9df7f;
+    --p-50: #f3fbec; --glow-ink: #2b6000; --hl: #84d8ff; --on-hl: #141a3a;
+    --good-tint: #e3f8e7; --good-ink: #157a41; --good-line: #bfe9c9; --good-mid: #8fdcab;
+    --bad-tint: #fde8ec; --bad-ink: #b3203a; --bad-line: #f6c3cd; --bad-mid: #f28aa2;
+    --streak-ink: #1270a8; --streak-tint: #e3f5ff;
+    --gold-ink: #2b6000; --gold-tint: #ecf9e1; --gold-line: #b5e48c;
+    --ai-tint: #ddf4ff; --ai-ink: #0e5a87;
+    --ch-sky-tint: #e5f2fa; --ch-sky-ink: #0b5489;
+    --ch-petrol-tint: #d8f8de; --ch-petrol-ink: #175c23;
+    --ch-violet-tint: #e7f1fb; --ch-violet-ink: #083c68;
+    --ch-fuchsia-tint: #d8f8dd; --ch-fuchsia-ink: #103f16;
+    --ch-cobalt-tint: #e8f1fb; --ch-cobalt-ink: #082445;
+    --marker-strong: #d7f2c2;
+    --shadow-lift: 0 2px 6px rgba(20, 26, 58, 0.06), 0 12px 32px rgba(20, 26, 58, 0.14);
+    --shadow-dock: 0 -2px 6px rgba(20, 26, 58, 0.05), 0 -8px 24px rgba(20, 26, 58, 0.07);
+    --stop-ring: 0px;
+  }
+}

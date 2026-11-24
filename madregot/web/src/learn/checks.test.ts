@@ -1,0 +1,203 @@
+import { describe, it, expect } from 'vitest';
+// @ts-ignore: plain JS
+import * as lessonJs from '@/lib/lesson.js';
+// @ts-ignore: plain JS
+import { isCorrect, answerInput } from '@/content/index.js';
+import { learnAfterAnswer, learnAfterCheck, migrateLearn, emptyLearn } from './storeGlue';
+import { masteryState } from './mastery';
+import { addSubModel } from './content/signed';
+import { ALL_SKILLS } from './skills';
+import { contentOf, loadAllContent } from './content/index';
+import { canProbe } from './items';
+
+// the teaching content loads one topic at a time (DURABLE-11): these tests run on all of it, loaded
+await loadAllContent();
+
+// the lesson engine is plain JS: its inferred types are too narrow for these tests
+const { startLesson, answer, next, resultOf } = lessonJs as any;
+
+/** Play a whole lesson, answering right except where wrong(i, item) gives a wrong answer. */
+function play(s: any, wrong: (i: number, it: any) => number | null = () => null) {
+  const seen: any[] = [];
+  for (let i = 0; i < 40 && !s.finished; i += 1) {
+    const it = s.item; seen.push(it);
+    const w = wrong(i, it);
+    const u = w == null ? answerInput(it) : w;
+    let r = answer(s, u);
+    if (r.s.phase === 'retry') r = answer(r.s, answerInput(it));
+    s = next(r.s);
+  }
+  return { s, seen };
+}
+
+describe('the mastery check', () => {
+  it('asks 5 questions without hints, from the generator and the diagnostic models, and needs 4', () => {
+    const s0 = startLesson({ kind: 'check', purpose: 'mastery', skill: 'signed:1' });
+    expect(s0.total).toBe(5);
+    const { s, seen } = play(s0);
+    expect(new Set(seen.map((it: any) => it.source || 'gen')).size).toBeGreaterThan(1);
+    const r = resultOf(s);
+    expect(r).toMatchObject({ kind: 'check', purpose: 'mastery', right: 5, asked: 5, passed: true });
+    const two = resultOf(play(startLesson({ kind: 'check', purpose: 'mastery', skill: 'signed:1' }), (i, it) => (i < 2 ? it.answer + 37 : null)).s);
+    expect(two).toMatchObject({ right: 3, passed: false, xp: 0 });
+  });
+  it('gives one try: a miss shows the answer, no retry', () => {
+    const s0 = startLesson({ kind: 'check', purpose: 'mastery', skill: 'signed:1' });
+    const r = answer(s0, s0.item.answer + 37);
+    expect(r.s.phase).toBe('reveal');
+    expect(r.result.event.purpose).toBe('mastery');
+  });
+});
+
+describe('the verification after a repair', () => {
+  it('asks questions where the misconception would show, and fails when it shows again', () => {
+    const s0 = startLesson({ kind: 'check', purpose: 'verify', skill: 'signed:1', misc: 'minus-minus' });
+    expect(s0.item.could).toContain('minus-minus');
+    // the old habit on every question where it would show (the last question, where it would not, answered right)
+    const { s } = play(s0, (_i, it) => (it.probe ? addSubModel.bugs['minus-minus'](JSON.parse(it.key.split(':probe:')[1])) : it.answer));
+    const r = resultOf(s);
+    expect(r.showed).toBeGreaterThan(0);
+    expect(r.passed).toBe(false);
+  });
+});
+
+describe('a verification for a misconception no model predicts', () => {
+  it('sys:2, the pair written the other way round: asks for pairs, and a pair written (y, x) again fails it', () => {
+    // the council's walk: three single-number questions passed a student who still writes (y, x)
+    const s0 = startLesson({ kind: 'check', purpose: 'verify', skill: 'sys:2', misc: 'swap' });
+    expect(s0.item.could).toContain('swap');
+    const swapped = (it: any) => (it.form === 'pt' ? [it.answer[1], it.answer[0]] : it.form === 'mc' ? it.choices.findIndex((ch: any) => ch.bug === 'swap') : null);
+    const { s } = play(s0, (_i, it) => (it.probe ? swapped(it) : null));
+    const r = resultOf(s);
+    expect(r.showed).toBe(2);
+    expect(r.passed).toBe(false);
+    // and answered right, it passes
+    expect(resultOf(play(startLesson({ kind: 'check', purpose: 'verify', skill: 'sys:2', misc: 'swap' })).s).passed).toBe(true);
+  });
+});
+
+describe('the Exam Rescue diagnostic', () => {
+  it('asks every chosen stair and reports each', () => {
+    const { s } = play(startLesson({ kind: 'check', purpose: 'diagnostic', skills: ['signed:1', 'coord:1', 'angles:1'] }));
+    const r = resultOf(s);
+    expect(Object.keys(r.perSkill).sort()).toEqual(['angles:1', 'coord:1', 'signed:1']);
+    Object.values(r.perSkill).forEach((x: any) => expect(x.asked).toBe(2));
+  });
+});
+
+describe('practice on a stair with teaching content', () => {
+  it('mixes in a diagnostic and a transfer question', () => {
+    const { seen } = play(startLesson({ kind: 'node', topic: 'signed', level: 1, part: 1 }));
+    expect(seen[3].source).toBe('diag');
+    expect(seen[6].source).toBe('transfer');
+    seen.forEach((it: any) => expect(isCorrect(it, it.answer)).toBe(true));
+  });
+  it('adds one question that tells apart two misconceptions an answer could mean', () => {
+    let s = startLesson({ kind: 'node', topic: 'signed', level: 1, part: 1 });
+    // reach the diagnostic question and give an answer two misconceptions explain
+    for (let i = 0; i < 3; i += 1) { s = next(answer(s, s.item.answer).s); }
+    const p = { a: -4, b: -7, s: -1 };
+    s = { ...s, item: { ...s.item, key: 'x', answer: 3, diagnosis: (u: number) => (u === 3 ? { kind: 'right' } : { kind: 'misconception', ambiguous: true, candidates: [{ id: 'minus-minus', conf: 0.5 }, { id: 'abs-add', conf: 0.5 }] }), could: [] } };
+    const r = answer(s, -11);
+    expect(r.s.probes).toHaveLength(1);
+    expect(r.result.event.cands).toHaveLength(2);
+    let t = answer(r.s, 3).s;
+    for (let i = 0; i < 20 && !t.item?.probe && !t.finished; i += 1) t = next(i === 0 ? t : answer(t, t.item.answer).s);
+    expect(t.item.probe).toEqual(['minus-minus', 'abs-add']);
+    expect(addSubModel.answer(p)).toBe(3);
+  });
+  it('asks one more question when the answer to the first still fits two of them, and never more than two (SK-LEARN-2)', () => {
+    const three = ['drop-sign', 'neg-neg-plus', 'sign'];
+    const amb = (cands: string[]) => (u: number) => (u === 3 ? { kind: 'right' } : { kind: 'misconception', ambiguous: cands.length > 1, candidates: cands.map((id) => ({ id, conf: 1 / cands.length })) });
+    let s = startLesson({ kind: 'node', topic: 'signed', level: 1, part: 1 });
+    for (let i = 0; i < 3; i += 1) { s = next(answer(s, s.item.answer).s); }
+    s = { ...s, item: { ...s.item, key: 'x', answer: 3, diagnosis: amb(three), could: [] } };
+    let r = answer(s, -11);
+    expect(r.s.probes).toEqual([{ skill: 'signed:1', candidates: three }]);
+    expect(r.result.more).toBe(true);
+    // play to the first probe
+    let t = answer(r.s, 3).s;
+    for (let i = 0; i < 20 && !t.item?.probe && !t.finished; i += 1) t = next(i === 0 ? t : answer(t, t.item.answer).s);
+    expect(t.item.probe).toEqual(three);
+    expect(t.probed).toBe(1);
+    // a wrong answer to the probe on screen (the probe is drawn at random: -2 can be its answer)
+    const off = (it: any) => (isCorrect(it, -2) ? -5 : -2);
+    // its answer still fits two of the three (and one more the first did not ask about): a second probe on those two
+    r = answer({ ...t, item: { ...t.item, diagnosis: amb(['drop-sign', 'neg-neg-plus', 'minus-minus']) } }, off(t.item));
+    expect(r.s.probes).toEqual([{ skill: 'signed:1', candidates: ['drop-sign', 'neg-neg-plus'] }]);
+    expect(r.result.more).toBe(true);
+    t = next(answer(r.s, t.item.answer).s);
+    for (let i = 0; i < 20 && t.probed < 2 && !t.finished; i += 1) t = next(answer(t, t.item.answer).s);
+    expect(t.item.probe).toEqual(['drop-sign', 'neg-neg-plus']);
+    expect(t.probed).toBe(2);
+    // the second probe answered ambiguously again: no third question, and the line promises none
+    r = answer({ ...t, item: { ...t.item, diagnosis: amb(['drop-sign', 'neg-neg-plus']) } }, off(t.item));
+    expect(r.s.probes).toEqual([]);
+    expect(r.result.more).toBe(false);
+    // an answer to a probe that fits one candidate, or none, asks nothing more
+    expect(answer({ ...t, probed: 1, item: { ...t.item, diagnosis: amb(['drop-sign']) } }, off(t.item)).s.probes).toEqual([]);
+  });
+  it('asks the first probe only once a lesson', () => {
+    let s = startLesson({ kind: 'node', topic: 'signed', level: 1, part: 1 });
+    s = { ...s, probed: 1, item: { ...s.item, key: 'y', answer: 3, diagnosis: () => ({ kind: 'misconception', ambiguous: true, candidates: [{ id: 'drop-sign', conf: 0.5 }, { id: 'neg-neg-plus', conf: 0.5 }] }), could: [] } };
+    const r = answer(s, -11);
+    expect(r.s.probes).toEqual([]);
+    expect(r.result.more).toBe(false);
+  });
+});
+
+describe('the store glue', () => {
+  const at = '2026-11-08T10:00:00.000Z';
+  it('counts a first try without help as independent, and help as help', () => {
+    let L = learnAfterAnswer(emptyLearn(), { topic: 'signed', level: 1, ok: false, retry: true, hint: false, at, cat: 'sign', key: 'q1' });
+    L = learnAfterAnswer(L, { topic: 'signed', level: 1, ok: true, first: false, hint: true, at, key: 'q1' });
+    const a = L.skills['signed:1'].attempts;
+    expect(a.map((x) => x.independent)).toEqual([true, false]);
+    expect(L.miscon['signed:1|sign'].state).toBe('suspected');
+  });
+  it('confirms a misconception seen on two questions, and a passed mastery check masters the stair', () => {
+    let L = emptyLearn();
+    ['q1', 'q2'].forEach((key) => { L = learnAfterAnswer(L, { topic: 'signed', level: 1, ok: false, retry: true, at, key, cands: [{ id: 'minus-minus', conf: 1 }] }); });
+    expect(L.miscon['signed:1|minus-minus'].state).toBe('confirmed');
+    L = learnAfterCheck(L, { purpose: 'mastery', skill: 'signed:1', right: 4, asked: 5, perSkill: {} }, at, '2026-11-08');
+    expect(masteryState(L.skills['signed:1'], at)).toBe('mastered');
+    expect(L.events.some((e) => e.e === 'check-done' && e.p === 'mastery' && e.ok)).toBe(true);
+  });
+  it('takes evidence against a misconception only from questions where it could have shown', () => {
+    let L = learnAfterAnswer(emptyLearn(), { topic: 'signed', level: 1, ok: false, retry: true, at, key: 'q1', cands: [{ id: 'minus-minus', conf: 1 }] });
+    ['g1', 'g2', 'g3', 'g4'].forEach((key) => { L = learnAfterAnswer(L, { topic: 'signed', level: 1, ok: true, first: true, at, key }); });
+    expect(L.miscon['signed:1|minus-minus'].score).toBe(1); // right answers to other questions say nothing
+    L = learnAfterAnswer(L, { topic: 'signed', level: 1, ok: true, first: true, at, key: 'd1', could: ['minus-minus'] });
+    expect(L.miscon['signed:1|minus-minus'].score).toBe(0.5);
+  });
+  it('migrates the misconceptions an older version recorded, without inventing any', () => {
+    const L = migrateLearn({ 'signed:sign': { level: 1, n: 3, ok: 0, at }, 'coord:swap': { level: 2, n: 1, ok: 0, at }, 'stats:mode-max': { level: 1, n: 4, ok: 3 }, 'line:exam:שיפוע': { level: 4, n: 1, ok: 0, exam: true } });
+    expect(L.miscon['signed:1|sign'].state).toBe('confirmed');
+    expect(L.miscon['coord:2|swap'].state).toBe('suspected');
+    expect(Object.keys(L.miscon)).toHaveLength(2);
+    expect(L.skills).toEqual({});
+  });
+});
+
+describe('every stair supports its checks', () => {
+  it.each(ALL_SKILLS)('%s: a mastery check, a review, and a verification for every misconception it can diagnose', (skill) => {
+    const c = contentOf(skill)!;
+    expect(c, `${skill} has teaching content`).toBeTruthy();
+    for (const purpose of ['mastery', 'review']) {
+      const { s } = play(startLesson({ kind: 'check', purpose, skill }));
+      const r = resultOf(s);
+      expect(r.passed, `${skill} ${purpose}`).toBe(true);
+      expect(r.asked).toBe(purpose === 'mastery' ? 5 : 3);
+    }
+    // every misconception it can confirm: its models' and the ones only its exercises name (the pair written the other way)
+    const ids = new Set<string>([...c.misconceptions.map((m) => m.id), ...Object.keys(c.diag.bugs), ...Object.keys(c.transfer?.bugs || {})]);
+    ids.forEach((misc) => {
+      const s0 = startLesson({ kind: 'check', purpose: 'verify', skill, misc });
+      // the verification asks questions where this misconception would show, when a question a check may ask can show
+      // it at all (items.ts canProbe: a few show only in practice-only choices, which a check never asks)
+      if (canProbe(skill, [misc])) expect(s0.item.could, `${skill} verify ${misc}`).toContain(misc);
+      const r = resultOf(play(s0).s);
+      expect(r.passed, `${skill} verify ${misc}`).toBe(true);
+    });
+  });
+});

@@ -1,0 +1,45 @@
+{
+  "version": 5,
+  "state": {
+    "profile": { "role": "student", "name": "נועה", "grade": "7", "know": 1 },
+    "progress": { "signed": { "level": 3, "max": 3 } },
+    "days": {
+      "2026-10-20": { "q": 10, "ok": 9, "secs": 420, "lessons": 1, "xp": 18 },
+      "2026-10-21": { "q": 12, "ok": 10, "secs": 610, "lessons": 2, "stages": 1, "xp": 32 }
+    },
+    "xp": 50,
+    "xpBy": { "b2c3d4e5": 50 },
+    "resetAt": null,
+    "mistakes": { "signed:sign": 2 },
+    "outbox": [],
+    "ai": { "mode": "server", "apiUrl": "", "key": "", "device": "", "familyDevice": null, "pendingLink": null, "lastTier": null },
+    "path": {
+      "signed": { "parts": { "1": 2, "2": 2, "3": 1 }, "reviews": 0, "jumped": 0, "done": { "1": "mastered", "2": "kept" } }
+    },
+    "freezes": 1,
+    "goalXp": 20,
+    "sound": false,
+    "lastTopic": "signed",
+    "helpSent": 0,
+    "solveMode": "answer",
+    "exams": [],
+    "practiceExams": [],
+    "planBase": { "signed": { "level": 3, "wins": 2, "at": "2026-10-01T08:00:00.000Z" } },
+    "wins": { "signed:3": 4, "coord:1": 1 },
+    "gaps": {},
+    "placement": null,
+    "durable": { "tag": "b2c3d4e5", "persistAsked": null, "installHintAt": null, "nudgeAt": "2026-10-21T15:00:00.000Z", "nudgeCount": 1, "escrowClass": true, "wasStudent": false },
+    "backup": { "on": false, "code": null, "lookup": null, "rev": null, "at": null, "hash": null, "escrow": null, "undoUntil": null, "forcePush": false, "moveCode": false, "state": null, "note": null },
+    "learn": {
+      "skills": {
+        "signed:1": { "attempts": [], "mastered": { "at": "2026-10-20T10:00:00.000Z", "box": 1, "due": "2026-10-27T10:00:00.000Z" } }
+      },
+      "miscon": {},
+      "exam": null,
+      "missions": {},
+      "events": [{ "t": "2026-10-21T15:00:00.000Z", "e": "lesson-done", "s": "signed:2", "p": "practice", "ok": true }],
+      "floor": null,
+      "challenges": {}
+    }
+  }
+}

@@ -1,0 +1,241 @@
+// The teaching content, one file per topic (DURABLE-11): every topic loads the same stairs as before the split,
+// meta.gen.ts is what the generator writes and matches the loaded content, NEW_CATS is what it was, and every topic
+// in TOPICS has a loadTopic case. The first tests run before any topic has loaded (each test file starts fresh).
+import { describe, it, expect } from 'vitest';
+import { loadTopic, contentOf, ensureTopics, topicsReady, hasContent, metaOf, META, NEW_CATS, CONTENT_TOPICS } from './content/index';
+import type { StairContent } from './types';
+import metaText from './content/meta.gen.ts?raw';
+import challengeMetaText from './challenges/meta.gen.ts?raw';
+import miscsText from '../../../shared/stairMiscs.gen.js?raw';
+// @ts-ignore: plain JS
+import { collectMeta, renderMeta, collectChallenges, renderChallenges, renderMiscs } from '../../scripts/gen-content-meta.mjs';
+// @ts-ignore: plain JS, shared with the Worker
+import { STAIR_MISCS, isStairMisc } from '@shared/stairMiscs.gen.js';
+// @ts-ignore: plain JS
+import { TOPICS } from '@/content/index.js';
+// the misconception names as the registry gathered them before the split: straight from each topic's file
+import { CATS_SIGNED } from './content/signed';
+import { CATS_COORD } from './content/coord';
+import { CATS_ANGLES } from './content/angles';
+import { CATS_EXPR } from './content/expr';
+import { CATS_EQ } from './content/eq';
+import { CATS_LINE1 } from './content/line1';
+import { CATS_LINE2 } from './content/line2';
+import { CATS_PYTH } from './content/pyth';
+import { CATS_STATS } from './content/stats';
+import { CATS_SYS } from './content/sys';
+import { CATS_FRAC } from './content/frac';
+import { CATS_SIGNED6 } from './content/signed6';
+import { CATS_RATIO } from './content/ratio';
+import { CATS_PCT } from './content/pct';
+import { CATS_FUNC } from './content/func';
+import { CATS_DATA } from './content/data';
+import { CATS_PROB } from './content/prob';
+import { CATS_AREA } from './content/area';
+import { CATS_SOLID } from './content/solid';
+import { CATS_CIRCLE } from './content/circle';
+import { CATS_SPACE } from './content/space';
+import { CATS_TRANSF } from './content/transf';
+import { CATS_CONGR } from './content/congr';
+import { CATS_SIM } from './content/sim';
+// @ts-ignore: no Node types in this project
+import { spawnSync } from 'node:child_process';
+// @ts-ignore: no Node types in this project
+import { execPath } from 'node:process';
+// @ts-ignore: no Node types in this project
+import { readFileSync, existsSync, readdirSync } from 'node:fs';
+// @ts-ignore: no Node types in this project
+import { dirname, join, resolve } from 'node:path';
+
+const sortKeys = (v: any): any => (Array.isArray(v) ? v.map(sortKeys) : v && typeof v === 'object' ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, sortKeys(v[k])])) : v);
+const topicIds: string[] = TOPICS.map((t: any) => t.id);
+
+describe('before a topic has loaded', () => {
+  it('the meta answers at once, and nothing has loaded', () => {
+    expect(hasContent('signed:1')).toBe(true);
+    expect(hasContent('signed:99')).toBe(false);
+    expect(metaOf('line:5')?.title).toBeTruthy();
+    expect(topicsReady(['signed:1'])).toBe(false);
+  });
+  it('in development, reading the content of a topic never asked for throws', () => {
+    expect(() => contentOf('signed:1')).toThrow(/never loaded/);
+    // a stair with no teaching content is simply not there
+    expect(contentOf('signed:99')).toBeNull();
+  });
+  it('while a topic loads its content is null; once it has loaded it is there, and loading again changes nothing', async () => {
+    const p = loadTopic('coord');
+    expect(loadTopic('coord')).toBe(p);
+    expect(contentOf('coord:1')).toBeNull();
+    const list = await p;
+    expect(contentOf('coord:1')).toBe(list.find((c) => c.skill === 'coord:1'));
+    expect(topicsReady(['coord:2', 'coord'])).toBe(true);
+    expect(await loadTopic('coord')).toBe(list);
+  });
+  it('loadTopic(\'func\') brings the functions unit (stage5.md FUNC-2), first stair first', async () => {
+    const list = await loadTopic('func');
+    expect(list.map((c) => c.skill)).toEqual(Object.keys(META).filter((s) => s.startsWith('func:')));
+    expect(list[0].skill).toBe('func:1');
+    expect(contentOf('func:1')?.title).toBe('קריאת גרף של מצב');
+  });
+  it('ensureTopics takes skills or topics, waits for all of them, and gives one promise per set while it waits', async () => {
+    const a = ensureTopics(['pyth:2', 'stats:1']);
+    expect(ensureTopics(['stats', 'pyth:4'])).toBe(a);
+    await a;
+    expect(topicsReady(['pyth', 'stats'])).toBe(true);
+    expect(contentOf('stats:5')?.skill).toBe('stats:5');
+  });
+});
+
+describe('every topic, loaded on its own', () => {
+  it('has a loadTopic case: its stairs load, and they are exactly the meta\'s stairs of that topic', async () => {
+    expect([...CONTENT_TOPICS].sort()).toEqual([...topicIds].sort());
+    for (const t of topicIds) {
+      const list = await loadTopic(t);
+      expect(list.length, `${t}: loadTopic has no case for this topic`).toBeGreaterThan(0);
+      expect(list.every((c) => c.topic === t), t).toBe(true);
+      expect(list.map((c) => c.skill).sort(), t).toEqual(Object.keys(META).filter((s) => s.startsWith(`${t}:`)).sort());
+    }
+  });
+  it('has the same stairs and steps as before the split', async () => {
+    const topics: Record<string, any> = {};
+    for (const t of topicIds) {
+      for (const c of (await loadTopic(t)) as StairContent[]) {
+        const n = (topics[c.topic] ||= { stairs: 0, steps: 0, skills: {} });
+        const s = {
+          discover: c.discover.length,
+          examples: c.examples.map((e) => e.steps.length),
+          together: c.together.map((g) => g.steps.length),
+          misconceptions: c.misconceptions.map((m) => m.remedy.length),
+          objectives: c.objectives.length,
+        };
+        n.stairs += 1;
+        n.steps += s.discover + [...s.examples, ...s.together, ...s.misconceptions].reduce((a, b) => a + b, 0);
+        n.skills[c.skill] = s;
+      }
+    }
+    // recorded on the code before the split; a deliberate content change updates it with vitest -u
+    await expect(JSON.stringify(sortKeys(topics), null, 1)).toMatchFileSnapshot('./__snapshots__/content-split.counts.json');
+  });
+});
+
+describe('meta.gen.ts', () => {
+  it('is what the generator writes from the content files', () => {
+    const files = import.meta.glob('./content/*.ts', { eager: true }) as Record<string, Record<string, unknown>>;
+    // the Arabic twins (signed.ar.ts, COUNCIL2-34) are the same stairs in other words: the generator skips them
+    const content = Object.fromEntries(Object.entries(files).filter(([f]) => !/\/(index|meta\.gen)\.ts$/.test(f) && !/\.ar\.ts$/.test(f)));
+    expect(renderMeta(collectMeta(content))).toBe(metaText);
+  });
+  it('and the build\'s own run of the generator agrees (node scripts/gen-content-meta.mjs --check)', () => {
+    const r = spawnSync(execPath, ['scripts/gen-content-meta.mjs', '--check'], { encoding: 'utf8' });
+    expect(r.stderr + r.stdout).toMatch(/up to date/);
+    expect(r.status).toBe(0);
+  }, 60_000);
+  it('says for every stair what the loaded content says: title, misconception ids and titles, transfer', async () => {
+    await ensureTopics(CONTENT_TOPICS);
+    for (const [skill, m] of Object.entries(META)) {
+      const c = contentOf(skill)!;
+      expect(c, skill).toBeTruthy();
+      expect(m.title, skill).toBe(c.title);
+      expect(m.misconceptions, skill).toEqual(c.misconceptions.map((x) => ({ id: x.id, title: x.title })));
+      expect(m.transfer, skill).toBe(!!c.transfer);
+    }
+  });
+  // SK-BUYERS-2: the Worker checks a teacher's repair against each stair's own misconception ids, from this file
+  it('shared/stairMiscs.gen.js is what the generator writes: each stair\'s own misconception ids, as the content has them', () => {
+    const files = import.meta.glob('./content/*.ts', { eager: true }) as Record<string, Record<string, unknown>>;
+    // without the Arabic twins (signed6.ar.ts): the same stairs in other words, which the generator skips too
+    const content = Object.fromEntries(Object.entries(files).filter(([f]) => !/\/(index|meta\.gen)\.ts$/.test(f) && !/\.ar\.ts$/.test(f)));
+    expect(renderMiscs(collectMeta(content))).toBe(miscsText);
+    expect(Object.keys(STAIR_MISCS)).toEqual(Object.keys(META));
+    for (const [skill, m] of Object.entries(META)) expect((STAIR_MISCS as Record<string, readonly string[]>)[skill], skill).toEqual(m.misconceptions.map((x) => x.id));
+    expect([isStairMisc('signed:1', 'sign'), isStairMisc('signed:1', 'neg-compare'), isStairMisc('signed:2', 'neg-compare'), isStairMisc('nope:1', 'sign'), isStairMisc('signed:1', 'toString')])
+      .toEqual([true, false, true, false, false]);
+  });
+  it('keeps NEW_CATS as the registry had it before the split, keys in the same order', () => {
+    const before: Record<string, Record<string, string>> = {
+      signed: { ...CATS_SIGNED, ...CATS_SIGNED6 }, coord: CATS_COORD, angles: CATS_ANGLES, expr: CATS_EXPR, eq: CATS_EQ, line: { ...CATS_LINE1, ...CATS_LINE2 }, pyth: CATS_PYTH, stats: CATS_STATS, sys: CATS_SYS,
+      // the curriculum lane's units, as its registry had them: the bridge unit (frac), signed:6 in its own file (its
+      // names join signed's), and grade 8's ratio and percent
+      frac: CATS_FRAC, ratio: CATS_RATIO, pct: CATS_PCT,
+      // the stage-5 lane's introduction to functions (its names are the topic's own)
+      func: CATS_FUNC,
+      // curriculum stage 3's data names all its own in the topic, and so does its probability
+      data: CATS_DATA, prob: CATS_PROB,
+      // stage 2's areas and perimeters: content/area.js names every mistake, so the teaching adds none
+      area: CATS_AREA,
+      // and its boxes and prisms: content/solid.js names every mistake too
+      solid: CATS_SOLID,
+      // and its circle, cylinder and cone: content/circle.js names every mistake too
+      circle: CATS_CIRCLE,
+      // and Pythagoras in space: content/space.js names every mistake too
+      space: CATS_SPACE,
+      // curriculum stage 4's transformations: every name is already the topic's own (content/transf.js)
+      transf: CATS_TRANSF,
+      // and its congruent triangles: every name is the topic's own too (content/congr.js)
+      congr: CATS_CONGR,
+      // and its isosceles triangles and similarity: the same (content/sim.js)
+      sim: CATS_SIM,
+    };
+    expect(Object.keys(NEW_CATS).sort()).toEqual(Object.keys(before).sort());
+    for (const t of Object.keys(before)) expect(JSON.stringify(NEW_CATS[t as keyof typeof NEW_CATS]), t).toBe(JSON.stringify(before[t]));
+    // and the topics' names for mistakes include them (content/index.js)
+    for (const t of TOPICS) for (const [k, v] of Object.entries(before[t.id] || {})) expect(t.cats[k], `${t.id} ${k}`).toBe(v);
+  });
+});
+
+describe('learn/challenges/meta.gen.ts', () => {
+  it('is what the generator writes from the challenge files', () => {
+    const files = import.meta.glob('./challenges/*.ts', { eager: true }) as Record<string, Record<string, unknown>>;
+    const tasks = Object.fromEntries(Object.entries(files).filter(([f]) => !/\/(index|meta\.gen|all)\.ts$/.test(f) && !f.endsWith('.test.ts')));
+    expect(renderChallenges(collectChallenges(tasks))).toBe(challengeMetaText);
+  });
+});
+
+// The modules the first load runs: everything src/main.jsx reaches through static imports (`import … from`, `export …
+// from`, `import '…'`), never through import(). The bundler puts exactly these in the boot chunk, so a module that
+// must load on demand must not be among them.
+const WEB = resolve(dirname(new URL(import.meta.url).pathname), '../..');
+function resolveFrom(from: string, spec: string): string | null {
+  const clean = spec.split('?')[0];
+  let base: string;
+  if (clean.startsWith('@/')) base = join(WEB, 'src', clean.slice(2));
+  else if (clean.startsWith('@shared/')) base = join(WEB, '../shared', clean.slice(8));
+  else if (clean.startsWith('.')) base = resolve(dirname(from), clean);
+  else return null; // a package
+  for (const c of [base, ...['.js', '.jsx', '.ts', '.tsx'].map((e) => base + e), ...['js', 'jsx', 'ts', 'tsx'].map((e) => join(base, `index.${e}`))]) {
+    if (existsSync(c) && !readdirSafe(c)) return c;
+  }
+  return null;
+}
+const readdirSafe = (p: string) => { try { readdirSync(p); return true; } catch { return false; } };
+function bootModules(entry = join(WEB, 'src/main.jsx')): Set<string> {
+  const seen = new Set<string>(); const todo = [entry];
+  while (todo.length) {
+    const f = todo.pop()!;
+    if (seen.has(f)) continue;
+    seen.add(f);
+    if (!/\.(jsx?|tsx?)$/.test(f)) continue;
+    const text = readFileSync(f, 'utf8').replace(/^\s*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+    for (const m of text.matchAll(/(?:^|[\n;])\s*(?:import|export)\s+(?!type\s)(?:[^'";]*?\s+from\s+)?['"]([^'"]+)['"]/g)) {
+      const r = resolveFrom(f, m[1]);
+      if (r) todo.push(r);
+    }
+  }
+  return new Set([...seen].map((f) => f.slice(WEB.length + 1)));
+}
+
+describe('the first load (boot) carries the challenge meta, never the tasks\' stories and parts', () => {
+  const boot = bootModules();
+  it('the walker finds the registry and its meta in the first load', () => {
+    expect(boot.has('src/App.jsx')).toBe(true);
+    expect(boot.has('src/learn/challenges/index.ts')).toBe(true);
+    expect(boot.has('src/learn/challenges/meta.gen.ts')).toBe(true);
+  });
+  it('no topic\'s task file and not all.ts: they load with the challenge screen', () => {
+    // not task files: the registry, its meta, the grading (on demand since the product2 merge) and the XP rule the store reads
+    const tasks = readdirSync(join(WEB, 'src/learn/challenges')).filter((f: string) => /\.ts$/.test(f) && !/^(index|meta\.gen|grade|xp)\.ts$/.test(f) && !f.endsWith('.test.ts'));
+    expect(tasks).toContain('all.ts');
+    expect(tasks).toContain('congr.ts');
+    expect(tasks.map((f: string) => `src/learn/challenges/${f}`).filter((f: string) => boot.has(f))).toEqual([]);
+  });
+});

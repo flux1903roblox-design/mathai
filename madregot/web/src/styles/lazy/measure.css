@@ -1,0 +1,133 @@
+/* The three objects of curriculum stage 2 (MEASURE-1): the shapes on a grid (components/manip/GridShape.jsx), the nets
+   of solids (components/manip/NetFold.jsx) and the circle (components/manip/CircleRoll.jsx). Their rules, moved out of
+   the first-load app.css at the stage-2 merge into a sheet that loads with the three modules (each imports it;
+   components/manip/Manip.jsx reaches them only through static imports), in their original order. No first-load rule
+   sets the same properties on these elements with the same weight, so the later load changes nothing on screen.
+   styles/lazy.test.js checks every selector here. */
+/* shapes on a grid (רשת משבצות, stage 2): the grid, the shape, a piece in the unit's colour and where it was, a cut,
+   the dashed parallel of a triangle's vertex; green only when the state is right (practice), dashed green for the answer */
+/* The three measurement objects draw their lines and words in the unit's ink colour, --c-ink: in light it is the same as
+   --c-d, and in dark --c-d is the buttons' deep lip blue, too dark to see on the drawing's canvas. */
+.mp-grid-line { stroke: color-mix(in srgb, var(--c-ink, var(--brand-d)) 18%, transparent); stroke-width: 1; }
+.mp-grid-line.edge { stroke: color-mix(in srgb, var(--c-ink, var(--brand-d)) 32%, transparent); stroke-width: 1.5; }
+.mp-grid-shape { fill: color-mix(in srgb, var(--c, var(--brand)) 18%, transparent); stroke: var(--ink); stroke-width: 2.5; stroke-linejoin: round; transition: fill var(--duration-fast) var(--ease-out), stroke var(--duration-fast) var(--ease-out); }
+.mp-grid-shape.hit { fill: var(--good-tint); stroke: var(--good-d); }
+.mp-grid-piece { fill: color-mix(in srgb, var(--c, var(--brand)) 48%, var(--surface)); stroke: var(--c-ink, var(--brand-d)); stroke-width: 2.5; stroke-linejoin: round; }
+.mp-grid-piece.hit { fill: color-mix(in srgb, var(--good) 40%, var(--surface)); stroke: var(--good-d); }
+.mp-grid-was { fill: none; stroke: var(--c-ink, var(--brand-d)); stroke-width: 2; stroke-dasharray: 5 4; stroke-linejoin: round; }
+.mp-grid-cut { stroke: var(--c-ink, var(--brand-d)); stroke-width: 4; stroke-dasharray: 9 6; stroke-linecap: round; }
+.mp-grid-cut.hit { stroke: var(--good-d); }
+.mp-grid-par { stroke: var(--ink-2); stroke-width: 2; stroke-dasharray: 6 6; }
+.mp-grid-height { stroke: var(--c-ink, var(--brand-d)); stroke-width: 2; stroke-dasharray: 4 4; }
+.mp-grid-right { fill: none; stroke: var(--good-d); stroke-width: 2; }
+.mp-grid-ghost { fill: color-mix(in srgb, var(--good) 14%, transparent); stroke: var(--good); stroke-width: 2.5; stroke-dasharray: 7 6; stroke-linejoin: round; }
+.mp-grid-ghost-line { stroke: var(--good); stroke-width: 3; stroke-dasharray: 8 6; stroke-linecap: round; }
+.mp-grid-readout { font-variant-numeric: tabular-nums; }
+.mp-grid-num { font-size: 12px; }
+/* a readout that can show a second line keeps room for it, so the drawing under a dragging finger never moves */
+.mp-grid-readout.two { flex-direction: column; gap: 0; min-height: 2.6em; justify-content: flex-start; }
+.mp-grid-parts { color: var(--good-ink); font-weight: 700; }
+.mp-grid-controls { align-items: center; }
+.mp-grid-seg .seg { min-width: 0; white-space: nowrap; }
+/* at 320 the cut's two direction buttons share a row and the line's stepper goes under them */
+@media (max-width: 389px) {
+  .manip-grid-cut .mp-grid-controls { flex-direction: column; gap: 6px; }
+  .manip-grid-move .mp-grid-controls, .manip-grid-rect .mp-grid-controls { flex-wrap: nowrap; gap: 6px; }
+  .manip-grid-move .stepper, .manip-grid-rect .stepper { gap: 2px; padding: 2px; }
+  .manip-grid-move .step-label, .manip-grid-rect .step-label { min-width: 0; padding-inline: 2px; }
+}
+@media (prefers-reduced-motion: reduce) { .mp-grid-shape { transition: none; } }
+
+/* the nets of solids (stage 3, NetFold.jsx). Every colour is a token: the faces mix the topic's colour (--c) into the
+   surface, lighter on top, darker on the side and darker still where the inside of a face shows; red and green only
+   for a right or wrong state. */
+/* no drag on a net's drawing: a finger on it scrolls the page (only the fix task's loose face is dragged) */
+.mp-net-canvas { touch-action: manipulation; cursor: default; }
+.mp-net-face {
+  --f: color-mix(in srgb, var(--c, var(--brand)) 18%, var(--surface));
+  fill: var(--f); stroke: var(--ink); stroke-width: 2; stroke-linejoin: round;
+}
+.mp-net-face.l1 { --f: color-mix(in srgb, var(--c, var(--brand)) 10%, var(--surface)); }
+.mp-net-face.l2 { --f: color-mix(in srgb, var(--c, var(--brand)) 20%, var(--surface)); }
+.mp-net-face.l3 { --f: color-mix(in srgb, var(--c, var(--brand)) 34%, var(--surface)); }
+.mp-net-face.in { --f: color-mix(in srgb, var(--c-d, var(--brand-d)) 42%, var(--surface)); }
+/* a cylinder's side is drawn in thin slats: each slat's outline in its own colour, so no seam shows between them */
+.mp-net-face.slat { stroke: var(--f); stroke-width: 0.8; }
+.mp-net-edge { stroke: var(--ink); stroke-width: 2; stroke-linecap: round; }
+.mp-net-face.shade { --f: color-mix(in srgb, var(--c, var(--brand)) 62%, var(--surface)); }
+.mp-net-face.picked { --f: color-mix(in srgb, var(--brand) 26%, var(--surface)); stroke: var(--brand-d); stroke-width: 3.5; }
+.mp-net-face.hit, .mp-net-solid.hit .mp-net-face { --f: var(--good-tint); stroke: var(--good-d); }
+.mp-net-letter { fill: var(--ink); font-family: KaTeX_Main, 'Times New Roman', serif; font-style: italic; font-size: 19px; font-weight: 700; pointer-events: none; }
+
+/* face: each face is a button */
+.mp-net-pick { cursor: pointer; }
+.mp-net-pick:focus { outline: none; }
+.mp-net-pick:focus-visible .mp-net-face { stroke: var(--brand-d); stroke-width: 4.5; }
+
+/* fix: dashed slots, the loose face (the part the student moves) and its place beside the net */
+.mp-net-slot { cursor: pointer; }
+.mp-net-slot:focus { outline: none; }
+.mp-net-slot polygon { fill: color-mix(in srgb, var(--c, var(--brand)) 6%, transparent); stroke: var(--c-ink, var(--brand-d)); stroke-width: 2; stroke-dasharray: 6 5; stroke-linejoin: round; }
+.mp-net-slot:focus-visible polygon { fill: color-mix(in srgb, var(--brand) 14%, transparent); stroke: var(--brand-d); stroke-width: 4; stroke-dasharray: none; }
+.mp-net-loose { cursor: grab; touch-action: none; }
+.mp-net-loose.dragging { cursor: grabbing; }
+.mp-net-loose .mp-net-face { --f: color-mix(in srgb, var(--c, var(--brand)) 48%, var(--surface)); stroke: var(--c-ink, var(--brand-d)); stroke-width: 2.5; }
+.mp-net-loose .mp-net-face.hit { --f: color-mix(in srgb, var(--good) 40%, var(--surface)); stroke: var(--good-d); }
+.mp-net-tray { fill: none; stroke: var(--rule-strong); stroke-width: 2; stroke-dasharray: 4 4; stroke-linejoin: round; }
+
+/* the answer, after a miss: dashed in green */
+.mp-net-ghost polygon { fill: none; stroke: var(--good); stroke-width: 2.5; stroke-dasharray: 7 6; stroke-linejoin: round; }
+.mp-net-ghost-face { fill: color-mix(in srgb, var(--good) 14%, transparent); stroke: var(--good); stroke-width: 3; stroke-dasharray: 7 6; stroke-linejoin: round; pointer-events: none; }
+.mp-net-ghost-solid .mp-net-face { fill: none; stroke: var(--good); stroke-dasharray: 7 6; }
+.mp-net-ghost-solid line { display: none; }
+
+/* build: a box of unit cubes, a prism with its base shaded and its hidden edges dashed */
+.mp-net-unit { stroke: color-mix(in srgb, var(--ink) 38%, transparent); stroke-width: 1; }
+.mp-net-face.mp-net-base { --f: color-mix(in srgb, var(--c, var(--brand)) 55%, var(--surface)); }
+.mp-net-hidden { stroke: var(--ink-2); stroke-width: 1.5; stroke-dasharray: 5 4; }
+
+/* the circle (stage 4, CircleRoll.jsx): it rolls on a line marked in diameters, or lies cut into sectors. A finger on the
+   drawing scrolls the page; only the radius handle is dragged. */
+.mp-circ-canvas { touch-action: manipulation; cursor: default; }
+.mp-circ-handle { cursor: grab; touch-action: none; }
+.mp-circ-handle.held { cursor: grabbing; }
+.mp-circ-line { stroke: var(--ink); stroke-width: 2.5; stroke-linecap: round; }
+.mp-circ-tick { stroke: var(--ink); stroke-width: 2; }
+.mp-circ-unrolled { stroke: var(--c, var(--brand)); stroke-width: 6; stroke-linecap: round; }
+.mp-circ-unrolled.hit { stroke: var(--good-d); }
+.mp-circ-end { stroke: var(--c-ink, var(--brand-d)); stroke-width: 3; stroke-linecap: round; }
+.mp-circ-note { fill: var(--c-ink, var(--brand-d)); font-size: 15px; font-weight: 700; }
+.mp-circ-disc { fill: color-mix(in srgb, var(--c, var(--brand)) 14%, var(--surface)); stroke: var(--c-ink, var(--brand-d)); stroke-width: 3; }
+.mp-circ-disc.hit { stroke: var(--good-d); }
+.mp-circ-spoke { stroke: var(--c, var(--brand)); stroke-width: 2; }
+.mp-circ-mark { fill: var(--c, var(--brand)); stroke: var(--surface); stroke-width: 2; }
+.mp-circ-radius { stroke: var(--ink); stroke-width: 2.5; stroke-linecap: round; }
+.mp-circ-r { fill: var(--ink); font-size: 15px; font-weight: 700; }
+.mp-circ-ghost { stroke: var(--good); stroke-width: 4; stroke-dasharray: 7 6; }
+.mp-circ-ghost-text { fill: var(--good-ink); font-size: 14px; font-weight: 700; }
+.mp-circ-sector { stroke: var(--c-ink, var(--brand-d)); stroke-width: 1; stroke-linejoin: round; }
+.mp-circ-sector.a { fill: color-mix(in srgb, var(--c, var(--brand)) 26%, var(--surface)); }
+.mp-circ-sector.b { fill: color-mix(in srgb, var(--c, var(--brand)) 56%, var(--surface)); }
+.mp-circ-sector.hit.a { fill: var(--good-tint); }
+.mp-circ-sector.hit.b { fill: color-mix(in srgb, var(--good) 40%, var(--surface)); }
+.mp-circ-ghost-shape { fill: none; stroke: var(--good); stroke-width: 2.5; stroke-dasharray: 7 6; }
+.mp-circ-dim { stroke: var(--ink-2); stroke-width: 1.5; }
+.mp-circ-readout { font-variant-numeric: tabular-nums; gap: 2px 8px; }
+.mp-circ-part { white-space: nowrap; }
+.mp-circ-sep { color: var(--ink-2); }
+.mp-circ-controls { align-items: center; }
+/* the roll and the radius follow their steppers in JavaScript (300 ms, nothing under reduced motion) */
+@media (prefers-reduced-motion: reduce) { .mp-circ-disc, .mp-circ-unrolled { transition: none; } }
+
+/* the readout keeps room for its second line, so the drawing never moves under a finger */
+.mp-net-readout { font-variant-numeric: tabular-nums; }
+.mp-net-readout.two { flex-direction: column; gap: 0; min-height: 2.6em; justify-content: flex-start; }
+.mp-net-controls { align-items: center; }
+@media (max-width: 389px) {
+  .manip-net-build .mp-net-controls { gap: 6px; }
+  .manip-net-build .step-btn { width: 42px; height: 42px; }
+}
+/* the fold turns in JavaScript (300 ms a step, nothing under reduced motion); nothing here moves on its own */
+@media (prefers-reduced-motion: reduce) {
+  .mp-net-face, .mp-net-slot polygon { transition: none; }
+}

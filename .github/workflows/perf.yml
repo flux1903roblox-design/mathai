@@ -1,0 +1,43 @@
+# Madregot's nightly timing (DURABLE-11/12, madregot/README.md "CI"): the build with its budget gates, then the @perf
+# test (e2e/perf.spec.js): the map on a slow phone (4x CPU, 150 ms, 1.6 Mbit/s down, 750 kbit/s up, served gzipped),
+# first and repeat visit. It fails over web/budget.json's timing x 1.1 and keeps test-results/perf.json either way, so
+# the numbers of every night can be compared. It is not part of the merge gate (ci.yml leaves @perf out).
+name: perf
+
+on:
+  schedule:
+    - cron: '23 2 * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  perf:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: madregot/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: madregot/web/package-lock.json
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      # gen-content-meta, vite build, check-dist and check-budget (the load-time gates)
+      - run: npm run build
+      - run: npx playwright test -c e2e/playwright.config.js --project=phone --grep @perf
+        env:
+          CI: '1'
+          PERF: '1'
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: perf
+          path: madregot/web/test-results/perf.json
+          if-no-files-found: warn
+          retention-days: 90

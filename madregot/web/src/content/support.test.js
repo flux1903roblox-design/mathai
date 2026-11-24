@@ -1,0 +1,119 @@
+import { readFileSync } from 'node:fs';
+import { describe, it, expect } from 'vitest';
+import { SUPPORT, maskPersonal } from '@shared/safety.js';
+import { supportLines, supportText, SUPPORT_VARIANTS, SUPPORT_LINK, waLink, piiLine } from './support.js';
+
+const all = (lines) => lines.services.flatMap((s) => s.links);
+const byLabel = (lines, label) => all(lines).find((l) => l.label.startsWith(label));
+
+describe('supportLines: the support card, built from SUPPORT', () => {
+  it('shows the same numbers as SUPPORT, with their hours', () => {
+    for (const v of SUPPORT_VARIANTS) {
+      const text = supportText(supportLines(SUPPORT, v));
+      for (const n of [SUPPORT.eran.phone, SUPPORT.eran.whatsapp, SUPPORT.sahar.whatsapp, SUPPORT.online.phone, SUPPORT.police, SUPPORT.mda]) {
+        expect(text).toContain(n);
+      }
+      expect(text).toContain('1201'); expect(text).toContain('052-845-1201'); expect(text).toContain('055-957-1399');
+      expect(text).toContain('105'); expect(text).toContain('100'); expect(text).toContain('101');
+      expect(text).toContain(SUPPORT.sahar.hours);
+    }
+  });
+
+  it('every phone is a tel: link and every WhatsApp entry a wa.me link, to the right number', () => {
+    const lines = supportLines(SUPPORT, 'opened');
+    expect(byLabel(lines, 'חיוג 1201').href).toBe('tel:1201');
+    expect(byLabel(lines, 'חיוג 105').href).toBe('tel:105');
+    expect(byLabel(lines, 'משטרה 100').href).toBe('tel:100');
+    expect(byLabel(lines, 'מד״א 101').href).toBe('tel:101');
+    expect(byLabel(lines, 'וואטסאפ 052-845-1201').href).toBe('https://wa.me/972528451201');
+    expect(byLabel(lines, 'וואטסאפ 055-957-1399').href).toBe('https://wa.me/972559571399');
+    for (const l of all(lines)) {
+      if (l.kind === 'phone') expect(l.href).toMatch(/^tel:\d+$/);
+      if (l.kind === 'whatsapp') {
+        expect(l.href).toMatch(/^https:\/\/wa\.me\/972\d{9}$/);
+        expect(l.href).toBe(waLink(l.label.replace('וואטסאפ ', ''))); // the link dials the number the label shows
+      }
+      if (l.kind === 'web') expect(l.href).toMatch(/^https:\/\//);
+    }
+    expect(all(lines).filter((l) => l.kind === 'web').map((l) => l.href)).toEqual([SUPPORT.eran.web, SUPPORT.sahar.web]);
+  });
+
+  it('under a message the card\'s head carries the first number too, so a small phone shows it at once (the trust review)', () => {
+    for (const v of ['after-message', 'help-note', 'help-held', 'help-unsent']) {
+      const q = supportLines(SUPPORT, v).quick;
+      expect(q.href).toBe('tel:1201');
+      expect(q.label).toBe('ער״ן · חיוג 1201');
+      expect(q.aria).toContain('בכל שעה');
+    }
+    expect(supportLines(SUPPORT, 'opened').quick).toBe(null);
+  });
+
+  it('says that ער״ן\'s WhatsApp and chat keep hours (only the phone is at any hour)', () => {
+    const eran = supportLines(SUPPORT, 'after-message').services.find((s) => s.id === 'eran');
+    expect(eran.hours).toBe('וואטסאפ וצ׳אט: 08:00–02:00');
+    expect(eran.hours).toContain(SUPPORT.eran.textHours);
+    expect(eran.links.find((l) => l.kind === 'whatsapp').label).not.toContain('בכל שעה');
+    expect(eran.links.find((l) => l.kind === 'phone').label).toBe('חיוג 1201 · בכל שעה');
+  });
+
+  it('the "opened" variant never says "מה שכתבתם": nothing was written', () => {
+    const opened = supportText(supportLines(SUPPORT, 'opened'));
+    expect(opened).not.toContain('מה שכתבתם');
+    expect(supportLines(SUPPORT, 'opened').opening).toBe('אם משהו מציק לכם, מפחיד או מעציב אתכם, לא צריך להתמודד עם זה לבד.');
+    expect(supportLines(SUPPORT, 'after-message').opening).toBe('מה שכתבתם חשוב. לא צריך להתמודד עם זה לבד.');
+    expect(supportLines(SUPPORT, 'help-note').footer).toBe('המורה יראה את מה שכתבתם בבקשה.');
+    expect(supportLines(SUPPORT, 'help-note').talkSent).not.toContain('לא נשלח'); // the note did go to the teacher
+    expect(supportLines(SUPPORT, 'unknown')).toEqual(supportLines(SUPPORT, 'opened'));
+  });
+
+  it('words to the teacher that did not go (FOLLOWUP-9): what was written matters, and the footer says what is true', () => {
+    for (const v of ['help-held', 'help-unsent']) {
+      const lines = supportLines(SUPPORT, v);
+      expect(lines.opening).toBe('מה שכתבתם חשוב. לא צריך להתמודד עם זה לבד.');
+      // a thread with the teacher: nothing about the tutor, and never that the teacher reads the words
+      expect(supportText(lines)).not.toMatch(/העוזר|תוכנה/);
+      expect(lines.footer).not.toContain('המורה יראה את מה שכתבתם');
+      expect(lines.talkSent).toBe('שלחנו למורה שאתם רוצים לדבר.');
+    }
+    // the server read them and marked the request: the teacher sees the mark, not the words
+    expect(supportLines(SUPPORT, 'help-held').footer).toBe('מה שכתבתם לא נשלח. המורה יראה ליד הבקשה רק סימון: ״כדאי לבדוק מה שלום התלמיד/ה״.');
+    // they never reached the server: nothing was marked either, and they wait in the field
+    expect(supportLines(SUPPORT, 'help-unsent').footer).toBe('מה שכתבתם עוד לא נשלח. הוא מחכה כאן, ואפשר לשלוח שוב.');
+    // the teacher's board says exactly these words beside a marked request
+    expect(readFileSync(new URL('../screens/teacher/HelpTab.jsx', import.meta.url), 'utf8')).toContain('<p className="help-care">כדאי לבדוק מה שלום התלמיד/ה</p>');
+  });
+
+  it('under a message the tutor could not take ("held"): it says the tutor is not answering and that the words went to no one, with the first number at hand', () => {
+    const held = supportLines(SUPPORT, 'held');
+    expect(SUPPORT_VARIANTS).toContain('held');
+    expect(held.opening).toBe('העוזר החכם לא עונה עכשיו. אם מה שכתבתם הוא משהו שמציק לכם או מדאיג אתכם, לא צריך להתמודד עם זה לבד.');
+    expect(held.footer).toBe('העוזר החכם הוא תוכנה, לא אדם. מה שכתבתם לא נשלח לאף אחד.');
+    expect(held.quick.href).toBe('tel:1201');
+    // it does not presume the child is in distress: "if", and no "מה שכתבתם חשוב"
+    expect(held.opening).not.toContain('מה שכתבתם חשוב');
+    expect(held.services.map((x) => x.id)).toEqual(supportLines(SUPPORT, 'after-message').services.map((x) => x.id));
+  });
+
+  it('speaks calmly: the link, the title, no price, no countdown, no pressure', () => {
+    const lines = supportLines(SUPPORT, 'after-message');
+    expect(lines.link).toBe(SUPPORT_LINK);
+    expect(SUPPORT_LINK).toBe('צריכים לדבר עם מישהו?');
+    expect(lines.title).toBe('חשוב לנו שתהיו בסדר');
+    expect(lines.close).toBe('חזרה');
+    for (const v of SUPPORT_VARIANTS) {
+      expect(supportText(supportLines(SUPPORT, v))).not.toMatch(/₪|מנוי|שאלות ביום|דקות|מהר|!/);
+    }
+  });
+});
+
+describe('piiLine: the quiet line under a message whose personal details the tutor did not receive', () => {
+  it('names what was removed, calmly, and says nothing when nothing was', () => {
+    expect(piiLine(['phone'])).toBe('הסרנו מהשאלה מספר טלפון. אין צורך לשלוח לעוזר פרטים אישיים.');
+    expect(piiLine(['email', 'phone'])).toBe('הסרנו מהשאלה מספר טלפון וכתובת מייל. אין צורך לשלוח לעוזר פרטים אישיים.');
+    expect(piiLine(maskPersonal('ת״ז 123456782, 0521234567, a@b.co').found)).toBe('הסרנו מהשאלה מספר טלפון, כתובת מייל ומספר זהות. אין צורך לשלוח לעוזר פרטים אישיים.');
+    expect(piiLine([])).toBe('');
+    // COUNCIL2-9: a home address is named too
+    expect(piiLine(maskPersonal('אני גר ברחוב הגפן 3, רמת גן. 0 5 4 1 2 3 4 5 6 7').found)).toBe('הסרנו מהשאלה מספר טלפון וכתובת מגורים. אין צורך לשלוח לעוזר פרטים אישיים.');
+    expect(piiLine(maskPersonal('כמה זה 3 + 4?').found)).toBe('');
+  });
+});

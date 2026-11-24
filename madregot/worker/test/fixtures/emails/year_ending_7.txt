@@ -1,0 +1,6 @@
+Subject: עוד שבוע המנוי לשנה מסתיים
+
+שלום,
+המנוי לשנה מסתיים ב־10 בנובמבר 2027 ולא מתחדש מעצמו. לחידוש לשנה נוספת: https://madregot.example.test/parents?renew=year. אם לא תעשו כלום, לא נחייב אתכם.
+
+לביטול המנוי: https://madregot.example.test/cancel · hello@example.test · 03-0000000

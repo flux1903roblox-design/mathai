@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="he" dir="rtl" data-page="pilot">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>פיילוט לכיתה · {{APP_NAME}}</title>
+<meta name="description" content="פיילוט של שבועיים בכיתה אחת, חינם. לכיתות ז׳ וח׳: התלמידים מתרגלים מתמטיקה בבית, ואתם רואים כל בוקר מה כדאי לחזור עליו היום.">
+{{#PUBLIC_URL}}<link rel="canonical" href="{{PUBLIC_URL}}/pilot/">
+<meta property="og:url" content="{{PUBLIC_URL}}/pilot/">
+<meta property="og:image" content="{{PUBLIC_URL}}/l/og-pilot.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="פיילוט של שבועיים בכיתה אחת, חינם, לצד לוח המורה של מדרגות בטלפון.">
+{{/PUBLIC_URL}}<meta property="og:type" content="website">
+<meta property="og:locale" content="he_IL">
+<meta property="og:site_name" content="{{APP_NAME}}">
+<meta property="og:title" content="פיילוט של שבועיים בכיתה אחת. חינם.">
+<meta property="og:description" content="לכיתות ז׳ וח׳. התלמידים מתרגלים בבית, ואתם רואים כל בוקר מה כדאי לחזור עליו היום.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="{{THEME_LIGHT}}" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="{{THEME_DARK}}" media="(prefers-color-scheme: dark)">
+<link rel="icon" type="image/png" href="../icons/192.png">
+<link rel="apple-touch-icon" href="../icons/180.png">
+<link rel="stylesheet" href="../l/landing.css">
+<script src="../l/count.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">דילוג לתוכן העיקרי</a>
+<header class="top wrap">
+  <span class="brand">{{MADI_SMALL}}<span class="wordmark">{{APP_NAME}}</span></span>
+</header>
+<main id="main" tabindex="-1">
+  <section class="hero wrap" aria-labelledby="h-hero">
+    <div class="hero-text">
+      <h1 id="h-hero">פיילוט של שבועיים בכיתה אחת. חינם.</h1>
+      <p class="sub">לכיתות ז׳ וח׳. התלמידים מתרגלים בבית, בטלפון או במחשב, ואתם רואים כל בוקר מה כדאי לחזור עליו היום.</p>
+      <div class="ctas">
+        <a class="btn" href="../#/?start=teacher&amp;src=pilot" data-cta>לפתוח כיתה</a>
+        {{#CLAIM demo-class}}<a class="btn btn-2" href="../#/?start=demo&amp;src=pilot" data-cta>{{CLAIM demo-class}}</a>{{/CLAIM}}
+      </div>
+    </div>
+    <div class="shot"><img {{IMG phone-teacher.webp}} alt="לוח המורה בטלפון: כמה תלמידים תרגלו היום והשבוע, וטעויות שחוזרות בכיתה." fetchpriority="high" decoding="async"></div>
+  </section>
+
+  <section class="wrap" aria-labelledby="h-get">
+    <h2 id="h-get">מה מקבלים</h2>
+    <ul class="ticks">
+      {{CLAIMS tomorrow-board class-goal assign-due class-report pilot-kit graded-by-code}}
+    </ul>
+  </section>
+
+  {{#CLAIM school-ai-off}}<section class="wrap" aria-labelledby="h-ai">
+    <h2 id="h-ai">העוזר החכם</h2>
+    <p>{{CLAIM school-ai-off}}</p>
+  </section>
+
+  {{/CLAIM}}
+  <section class="wrap" aria-labelledby="h-privacy">
+    <h2 id="h-privacy">פרטיות</h2>
+    <p>התלמידים נכנסים עם קוד כיתה ושם פרטי. לא מבקשים תעודת זהות, מייל או טלפון. {{CLAIM student-remove}} {{CLAIM class-delete}} {{CLAIM no-ads}}</p>
+  </section>
+
+  <section class="wrap" aria-labelledby="h-ok">
+    <h2 id="h-ok">אישור</h2>
+    <p>{{APP_NAME}} עוד לא אושרה בקטלוג החינוכי של משרד החינוך. עד אז, שימוש בכיתה הוא החלטה של מנהל בית הספר. {{CLAIM principal-form}}</p>
+  </section>
+
+  {{#CLAIM pilot-report}}<section class="wrap" aria-labelledby="h-measure">
+    <h2 id="h-measure">מה בודקים בפיילוט</h2>
+    <p>{{CLAIM pilot-report}}</p>
+  </section>
+{{/CLAIM}}
+  <section class="wrap" aria-labelledby="h-wa">
+    <h2 id="h-wa">הודעה מוכנה להורים</h2>
+    <p class="hint">אפשר להעתיק אותה לקבוצת הווטסאפ של הכיתה.</p>
+    <p class="wa" id="wa-text">שלום, אני מנסה בכיתה שלנו אפליקציה לתרגול מתמטיקה בשם {{APP_NAME}}. הקישור לכיתה יגיע מחר. אין צורך בהרשמה או במייל.</p>
+  </section>
+
+  {{#CONTACT_EMAIL}}<section class="wrap" aria-labelledby="h-ask">
+    <h2 id="h-ask">שאלות</h2>
+    <p>כתבו לנו: <a class="more" href="mailto:{{CONTACT_EMAIL}}" dir="ltr">{{CONTACT_EMAIL}}</a></p>
+  </section>
+
+  {{/CONTACT_EMAIL}}<div class="end wrap">
+    {{MADI}}
+    <a class="btn" href="../#/?start=teacher&amp;src=pilot" data-cta>לפתוח כיתה</a>
+  </div>
+</main>
+<footer class="foot wrap">
+  <p>{{#BUSINESS_NAME}}<span>{{BUSINESS_NAME}}</span>{{/BUSINESS_NAME}}{{#CONTACT_EMAIL}}<span><a href="mailto:{{CONTACT_EMAIL}}" dir="ltr">{{CONTACT_EMAIL}}</a></span>{{/CONTACT_EMAIL}}</p>
+  <nav aria-label="מידע משפטי">
+    <a href="../#/terms">תנאי שימוש</a>
+    <a href="../#/privacy">פרטיות</a>
+    <a href="../#/accessibility">נגישות</a>
+  </nav>
+</footer>
+</body>
+</html>

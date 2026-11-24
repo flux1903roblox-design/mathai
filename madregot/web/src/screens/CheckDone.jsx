@@ -1,0 +1,297 @@
+// The end of a check: what it showed, said honestly and kindly, and the next useful step.
+// Layout: Duolingo's lesson-complete screen (character, title, stat tiles, one button at the bottom).
+// After a passed mastery check of a stair that has a challenge task (CURRICULUM-6.3), a quiet card offers it: optional,
+// one tap to try, one tap to put it off. The main button stays the plan's next step.
+// A passed mastery check is a stair mastered, the biggest moment of all: it opens on the gold celebration (MasteredHero).
+import { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import clsx from 'clsx';
+import { m, useReducedMotion } from 'motion/react';
+import { classQuiet } from '@/lib/sound.js';
+import { Award, RotateCcw, Check, ArrowLeft, Gift, Flame, Puzzle } from 'lucide-react';
+import { TOPIC } from '@/content/topics.js';
+import { useApp } from '@/lib/store.js';
+import { skillId, parseSkill } from '@/learn/skills.ts';
+import { MASTERY_N, MASTERY_NEED, REVIEW_DAYS, PRACTICE_AGAIN } from '@/learn/mastery.ts';
+import { titleOf } from '@/learn/recommend.ts';
+import { metaOf } from '@/learn/content/index.ts';
+import { useNext } from '@/lib/useLearn.js';
+import { nextAfter } from '@/learn/challenges/index.ts';
+import { Button } from '@/components/ui.jsx';
+import { MathText } from '@/components/MathText.jsx';
+import Mascot from '@/components/Mascot.jsx';
+import Celebrate from '@/components/learn/Celebrate.jsx';
+import XpCount from '@/components/learn/XpCount.jsx';
+import { Emblem, EMBLEMS } from '@/components/map/emblems.jsx';
+import { SPRING, DUR, EASE, entrance } from '@/lib/motion.js';
+import { inDays } from '@/content/util.js';
+import { askAfterLesson } from '@/lib/durable/persist.js';
+import { UnlockMoment, useNewUnlocks } from '@/lib/madiLook.js';
+import RepeatNote, { repeatedMistake } from '@/components/learn/RepeatNote.jsx';
+import '@/styles/lazy/checkDone.css'; // this screen's own rules (the stair mastered's badge), out of the first load
+
+function copy(r, rec, def, award) {
+  const days = (box) => REVIEW_DAYS[box] ?? 1;
+  switch (r.purpose) {
+    case 'mastery':
+      return r.passed
+        ? { mood: 'achievement', title: 'שולטים לבד!', body: `${r.right} מתוך ${r.asked} נכונות, בלי רמזים. ${inDays(days(0))} נבדוק בקצרה שזה נשאר.` }
+        : { mood: 'encouraging', title: 'עוד לא, וזה בסדר', body: `${r.right} מתוך ${r.asked}. כדי לשלוט צריך ${MASTERY_NEED} מתוך ${MASTERY_N} בלי רמזים. ${award?.reopened ? 'המדרגה חוזרת להיות פתוחה במפה, והתרגול שכבר עשיתם נשמר. ' : ''}${PRACTICE_AGAIN}` };
+    case 'review':
+      return r.passed
+        ? { mood: 'happy', title: 'זה נשאר!', body: `הבדיקה הבאה ${inDays(days(rec?.mastered?.box ?? 1))}. כל פעם המרווח גדל.` }
+        : { mood: 'encouraging', title: 'שכחנו קצת', body: 'זה קורה, וזה לא מוחק את מה שלמדתם. חזרה קצרה תחזיר את זה, ומחר בודקים שוב.' };
+    case 'verify':
+      return r.passed
+        ? { mood: 'achievement', title: 'תוקן!', body: def ? `"${def.title}" לא הופיע שוב. כל הכבוד.` : 'הטעות לא הופיעה שוב.' }
+        : { mood: 'encouraging', title: 'עוד לא לגמרי', body: 'הטעות עוד הופיעה. ננסה דרך אחרת: דוגמה פתורה, הסבר אחר, או מדרגה קודמת שהמדרגה הזאת נשענת עליה.' };
+    case 'diagnostic':
+      return { mood: 'happy', title: 'הבדיקה הסתיימה', body: `${r.right} מתוך ${r.asked} נכונות. עכשיו אפשר לבנות תוכנית שמתאימה בדיוק למה שצריך.` };
+    // the evening before the exam (EXAM-MATERIAL 2): all three right, or a short practice waits in the plan
+    case 'quick':
+      return r.passed
+        ? { mood: 'happy', title: 'זה אצלכם', body: `${r.right} מתוך ${r.asked} נכונות. אפשר להמשיך לשלב הבא בתוכנית.` }
+        : { mood: 'encouraging', title: 'עוד תרגול קצר', body: `${r.right} מתוך ${r.asked} נכונות. בתוכנית מחכה לכם תרגול קצר על זה, ואחריו ממשיכים.` };
+    case 'exam':
+      return { mood: r.accuracy >= 80 ? 'achievement' : 'happy', title: 'מבחן התרגול הסתיים', body: `${r.right} מתוך ${r.asked} נכונות. בתוכנית רואים מה עוד כדאי לחזק לפני המבחן.` };
+    case 'class':
+      return { mood: r.accuracy >= 80 ? 'achievement' : 'happy', title: 'סיימתם את המבחן', body: `${r.right} מתוך ${r.asked} תשובות נכונות.` };
+    default:
+      return { mood: 'happy', title: 'סיימתם', body: '' };
+  }
+}
+
+/**
+ * Where the class exam's result is (TEACHER-5 §4): on its way, with the teacher, or waiting on this device for a
+ * connection (it is sent by itself when the app is back online, lib/classWork.js).
+ */
+function SentLine({ work }) {
+  const waiting = useApp((s) => !!s.workOutbox?.[work.id]);
+  const text = !work.tried ? 'שולחים את התוצאה למורה…' : waiting ? 'התוצאה תישלח למורה כשיהיה חיבור.' : 'התוצאה נשלחה למורה.';
+  return <p className="check-sent" role="status">{text}</p>;
+}
+
+/** The floor check's facts line: the same words on its end screen and in Topics → יסודות לחיזוק. */
+export const FACTS_LINE = 'לוח הכפל הוא בסיס לשברים. תרגול קצר עוזר לכל השאר.';
+
+/**
+ * The end of the floor check (בדיקת יסודות), in one of three forms: a fractions stair missed (the unit is now on the
+ * map, at the top, and the first missed stair is one tap away), nothing missed (back to where the student was), or
+ * only the multiplication facts missed (a short practice of them). Calm and short: it is a check of the basics, and a
+ * miss is a place to start, not a grade.
+ */
+export function floorEnd(r) {
+  const missed = Object.entries(r.perSkill || {}).filter(([s, x]) => s.startsWith('frac:') && x.right < x.asked)
+    .map(([s]) => s).sort((a, b) => parseSkill(a).level - parseSkill(b).level);
+  const facts = r.perSkill?.['facts:0'];
+  const factsMissed = !!facts && facts.right < facts.asked;
+  if (missed.length) {
+    return {
+      variant: 'frac', mood: 'encouraging', title: 'בדיקת היסודות הסתיימה',
+      lines: [`כדאי לחזק: ${missed.map(titleOf).join(', ')}. הוספנו את "שברים ועשרוניים" למפה, בראש הדרך.`, ...(factsMissed ? [FACTS_LINE] : [])],
+      primary: { label: 'ליסודות', to: `/learn/${missed[0].replace(':', '/')}` },
+    };
+  }
+  if (factsMissed) return { variant: 'facts', mood: 'encouraging', title: 'בדיקת היסודות הסתיימה', lines: [FACTS_LINE], primary: { label: 'לתרגול לוח הכפל', to: '/facts' } };
+  return { variant: 'none', mood: 'achievement', title: 'היסודות במקום', lines: ['שברים ולוח הכפל עובדים לכם. ממשיכים מאיפה שהייתם.'], primary: null };
+}
+
+function FloorDone({ r, onExit }) {
+  const navigate = useNavigate();
+  const end = floorEnd(r);
+  const ref = useRef(null);
+  useEffect(() => { ref.current?.focus({ preventScroll: true }); }, []);
+  // a finished check counts as a finished lesson: the moment to ask the browser to keep the data (durable/persist.js)
+  useEffect(() => { askAfterLesson(); }, []);
+  return (
+    <div className={clsx('page check-done floor-done', `floor-${end.variant}`)} role="main">
+      <div className="check-hero" data-region="content"><Mascot mood={end.mood} size={150} className="check-mascot" /></div>
+      <h1 ref={ref} tabIndex={-1} className={clsx('check-title', end.variant === 'none' && 'good')}>{end.title}</h1>
+      {end.lines.map((line) => <p key={line} className="lead">{line}</p>)}
+      <div className="stats check-stats" data-region="answers">
+        <div className={clsx('stat', r.right === r.asked ? 'stat-good' : 'stat-brand')}>
+          <span className="stat-label">נכונות</span>
+          <span className="stat-value" aria-label={`${r.right} נכונות מתוך ${r.asked}`}><Check size={20} aria-hidden="true" /><bdi dir="ltr">{r.right}/{r.asked}</bdi></span>
+        </div>
+        {r.xp > 0 && (
+          <div className="stat stat-gold">
+            <span className="stat-label">XP</span>
+            <span className="stat-value check-xp"><Award size={20} aria-hidden="true" /><span>+{r.xp}</span></span>
+          </div>
+        )}
+      </div>
+      <div className="form-actions" data-region="footer">
+        {end.primary && (
+          <Button className="btn-block btn-lg" onClick={() => navigate(end.primary.to, { replace: true })}>{end.primary.label}<ArrowLeft size={18} aria-hidden="true" /></Button>
+        )}
+        <Button variant={end.primary ? 'ghost' : 'primary'} className={clsx('btn-block', !end.primary && 'btn-lg')} onClick={onExit}>חזרה למפה</Button>
+      </div>
+    </div>
+  );
+}
+
+export default function CheckDone({ result: r, award, onExit, work }) {
+  if (r.purpose === 'floor') return <FloorDone r={r} onExit={onExit} />;
+  return <StairCheckDone result={r} award={award} onExit={onExit} work={work} />;
+}
+
+/**
+ * The stair mastered's moment, in seconds from the screen opening (ux-motion 19, 7): מדי jumps in at once, the badge
+ * lands, its seal's check draws itself, and מדי hops for joy as it closes; the tiles' numbers count up beside it, a
+ * secondary action that is done by the time he lands. Once a stair, so it may take about a second (ux-motion 8).
+ */
+export const PEAK = { land: 0.3, landFor: 0.4, seal: 0.5, draw: 0.55, drawFor: 0.3, hop: 0.85, count: 0.3, countFor: 0.6 };
+/** The badge's landing, as shares of PEAK.landFor: the fall, the squash on impact, the settle. */
+export const LANDING = [0, 0.45, 0.65, 1];
+
+/**
+ * A stair mastered (a passed mastery check) is the app's biggest moment, bigger than a teaching stage's end (PRODUCT2-38):
+ * the peak of the stair's journey (ux-motion 19). מדי jumps in on the gold light, the shapes fly out, the stair's badge
+ * lands beside him (the unit's emblem on a gold medal), the path's own done mark on it draws itself (a check on the
+ * unit's colour, the stop as it now stands on the path), and מדי hops once for joy. The level-up sound and vibration
+ * play as the screen opens (Lesson.jsx finish). In a quiet class (lib/sound.js classQuiet) the moment stays on the
+ * student's own screen: no flying shapes, no turning light, no hop; the badge still lands and its check still draws.
+ * Under reduced motion it is simply there: nothing moves, the check is drawn and the numbers are final (a fade by motion
+ * was tried: where its clock does not run, it left the whole moment invisible). Decorative: the title says what happened.
+ */
+function MasteredHero({ topic, mood }) {
+  const reduce = useReducedMotion();
+  const quiet = useApp(classQuiet);
+  const colour = TOPIC[topic]?.color;
+  return (
+    <div className={clsx('mastered-hero', quiet && 'is-quiet')}>
+      <Celebrate tone="gold" rays={!quiet} burst={!quiet}>
+        <m.div className="mastered-madi" animate={reduce || quiet ? { y: 0 } : { y: [0, -14, 0] }}
+          transition={{ duration: 0.4, delay: PEAK.hop, times: [0, 0.4, 1], ease: [EASE.out, EASE.in] }}>
+          <Mascot mood={mood} size={150} className="check-mascot" />
+        </m.div>
+      </Celebrate>
+      {EMBLEMS[topic] && (
+        // it falls (easing in), squashes as it lands (wider and shorter, about the same area: ux-motion 1) and settles
+        <m.span className={clsx('mastered-badge', colour && `ch-${colour}`)} aria-hidden="true" style={{ originY: 1 }}
+          initial={reduce ? false : entrance({ y: -72, scaleX: 0.4, scaleY: 0.4, rotate: -24, opacity: 0 })}
+          animate={{ y: [-72, 0, 0, 0], scaleX: [0.4, 1, 1.14, 1], scaleY: [0.4, 1, 0.86, 1], rotate: [-24, 0, 0, 0], opacity: 1 }}
+          transition={{ duration: PEAK.landFor, delay: PEAK.land, times: LANDING, ease: [EASE.in, EASE.out, EASE.out], opacity: { duration: DUR.quick, delay: PEAK.land } }}>
+          <Emblem topic={topic} />
+          <m.span className="mastered-seal" initial={reduce ? false : entrance({ scale: 0 })} animate={{ scale: 1 }} transition={{ ...SPRING.pop, delay: PEAK.seal }}>
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="3.6" strokeLinecap="round" strokeLinejoin="round">
+              <m.path className="mastered-check" d="M5 12.5l4.5 4.5L19 7.5" initial={reduce ? false : entrance({ pathLength: 0 })} animate={{ pathLength: 1 }}
+                transition={{ duration: PEAK.drawFor, delay: PEAK.draw, ease: EASE.out }} />
+            </svg>
+          </m.span>
+        </m.span>
+      )}
+    </div>
+  );
+}
+
+/** The challenge offer after a passed mastery check: the stair's first task not solved yet. */
+export const CHALLENGE_ASK = 'יש אתגר למדרגה הזאת. רוצים לנסות?';
+function ChallengeOffer({ task, onGo, onLater }) {
+  return (
+    <section className="check-challenge" aria-labelledby="cc-title">
+      <div className="check-challenge-row">
+        <span className="check-challenge-icon" aria-hidden="true"><Puzzle size={22} /></span>
+        <div className="check-challenge-text">
+          <h2 id="cc-title" className="check-challenge-title">{CHALLENGE_ASK}</h2>
+          <p className="check-challenge-sub"><MathText text={task.title} /> · {task.minutes} דק׳</p>
+        </div>
+      </div>
+      <div className="check-challenge-actions">
+        <Button variant="secondary" className="btn-sm" onClick={onGo}>לאתגר</Button>
+        <Button variant="ghost" className="btn-sm" onClick={onLater}>לא עכשיו</Button>
+      </div>
+    </section>
+  );
+}
+
+function StairCheckDone({ result: r, award, onExit, work }) {
+  const navigate = useNavigate();
+  const skill = r.skill || (r.topic && r.level ? skillId(r.topic, r.level) : null);
+  const rec = useApp((s) => (skill ? s.learn.skills[skill] : null));
+  const solved = useApp((s) => s.learn.challenges);
+  // what it offers is fixed when the screen opens: solving it elsewhere later does not swap the card
+  const [offer] = useState(() => (r.purpose === 'mastery' && r.passed && skill ? nextAfter(skill, solved) : null));
+  const [later, setLater] = useState(false);
+  const def = r.misc ? metaOf(skill)?.misconceptions.find((m) => m.id === r.misc) : null;
+  const { items: actions } = useNext();
+  const c = copy(r, rec, def, award);
+  // a mistake that came back in this check, named once (PRODUCT2-18); a repair check already names its own
+  const miscon = useApp((s) => s.learn.miscon);
+  const [mistake] = useState(() => (r.purpose === 'verify' || r.purpose === 'class' ? null : repeatedMistake(r, miscon)));
+  const ref = useRef(null);
+  useEffect(() => { ref.current?.focus({ preventScroll: true }); }, []);
+  // a finished check counts as a finished lesson: the moment to ask the browser to keep the data (durable/persist.js)
+  useEffect(() => { askAfterLesson(); }, []);
+  const rescue = r.purpose === 'diagnostic' || r.purpose === 'exam' || r.purpose === 'quick';
+  const classExam = r.purpose === 'class';
+  // the next step of the plan, never this check again (nor the teacher's mastery check of this stair, whose report may
+  // still be on its way), and never this stair's challenge while the card offers it
+  const nextA = actions.find((a) => !(a.skill === skill && (a.kind === (r.purpose === 'mastery' ? 'mastery' : r.purpose)
+    || (r.purpose === 'mastery' && a.kind === 'teacher' && a.stage === 'E') || (offer && a.kind === 'challenge'))));
+  const putOff = () => { setLater(true); ref.current?.focus({ preventScroll: true }); };
+  const weak = Object.entries(r.perSkill || {}).filter(([, x]) => x.right < x.asked).map(([s]) => s);
+  // A new piece for מדי (STUDENT-3) comes after the result: the way on the student picks waits behind its moment.
+  const unlocks = useNewUnlocks(r.topic);
+  const [then, setThen] = useState(null);
+  const on = (fn) => () => (r.passed && unlocks.length > 0 ? setThen(() => fn) : fn());
+  // a stair mastered: the store's one test, which the level-up sound and מדי's walk on the path read too (store.js
+  // completeCheck), so a kept or placed stair mastered gets all three
+  const mastered = !!award?.mastered;
+  if (then) return <UnlockMoment ids={unlocks} onNext={then} />;
+  return (
+    <div className="page check-done" role="main">
+      {/* laid out like Duolingo's lesson-complete screen: מדי, the title, what it showed, then the stat tiles */}
+      <div className="check-hero" data-region="content">
+        {mastered ? <MasteredHero topic={r.topic} mood={c.mood} /> : <Mascot mood={c.mood} size={150} className="check-mascot" />}
+      </div>
+      <h1 ref={ref} tabIndex={-1} className={clsx('check-title', r.passed ? 'good' : 'warm')}>{c.title}</h1>
+      <p className="lead">{c.body}</p>
+      {classExam && work?.id && <SentLine work={work} />}
+      {/* a passed mastery check is what moves the path: the stair is done, and the unit's count goes up */}
+      {r.purpose === 'mastery' && r.passed && award?.done != null && TOPIC[r.topic] && (
+        <p className="climb-caption">{TOPIC[r.topic].title}: <bdi>{award.done}</bdi> מתוך <bdi>{TOPIC[r.topic].levels.length}</bdi> מדרגות</p>
+      )}
+      {(award?.chestOpened || award?.streakRepaired) && (
+        <div className="badges">
+          {award.chestOpened && <span className="done-earned tone-streak"><Gift size={16} aria-hidden="true" />פתחתם תיבת אוצר</span>}
+          {award.streakRepaired && <span className="done-earned tone-streak"><Flame size={16} aria-hidden="true" />הרצף נשמר: {award.streak} ימים</span>}
+        </div>
+      )}
+      <div className="stats check-stats" data-region="answers">
+        <div className={clsx('stat', r.right === r.asked ? 'stat-good' : 'stat-brand')}>
+          <span className="stat-label">נכונות</span>
+          <span className="stat-value" aria-label={`${r.right} נכונות מתוך ${r.asked}`}><Check size={20} aria-hidden="true" />
+            {/* a stair mastered counts its numbers up beside the moment (a secondary action, ux-motion 7) */}
+            <bdi dir="ltr">{mastered ? <XpCount value={r.right} plus={false} unit={false} sparks={false} delay={PEAK.count} secs={PEAK.countFor} /> : r.right}/{r.asked}</bdi></span>
+        </div>
+        {r.xp > 0 && (
+          <div className="stat stat-gold">
+            <span className="stat-label">XP</span>
+            <span className="stat-value check-xp"><Award size={20} aria-hidden="true" />{mastered ? <XpCount value={r.xp} unit={false} delay={PEAK.count} secs={PEAK.countFor} /> : <span>+{r.xp}</span>}</span>
+          </div>
+        )}
+      </div>
+      <RepeatNote mistake={mistake} onRepair={(to) => navigate(to, { replace: true })} />
+      {offer && !later && <ChallengeOffer task={offer} onGo={on(() => navigate(`/challenge/${offer.id}`, { replace: true }))} onLater={putOff} />}
+      {rescue && weak.length > 0 && (
+        <div className="box box-note"><h2 className="box-tab">מה עוד לא יצא</h2><div className="box-body"><ul className="plain-list">{weak.map((s) => <li key={s}>{titleOf(s)}</li>)}</ul></div></div>
+      )}
+      <div className="form-actions" data-region="footer">
+        {classExam ? (
+          <Button className="btn-block btn-lg" onClick={on(onExit)}>חזרה למשימות</Button>
+        ) : rescue ? (
+          <Button className="btn-block btn-lg" onClick={on(() => navigate('/rescue', { replace: true }))}>לתוכנית ההכנה<ArrowLeft size={18} aria-hidden="true" /></Button>
+        ) : !r.passed && skill ? (
+          <>
+            <Button className="btn-block btn-lg" onClick={() => navigate(`/learn/${skill.replace(':', '/')}`, { replace: true })}><RotateCcw size={18} aria-hidden="true" />בחזרה למדרגה</Button>
+            {nextA && nextA.kind === 'prereq' && <Button variant="secondary" className="btn-block" onClick={() => navigate(nextA.to, { replace: true })}><MathText text={nextA.title} /></Button>}
+          </>
+        ) : nextA ? (
+          <Button className="btn-block btn-lg" onClick={on(() => navigate(nextA.to, { replace: true }))}>הלאה: <MathText text={nextA.title} /></Button>
+        ) : null}
+        {!classExam && <Button variant="ghost" className="btn-block" onClick={on(onExit)}>למפה</Button>}
+      </div>
+    </div>
+  );
+}

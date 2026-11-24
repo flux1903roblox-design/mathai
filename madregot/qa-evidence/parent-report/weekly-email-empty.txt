@@ -1,0 +1,17 @@
+From: מדרגות <no-reply@example.test>
+To: parent@example.test
+Reply-To: hello@example.test
+Subject: סיכום שבועי ממדרגות · 8.11–14.11
+List-Unsubscribe: <https://madregot.example.test/api/report/unsubscribe?a=0123456789abcdef&t=edc31685c7c44ae0a166c7cb9e08da91>
+List-Unsubscribe-Post: List-Unsubscribe=One-Click
+
+שלום,
+זה הסיכום של השבוע 8.11–14.11.
+
+השבוע לא היה תרגול במכשיר הטאבלט. זה קורה, ואפשר לחזור מתי שרוצים.
+אם גם בשבוע הבא לא יהיה תרגול, לא נשלח מייל עד שהתרגול יחזור.
+
+הפירוט המלא בעמוד ההורים: https://madregot.example.test/parents
+
+קיבלתם את המייל כי ביקשתם סיכום שבועי. כדי להפסיק אותו: https://madregot.example.test/api/report/unsubscribe?a=0123456789abcdef&t=edc31685c7c44ae0a166c7cb9e08da91
+מדרגות (שם העסק לדוגמה) · 000000000 · רחוב לדוגמה 1, תל אביב · hello@example.test · 03-0000000

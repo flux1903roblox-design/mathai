@@ -1,0 +1,99 @@
+// Settings › שמירת ההתקדמות, drawn on the server (no browser needed): the file buttons and the note on who can read
+// the file (a teacher's says the class keys are in it). The undo is in e2e/backup-file.spec.js (a server render reads
+// the store's first state).
+import { describe, it, expect, vi } from 'vitest';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { MemoryRouter } from 'react-router-dom';
+import SaveSection, { BACKUP_NOTE } from './SaveSection.jsx';
+import BackupLine, { BACKUP_LINE } from './BackupLine.jsx';
+import FileRestore from './FileRestore.jsx';
+import { shareText, CODE_SHEET } from './BackupCodeSheet.jsx';
+
+const html = (el) => renderToStaticMarkup(<MemoryRouter>{el}</MemoryRouter>);
+
+describe('SaveSection', () => {
+  it('a student: saving the file, the restore screen for a code or a file, and the note that anyone with the file can read it', () => {
+    const out = html(<SaveSection />);
+    expect(out).toContain('לשמור קובץ גיבוי');
+    expect(out).toContain('לשחזר מקובץ');
+    // with a server (the tests have one) the restore screen takes the code or the file
+    expect(out).toContain('לשחזר מקוד או מקובץ');
+    expect(out).toContain('בקובץ יש את כל ההתקדמות, כולל השם. מי שמקבל אותו יכול לקרוא אותו.');
+    expect(out).not.toContain('לבטל את השחזור האחרון');
+  });
+
+  it('a teacher (the class settings place it, FOLLOWUP-10): the note says the class keys are in the file; the same rows', () => {
+    const out = html(<SaveSection role="teacher" />);
+    expect(out).toContain('בקובץ יש גם את מפתח המורה של הכיתות. מי שמקבל אותו יכול להיכנס ללוח הכיתה, אז שמרו אותו רק אצלכם.');
+    expect(out).not.toContain('כולל השם');
+    expect(out).toContain('שמירת ההתקדמות');
+    expect(out).toContain('לשמור קובץ גיבוי');
+    expect(out).toContain('ליצור קוד גיבוי');
+    expect(out).toContain('לשחזר מקוד או מקובץ');
+    // the class's copy of a student's code is a student's switch: never on a teacher's page
+    expect(out).not.toContain('שמירת עותק בשרת הכיתה');
+  });
+
+  it('the file input (Settings without a server, Welcome, the restore screen) has the button\'s words as its name', () => {
+    const out = html(<FileRestore onLoaded={() => {}} />);
+    expect(out).toContain('לשחזר מקובץ');
+    const id = out.match(/<label[^>]*class="[^"]*file-pick[^"]*"[^>]*for="([^"]+)"/)?.[1] || out.match(/<label[^>]*for="([^"]+)"[^>]*class="[^"]*file-pick/)?.[1];
+    expect(id).toBeTruthy();
+    expect(out).toMatch(new RegExp(`<input[^>]*id="${id.replace(/[:]/g, '\\:')}"[^>]*type="file"|<input[^>]*type="file"[^>]*id="${id.replace(/[:]/g, '\\:')}"`));
+  });
+
+  // (a server render reads the status store's first state: the browser's other answers are in e2e/install.spec.js)
+  it('"שמירה קבועה בדפדפן": before the browser answers it says "לא ידוע", with the info button and no ask button', () => {
+    const out = html(<SaveSection />);
+    expect(out).toContain('שמירה קבועה בדפדפן');
+    expect(out).toContain('aria-label="מתי דפדפן מוחק נתונים"');
+    expect(out).toContain('data-persisted="null">לא ידוע</dd>');
+    expect(out).not.toContain('לבקש מהדפדפן לשמור');
+  });
+
+  it('no Home Screen row away from an iPhone', () => {
+    expect(html(<SaveSection />)).not.toContain('להוסיף למסך הבית');
+  });
+
+  it('on an iPhone the Home Screen row is here, unless the screen has it elsewhere (the student\'s Settings)', () => {
+    vi.stubGlobal('navigator', { userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1', maxTouchPoints: 5 });
+    try {
+      expect(html(<SaveSection />)).toContain('להוסיף למסך הבית');
+      expect(html(<SaveSection installRow={false} />)).not.toContain('להוסיף למסך הבית');
+    } finally { vi.unstubAllGlobals(); }
+  });
+
+  it('"גיבוי" with a server: off, the button that makes a code, and what the code keeps', () => {
+    const out = html(<SaveSection />);
+    expect(out).toMatch(/<dt>גיבוי<\/dt><dd class="save-not" data-backup="off">כבוי<\/dd>/);
+    expect(out).toContain('ליצור קוד גיבוי');
+    expect(out).toContain(BACKUP_NOTE);
+    expect(BACKUP_NOTE).toBe('קוד גיבוי שומר עותק מוצפן. בלי הקוד אף אחד לא יכול לקרוא אותו, גם לא אנחנו.');
+    expect(out).not.toContain('להציג את קוד הגיבוי');
+    expect(out).not.toContain('להפסיק את הגיבוי');
+  });
+});
+
+describe('BackupCodeSheet', () => {
+  it('the message for a parent has the code in groups of four and how to use it', () => {
+    expect(shareText('ABCDEFGHJKMNPQRS')).toBe('קוד הגיבוי שלי במדרגות: ABCD-EFGH-JKMN-PQRS\nאם הטלפון יתחלף: פותחים את מדרגות, בוחרים "יש לי קוד גיבוי" ומקלידים את הקוד.');
+    expect(CODE_SHEET.title).toBe('קוד הגיבוי שלכם');
+    expect(CODE_SHEET.who).toBe('מי שיש לו את הקוד יכול לראות את ההתקדמות שלכם, אז תנו אותו רק למי שאתם סומכים עליו.');
+  });
+
+  // (the on state, BACKUP_ON_NOTE, needs the store's live state: e2e/restore.spec.js "on by default")
+});
+
+describe('BackupLine (Learn, once, after the backup was turned on by default)', () => {
+  it('says what it is in short sentences, with the code, Settings, and "הבנתי"; no price, no countdown', () => {
+    const out = html(<BackupLine />);
+    expect(out).toContain(BACKUP_LINE.title);
+    expect(out).toContain(BACKUP_LINE.text);
+    expect(out).toContain(`>${BACKUP_LINE.code}<`);
+    expect(out).toContain(`>${BACKUP_LINE.settings}<`);
+    expect(out).toContain(`aria-label="${BACKUP_LINE.close}"`);
+    expect(out).toMatch(/<section[^>]*aria-labelledby="backup-line-title"/);
+    for (const s of BACKUP_LINE.text.split('. ')) expect(s.split(' ').length, s).toBeLessThanOrEqual(12);
+    expect(BACKUP_LINE.text).not.toMatch(/₪|\d/);
+  });
+});

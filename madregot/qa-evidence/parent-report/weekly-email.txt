@@ -1,0 +1,24 @@
+From: מדרגות <no-reply@example.test>
+To: parent@example.test
+Reply-To: hello@example.test
+Subject: סיכום שבועי ממדרגות · 8.11–14.11
+List-Unsubscribe: <https://madregot.example.test/api/report/unsubscribe?a=0123456789abcdef&t=edc31685c7c44ae0a166c7cb9e08da91>
+List-Unsubscribe-Post: List-Unsubscribe=One-Click
+
+שלום,
+זה הסיכום של השבוע 8.11–14.11.
+
+הטאבלט
+ימי תרגול: 4 · זמן תרגול: כ־47 דקות · שאלות: 59
+חדש בשליטה: מספרים מכוונים: השוואת מספרים
+תורגלו: משוואות: משוואה בשני צעדים, משוואות: משוואה ופתרון, ביטויים אלגבריים: הצבה בביטוי, מספרים מכוונים: השוואת מספרים ועוד מדרגה אחת
+טעויות שחוזרות: טעות אחת בתיקון, טעות אחת תוקנה השבוע
+רצף: 4 ימים (שבת לא שוברת רצף)
+
+הטלפון: השבוע לא היה תרגול.
+
+רעיון לשיחה: בקשו שיסבירו לכם דוגמה אחת מ"משוואות: משוואה בשני צעדים".
+הפירוט המלא בעמוד ההורים: https://madregot.example.test/parents
+
+קיבלתם את המייל כי ביקשתם סיכום שבועי. כדי להפסיק אותו: https://madregot.example.test/api/report/unsubscribe?a=0123456789abcdef&t=edc31685c7c44ae0a166c7cb9e08da91
+מדרגות (שם העסק לדוגמה) · 000000000 · רחוב לדוגמה 1, תל אביב · hello@example.test · 03-0000000

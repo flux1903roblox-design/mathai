@@ -1,0 +1,134 @@
+// The streak, kept calm (STUDENT-5), as pure functions of the saved days ('YYYY-MM-DD' -> { lessons, stages, mp, q,
+// frozen, … }):
+//  - Shabbat and Yom Tov are rest days: a rest day without learning is passed over, never missed (shared/restDays.js);
+//  - a missed school day can be repaired by the student's own effort: two finished items the next school day, at most
+//    once in 30 days (streakRepair). A repaired day is saved as frozen: 'repair';
+//  - two counters that never reset: learning days this month and in all;
+//  - the student's own weeks (PRODUCT2-39): each week's stages (a finished lesson, check or teaching stage is one, the
+//    same "שלב" as a stair's five) and practice days, this week against last week (the ghost race on the missions tab),
+//    and the personal best. Only the student's own weeks: never another student's.
+import { isRestDay } from '@shared/restDays.js';
+
+// the calendar itself (today, a day, a learning day, a kept day, the walk back) lives in lib/days.js, which the report
+// engine reads without the store; the streak's helpers build on it
+import { today, dayBefore, learnedOn, isActiveDay, keptDay, streakOf } from './days.js';
+
+export { today, dayBefore, learnedOn, isActiveDay, keptDay };
+const dayAfter = (key) => { const d = new Date(`${key}T12:00:00`); d.setDate(d.getDate() + 1); return today(d); };
+/** Whole days from one key to another (b − a). */
+export const daysBetween = (a, b) => Math.round((Date.parse(`${b}T12:00:00Z`) - Date.parse(`${a}T12:00:00Z`)) / 86400000);
+/** Finished learning items that day: lessons (checks count here too) and teaching stages. */
+export const itemsOn = (d) => (d?.lessons || 0) + (d?.stages || 0);
+
+/** Consecutive active days ending at `key` (or the day before, if `key` has none yet). Kept days are passed over (days.js streakOf). */
+export const streakAt = (days, key) => streakOf(days, key);
+
+/** The last school day before `key`: rest days in between are not missed days (a Friday before Shabbat, a holiday eve). */
+export function lastSchoolDay(key) {
+  let k = dayBefore(key);
+  for (let i = 0; i < 7 && isRestDay(k); i += 1) k = dayBefore(k);
+  return k;
+}
+
+export const REPAIR_ITEMS = 2;
+export const REPAIR_EVERY = 30;
+
+/**
+ * Can the streak be repaired today, and how? Repairable when:
+ *  - today is not a rest day;
+ *  - the last school day before today (yesterday, or the day before a Shabbat or a holiday) had no learning, no freeze
+ *    and no repair;
+ *  - the last active day before that gap (across rest days and frozen days) ended a streak of at least 2;
+ *  - the last repair (lastRepair) was at least 30 days ago, or never.
+ * Returns null, or { gap, streak, left }: the day to repair, the streak it keeps, and the items still to finish today.
+ */
+export function streakRepair(days, todayKey, lastRepair) {
+  if (isRestDay(todayKey)) return null;
+  if (lastRepair && daysBetween(lastRepair, todayKey) < REPAIR_EVERY) return null;
+  const gap = lastSchoolDay(todayKey);
+  if (isActiveDay(days[gap]) || keptDay(days, gap)) return null;
+  let k = dayBefore(gap);
+  for (let i = 0; i < 14 && !isActiveDay(days[k]) && keptDay(days, k); i += 1) k = dayBefore(k);
+  if (!isActiveDay(days[k])) return null;
+  const streak = streakAt(days, k);
+  if (streak < 2) return null;
+  return { gap, streak, left: Math.max(0, REPAIR_ITEMS - itemsOn(days[todayKey])) };
+}
+
+/**
+ * The streak as every screen shows it today (PRODUCT2-40): the header's flame, the repair card, the missions tab and
+ * the profile all read this one answer, so they never disagree. While a missed school day can still be repaired, the
+ * streak is the one the repair keeps, marked at risk (never 0 beside "הרצף של 4 ימים נשמר"); otherwise it is streakOf.
+ * Returns { n, atRisk, repair }: the number, whether it waits for today's items, and streakRepair's answer (or null).
+ */
+export function streakNow(days, todayKey, lastRepair) {
+  const repair = streakRepair(days, todayKey, lastRepair);
+  if (repair) return { n: repair.streak, atRisk: true, repair };
+  return { n: streakAt(days, todayKey), atRisk: false, repair: null };
+}
+
+/** The streak's milestones (PRODUCT2-38): each has its own moment, once. */
+export const STREAK_MILESTONES = [3, 7, 30];
+
+/**
+ * The milestone a result reached, or null: the result moved the streak (the first item of the day, or the repair kept
+ * it) to exactly 3, 7 or 30, and that milestone was not shown before (`seen`: nudges.streakSeen). Only ever about the
+ * result in hand: nothing counts down to the next one.
+ */
+export function streakMilestone(award, seen) {
+  if (!award || !(award.streakExtended || award.streakRepaired)) return null;
+  const m = award.streak;
+  return STREAK_MILESTONES.includes(m) && !seen?.[m] ? m : null;
+}
+
+/** Active days in the calendar month of `todayKey`, up to it. Starts again on the 1st. */
+export function learnDaysThisMonth(days, todayKey) {
+  const month = todayKey.slice(0, 7);
+  return Object.keys(days).filter((k) => k.startsWith(month) && k <= todayKey && isActiveDay(days[k])).length;
+}
+/** Active days in all. Never goes down. */
+export const learnDaysTotal = (days) => Object.keys(days).filter((k) => isActiveDay(days[k])).length;
+
+/** The Sunday that starts the week of `key` (an Israeli week: Sunday to Shabbat). */
+export function weekStart(key) {
+  const d = new Date(`${key}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - d.getUTCDay());
+  return d.toISOString().slice(0, 10);
+}
+/**
+ * A week's own totals: { stages, days }. Stages are the finished lessons, checks and teaching stages (itemsOn: each is one,
+ * a passed mastery check too); days are the days with one of them (learnedOn: answers alone, a freeze or a rest day are
+ * not practice days). The same two numbers the weekly summary shows (learn/report.ts: lessons + stages, activeDays).
+ */
+export function weekTotals(days, start) {
+  let stages = 0; let active = 0; let k = start;
+  for (let i = 0; i < 7; i += 1) { const d = days?.[k]; stages += itemsOn(d); if (learnedOn(d)) active += 1; k = dayAfter(k); }
+  return { stages, days: active };
+}
+
+/**
+ * The personal best before the week that starts on `beforeWeek`: { stages: { n, week } | null, days: { n, week } | null },
+ * the most stages in one week and the most practice days in one week (each null when no earlier week had any). A tie
+ * keeps the earlier week.
+ */
+export function personalBest(days, beforeWeek) {
+  const weeks = [...new Set(Object.keys(days || {}).filter((k) => /^\d{4}-\d{2}-\d{2}$/.test(k)).map(weekStart))].filter((w) => w < beforeWeek).sort();
+  let stages = null; let most = null;
+  for (const w of weeks) {
+    const t = weekTotals(days, w);
+    if (t.stages > 0 && (!stages || t.stages > stages.n)) stages = { n: t.stages, week: w };
+    if (t.days > 0 && (!most || t.days > most.n)) most = { n: t.days, week: w };
+  }
+  return { stages, days: most };
+}
+
+/**
+ * The ghost race (PRODUCT2-39): this week against the student's own last week, the week just before it (an empty one
+ * too: a week off is a last week of 0, never skipped), and the personal best before this week. No other student.
+ * Returns { week, lastWeek, now, last, best }.
+ */
+export function ghostRace(days, todayKey) {
+  const week = weekStart(todayKey);
+  const lastWeek = weekStart(dayBefore(week));
+  return { week, lastWeek, now: weekTotals(days, week), last: weekTotals(days, lastWeek), best: personalBest(days, week) };
+}

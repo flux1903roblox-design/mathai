@@ -1,0 +1,76 @@
+// Prices as the parents page shows them: integer agorot from the server, written as shekels. A whole amount has no
+// decimals (₪249); any other has two (₪29.90). Only the parents' pages use this: no child screen shows a price.
+import { isStoreApp } from './install.js';
+import { PLAN_DAYS } from '@shared/sold.js';
+
+/**
+ * May this copy of the app show a price, a plan, a buy button or a way to the parents' purchase pages? Not in a store
+ * app (STUDENT-12): the Play Store app (a TWA) and the iPhone build sell nothing, so Play Billing and Apple 3.1.1 never
+ * apply. Families buy on the website. Every such place checks it: limitCopy/LimitSheet, ToolLocked, Settings, the hello
+ * screen, the teacher's licence card, and the /parents, /parents/link, /parents/info and /cancel routes.
+ */
+export const canSell = () => !isStoreApp();
+
+/**
+ * The family plan's list prices in agorot, VAT included: the owner's decided ₪29.90 a month and ₪249 a year. They are
+ * the defaults of the Worker's PRICE_FAMILY_MONTH_AGOROT / PRICE_FAMILY_YEAR_AGOROT (worker/src/billing.js and
+ * wrangler.toml, kept equal by scripts/landing-build.test.mjs). The app's parents' pages show what the server sends;
+ * the static parents' landing page (scripts/landing-build.mjs) is built from wrangler.toml, else from these.
+ */
+export const LIST_PRICES = Object.freeze({ month: 2990, year: 24900 });
+
+/**
+ * The exam pass (COUNCIL2-33): the family plan for this many days, paid once, never renewed (shared/sold.js PLAN_DAYS,
+ * as the Worker's apply.js planEnd counts them). It has no list price: its price is the owner's decision
+ * (PRICE_EXAM_PASS_AGOROT), and a page shows it only as the server, or the landing build, sends it.
+ */
+export const PASS_DAYS = PLAN_DAYS.exam_pass;
+/** An ISO time `days` whole days later: the end of an exam pass bought at `iso` (30 × 24 hours, as the server counts). */
+export const addDaysIso = (iso, days) => new Date(Date.parse(iso) + days * 864e5).toISOString();
+/** The pass's price as the pages write it: '₪39 ל־30 יום'. */
+export const passPrice = (agorot, days = PASS_DAYS) => `${formatAgorot(agorot)} ל־${days} יום`;
+
+/** 2990 → '₪29.90'; 24900 → '₪249'. */
+export function formatAgorot(agorot) {
+  const a = Math.round(Number(agorot) || 0);
+  const shekels = Math.floor(Math.abs(a) / 100);
+  const rest = Math.abs(a) % 100;
+  return `${a < 0 ? '-' : ''}₪${shekels}${rest ? `.${String(rest).padStart(2, '0')}` : ''}`;
+}
+
+/** The VAT inside a price that includes 18% VAT, in whole agorot (2990 → 456). Exempt dealers charge none. */
+export const vatOf = (agorot, mode = 'included') => (mode === 'exempt' ? 0 : Math.round((Number(agorot) || 0) * 18 / 118));
+
+/** The words after a price: 'כולל מע״מ', or for an exempt dealer 'המחיר סופי'. */
+export const vatLine = (mode) => (mode === 'exempt' ? 'המחיר סופי' : 'כולל מע״מ');
+
+/** A yearly price per month, rounded down to whole agorot: 24900 → '₪20.75'. */
+export const perMonth = (yearAgorot) => formatAgorot(Math.floor((Number(yearAgorot) || 0) / 12));
+
+/** An ISO time as the date people read: 10.12.2026 (Jerusalem). */
+export function dateNum(iso) {
+  try {
+    const p = new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Asia/Jerusalem' }).formatToParts(new Date(iso));
+    const v = (t) => p.find((x) => x.type === t)?.value || '';
+    return `${v('day')}.${v('month')}.${v('year')}`;
+  } catch { return ''; }
+}
+
+/** An ISO time as words: 10 בדצמבר 2026 (Jerusalem). */
+export function dateWords(iso) {
+  try { return new Date(iso).toLocaleDateString('he-IL', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Jerusalem' }); } catch { return ''; }
+}
+
+/**
+ * The day of the month a monthly plan bought at `iso` is charged, in words that fit "המנוי מתחדש … בכל חודש, {here}"
+ * (trust spec TRUST-10 §4): 'ב־10 לחודש'. A month without that day is charged on its last day, as the server's addMonths
+ * clamps it (apply.js): the 29th and 30th say so for February, and the 31st is the last day of every month.
+ */
+export function chargeDay(iso) {
+  let d = 0;
+  try { d = Number(new Intl.DateTimeFormat('en-GB', { day: 'numeric', timeZone: 'Asia/Jerusalem' }).format(new Date(iso))); } catch { /* below */ }
+  if (!Number.isInteger(d) || d < 1) return '';
+  if (d === 31) return 'ביום האחרון של החודש';
+  if (d >= 29) return `ב־${d} לחודש (ובפברואר ביום האחרון שלו)`;
+  return `ב־${d} לחודש`;
+}

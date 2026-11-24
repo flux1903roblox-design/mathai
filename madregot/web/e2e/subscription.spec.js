@@ -1,0 +1,880 @@
+// The smart tutor's free taste, family plan and class licence, end to end against a fake server (page.route: no Worker,
+// no Claude, no email, no payment company). A child sees a calm allowance and calm sheets, never a price; tools of the
+// full tutor explain themselves before any upload; a parent on their own phone signs in by code, pays on the payment
+// company's page and links the child's device, whose AI calls then carry an AI-only token and never the parent's
+// session; cancelling takes two taps; a teacher manages the class licence, the join lock and student removal.
+import { test, expect } from '@playwright/test';
+import { mkdirSync } from 'node:fs';
+import { NOW, student, answer, proceed, appReady, expectNoSidewaysScroll } from './helpers.js';
+import { API, PAY, TOKEN, livePlan, fakeServer } from './fakeServer.js';
+import { emailedCode } from './contract.js';
+
+// a price, or a push to buy ('קנו' as a word, not inside 'תקנון')
+const FORBIDDEN = /₪|(?<![\u0590-\u05FF])קנו(?![\u0590-\u05FF])|שדרגו/;
+
+/**
+ * Open a route on a device with a saved state. The storage is seeded by an init script before the app starts, so an app
+ * still running from the last route can never write its old state over the new one (it may be answering the server).
+ * The seed is written once per open(): a reload after it keeps what the app saved.
+ * `local`: more localStorage keys (a parent's session on their own phone).
+ */
+let seeds = 0;
+async function open(page, route, state = null, { local = {}, seed = '424242' } = {}) {
+  await page.clock.setFixedTime(NOW);
+  await page.goto('about:blank');
+  seeds += 1;
+  const key = `seeded-${seeds}-${Date.now()}`;
+  await page.addInitScript(([s, sd, k, extra]) => {
+    if (location.protocol === 'about:' || sessionStorage.getItem(k)) return;
+    Object.keys(sessionStorage).filter((x) => !x.startsWith('seeded-')).forEach((x) => sessionStorage.removeItem(x));
+    sessionStorage.setItem(k, '1');
+    localStorage.clear();
+    localStorage.setItem('madregot-debug', '1');
+    localStorage.setItem('madregot-seed', sd);
+    if (s) localStorage.setItem('madregot', JSON.stringify(s));
+    Object.entries(extra).forEach(([n, v]) => localStorage.setItem(n, v));
+    // the copy of the progress on the device goes too: the app's own open waits behind this delete
+    indexedDB.deleteDatabase('madregot-durable');
+  }, [state, seed, key, local]);
+  await page.goto(`./${route}`);
+  await appReady(page);
+}
+
+/** A device with the app pointed at the fake server. `profile: null` is the parent's own phone. */
+// (seeded as a current, v3 save: the v3 migration drops a saved server address in builds that cannot change it)
+const withServer = (extra = {}, grade = '7') => ({ ...student(grade, { ai: { mode: 'server', apiUrl: API, key: '', device: '', introSeen: true }, ...extra }), version: 3 });
+const classStudent = (extra = {}) => withServer({ profile: { role: 'student', name: 'נועה', grade: '7', know: 1, classCode: 'K7Q2MD', className: 'ז׳3', token: 'stu_token_1', studentId: 's1' }, ...extra });
+const parentPhone = () => withServer({ profile: null });
+const teacher = () => withServer({ profile: { role: 'teacher', name: 'רונית', classes: [{ code: 'K7Q2MD', key: 'tkey-123', className: 'ז׳3', grade: '7' }], active: 'K7Q2MD' } });
+/** A private group whose parents agreed (TRUST-11): the class licence is sold to it as before. */
+const PRIVATE_GROUP = { setting: 'private', consentAt: '2026-11-01T10:00:00.000Z' };
+const aiCalls = (log) => log.filter((r) => r.path.startsWith('/api/ai/') && r.path !== '/api/ai/status');
+const baseOf = () => test.info().project.use.baseURL || 'http://127.0.0.1:4173/';
+
+// Screenshots for a look at the screens (SUBV2_SHOTS=<folder>); nothing is compared.
+async function shot(page, name) {
+  const dir = process.env.SUBV2_SHOTS; if (!dir) return;
+  mkdirSync(dir, { recursive: true });
+  await page.waitForTimeout(250);
+  await page.screenshot({ path: `${dir}/${test.info().project.name}-${name}.png`, fullPage: false });
+}
+
+/**
+ * Sign in on the parents page with the emailed code (a wrong code first, when asked). `srv`: the backend (the fake takes
+ * any code; the real Worker's code is read from its email stub, contract.js).
+ */
+async function signIn(page, { wrongFirst = false, srv = null } = {}) {
+  await page.getByLabel('כתובת המייל שלכם').fill('parent@example.test');
+  await page.getByRole('button', { name: 'שליחת קוד' }).click();
+  await expect(page.getByText('שלחנו קוד בן 6 ספרות אל')).toBeVisible();
+  const code = srv ? await emailedCode(srv, 'parent@example.test') : '123456';
+  if (wrongFirst) {
+    await page.getByLabel('הקוד מהמייל').fill(code === '111111' ? '222222' : '111111');
+    await expect(page.getByRole('alert')).toContainText('הקוד לא נכון. נשארו עוד 4 ניסיונות.');
+  }
+  await page.getByLabel('הקוד מהמייל').fill(code);
+}
+
+test.describe('the smart tutor', () => {
+  test.skip(({ viewport }) => viewport.width > 800, 'phone layouts');
+
+  // @contract (COUNCIL2-22): the tutor's allowance as the real Worker counts it (GET /api/ai/status, X-AI-Left, the
+  // refusal after the second question), with Claude stubbed
+  test('the free taste: two questions, then the chat rests calmly and Madi takes over', { tag: '@contract' }, async ({ page }) => {
+    const { log } = await fakeServer(page, { parentOk: true }, baseOf());
+    await open(page, '#/assistant', withServer());
+    await expect(page.getByText('היום אפשר לשאול את העוזר החכם עוד 2 שאלות.')).toBeVisible();
+    const draft = page.getByLabel('ההודעה שלכם');
+    await draft.fill('איך מחברים 3 ועוד מינוס 5?'); await draft.press('Enter');
+    await expect(page.getByText('היום אפשר לשאול את העוזר החכם עוד שאלה אחת.')).toBeVisible();
+    await draft.fill('ועוד שאלה'); await draft.press('Enter');
+    await expect(page.getByText('להיום סיימנו עם העוזר החכם. מחר הוא כאן שוב.')).toBeVisible();
+    // the input stays usable (a child in distress must always be able to write: trust spec TRUST-3 §3.5), but a
+    // question now waits as a draft and is not sent
+    await expect(draft).toBeEnabled();
+    await draft.fill('ועוד אחת'); await draft.press('Enter');
+    await expect(draft).toHaveValue('ועוד אחת');
+    // the answer just received is on screen, above the docked card and input (not hidden behind them)
+    const lastAnswer = page.locator('.msg-row.assistant').last();
+    await expect(lastAnswer).toBeInViewport();
+    const [answerBox, dockBox] = [await lastAnswer.boundingBox(), await page.locator('.chat-dock-live').boundingBox()];
+    expect(answerBox.y + answerBox.height).toBeLessThanOrEqual(dockBox.y + 1);
+    await expect(draft).toHaveAttribute('placeholder', 'העוזר החכם חוזר מחר');
+    await shot(page, 'chat-rest');
+    expect(aiCalls(log)).toHaveLength(2);
+    // every call carried this device's id, never an account token
+    const devices = new Set(aiCalls(log).map((r) => r.headers['x-device']));
+    expect(devices.size).toBe(1); expect([...devices][0]).toMatch(/^[a-f0-9]{32}$/);
+    expect(aiCalls(log).some((r) => r.headers['x-account-token'])).toBe(false);
+    await expect(page.locator('.form-error')).toHaveCount(0);
+    expect(await page.locator('body').innerText()).not.toMatch(FORBIDDEN);
+    // in a lesson the tutor's button gives way to Madi, who answers without a request
+    await page.goto('./#/lesson/signed/1');
+    await answer(page, false); await proceed(page); await answer(page, false);
+    await expect(page.locator('section.fb-reveal')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'למה טעיתי?' })).toHaveCount(0);
+    await page.locator('section.fb-reveal').getByRole('button', { name: 'שאלה למדי' }).click();
+    const madi = page.getByRole('dialog', { name: 'שאלה למדי' });
+    await expect(madi.getByText('העוזר החכם חוזר מחר')).toBeVisible();
+    await expect(madi.locator('.tutor-q')).toHaveCount(1); // the question about the mistake is asked at once
+    expect(aiCalls(log)).toHaveLength(2);
+  });
+
+  test('when the server says today is done, a calm sheet opens and "ask Madi" opens Madi', async ({ page }) => {
+    const { st, log } = await fakeServer(page, { parentOk: true }, baseOf());
+    await open(page, '#/lesson/signed/1', withServer());
+    await answer(page, false); await proceed(page); await answer(page, false);
+    await expect(page.locator('section.fb-reveal')).toBeVisible();
+    await expect(page.locator('.ai-left')).toContainText('היום אפשר לשאול את העוזר החכם עוד 2 שאלות.');
+    expect(aiCalls(log)).toHaveLength(0); // the free taste never asks by itself
+    st.freeLimit = 0; // used up on another screen in the meantime
+    await page.getByRole('button', { name: 'למה טעיתי?' }).click();
+    const sheet = page.getByRole('dialog', { name: 'העוזר החכם חוזר מחר' });
+    await expect(sheet).toBeVisible();
+    await expect(sheet.getByText('מדי יכול להסביר את המדרגה')).toBeVisible();
+    // in a lesson the sheet offers no parents link: it would ask the child to leave the lesson
+    await expect(sheet.getByRole('button', { name: 'מידע להורים' })).toHaveCount(0);
+    expect(await sheet.innerText()).not.toMatch(FORBIDDEN);
+    await shot(page, 'limit-sheet');
+    await sheet.getByRole('button', { name: 'לשאול את מדי' }).click();
+    await expect(page.getByRole('dialog', { name: 'שאלה למדי' })).toBeVisible();
+    await expect(page.locator('.form-error')).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    await expect(page.locator('section.fb-reveal').getByRole('button', { name: 'שאלה למדי' })).toBeVisible();
+  });
+
+  test('busy networks, a resting free tutor and the month\'s fair use show calm sheets, never a red error', async ({ page }) => {
+    const { st } = await fakeServer(page, { parentOk: true }, baseOf());
+    await open(page, '#/assistant', withServer());
+    const draft = page.getByLabel('ההודעה שלכם');
+    st.breakNext = { status: 429, body: { error: 'shared_limit', scope: 'network' } };
+    await draft.fill('שאלה'); await draft.press('Enter');
+    const busy = page.getByRole('dialog', { name: 'העוזר החכם עמוס היום' });
+    await expect(busy.getByText('מאותה רשת אינטרנט')).toBeVisible();
+    await busy.getByRole('button', { name: 'סגירה' }).click();
+    await expect(page.locator('.form-error')).toHaveCount(0);
+    await expect(draft).toBeEnabled(); // the draft waits for tomorrow, in an input that still works
+    await expect(draft).toHaveValue('שאלה');
+    // a resting free tutor
+    await open(page, '#/assistant', withServer());
+    st.breakNext = { status: 503, body: { error: 'free_paused' } };
+    await page.getByLabel('ההודעה שלכם').fill('שאלה'); await page.getByLabel('ההודעה שלכם').press('Enter');
+    await expect(page.getByRole('dialog', { name: 'העוזר החכם נח היום' })).toBeVisible();
+    await expect(page.locator('.form-error')).toHaveCount(0);
+    // a family plan over its month: the photo check says when it is back, and a stale screen gets the calm sheet
+    st.devices.push({ id: 'd1', label: 'הטאבלט', token: `fd1.${'c'.repeat(64)}` }); st.plan = livePlan(); st.economy = true;
+    await open(page, '#/assistant', withServer({ ai: { mode: 'server', apiUrl: API, key: '', device: '', introSeen: true, familyDevice: { token: `fd1.${'c'.repeat(64)}`, label: 'הטאבלט' } } }));
+    await page.getByRole('button', { name: 'בדיקת פתרון מצולם' }).click();
+    await expect(page.getByRole('dialog', { name: 'בדיקת פתרון מצולם' }).getByText('הבדיקה הזו חוזרת ב־1 בחודש.')).toBeVisible();
+    await page.keyboard.press('Escape');
+    st.breakNext = { status: 429, body: { error: 'monthly_fair_use' } };
+    await page.getByLabel('ההודעה שלכם').fill('שאלה'); await page.getByLabel('ההודעה שלכם').press('Enter');
+    await expect(page.getByRole('dialog', { name: 'הבדיקות של החודש נגמרו' })).toBeVisible();
+    await expect(page.locator('.form-error')).toHaveCount(0);
+  });
+
+  test('tools of the full tutor show their info state before any upload; a class student can send the page to the teacher', async ({ page }) => {
+    const { log } = await fakeServer(page, { parentOk: true }, baseOf());
+    await open(page, '#/assistant', withServer());
+    await page.getByRole('button', { name: 'בדיקת פתרון מצולם' }).click();
+    const photo = page.getByRole('dialog', { name: 'בדיקת פתרון מצולם' });
+    await expect(photo.getByText('את הבדיקה הזו עושה העוזר החכם המלא.')).toBeVisible();
+    await expect(photo.getByRole('link', { name: 'מידע להורים' })).toBeVisible();
+    await expect(photo.locator('input[type=file]')).toHaveCount(0);
+    await shot(page, 'tool-locked');
+    await page.keyboard.press('Escape');
+    await page.getByRole('button', { name: 'תרגילים חדשים' }).click();
+    await expect(page.getByRole('dialog', { name: 'תרגילים חדשים' }).getByText('תרגילים חדשים מכין העוזר החכם המלא.')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'כתיבת תרגילים' })).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    await page.goto('./#/exams/check');
+    await expect(page.getByText('את בדיקת המבחן עושה העוזר החכם המלא.')).toBeVisible();
+    await expect(page.getByRole('link', { name: 'מבחן תרגול עם מפתח תשובות' })).toBeVisible();
+    await expect(page.locator('input[type=file]')).toHaveCount(0);
+    await shot(page, 'exam-locked');
+    // the topic guide offers no "new exercises" on the free taste
+    await page.goto('./#/topic/signed');
+    await expect(page.getByRole('button', { name: /תרגילים נוספים מהעוזר/ })).toHaveCount(0);
+    // the class student's notebook: the photo check explains itself and offers the teacher
+    await open(page, '#/lesson/signed/1', classStudent());
+    // the question's maths is drawn once KaTeX has loaded (it is not in the first load) and the question's box takes
+    // its padding as the notebook opens: the page below moves down then, so draw where the notebook settles
+    await expect(page.locator('.qdisplay .katex').first()).toBeVisible();
+    await page.getByRole('button', { name: 'מחברת' }).click();
+    const canvas = page.locator('.nb-canvas');
+    let box = await canvas.boundingBox();
+    await expect.poll(async () => { const was = box.y; await page.waitForTimeout(250); box = await canvas.boundingBox(); return box.y === was; }).toBe(true);
+    await page.mouse.move(box.x + 30, box.y + 30); await page.mouse.down(); await page.mouse.move(box.x + 120, box.y + 60, { steps: 5 }); await page.mouse.up();
+    await page.getByRole('button', { name: 'בדיקת הדרך עם העוזר' }).click();
+    await expect(page.getByText('רוצים שמישהו יסתכל על הפתרון? אפשר לשלוח את הדף למורה.')).toBeVisible();
+    await page.getByRole('button', { name: 'לשלוח למורה' }).click();
+    await expect(page.getByRole('dialog', { name: 'לבקש עזרה מהמורה' })).toBeVisible();
+    expect(log.filter((r) => ['/api/ai/check', '/api/ai/generate', '/api/ai/exam'].includes(r.path))).toHaveLength(0);
+    expect(await page.locator('body').innerText()).not.toMatch(FORBIDDEN);
+  });
+
+  test('the lesson asks the tutor by itself on a family plan and in a licensed class, never on the free taste', async ({ page }) => {
+    const { st, log } = await fakeServer(page, { parentOk: true }, baseOf());
+    st.devices.push({ id: 'd1', label: 'הטאבלט', token: `fd1.${'c'.repeat(64)}` }); st.plan = livePlan();
+    await open(page, '#/lesson/signed/1', withServer({ ai: { mode: 'server', apiUrl: API, key: '', device: '', introSeen: true, familyDevice: { token: `fd1.${'c'.repeat(64)}`, label: 'הטאבלט' } } }));
+    await answer(page, false); await proceed(page); await answer(page, false);
+    await expect(page.getByText('הסבר קצר מהעוזר.')).toBeVisible();
+    const fam = aiCalls(log).find((r) => r.path === '/api/ai/explain');
+    expect(fam.headers['x-family-device']).toBe(`fd1.${'c'.repeat(64)}`);
+    expect(fam.headers['x-account-token']).toBeUndefined();
+    st.classLicence = true;
+    await open(page, '#/lesson/signed/1', classStudent());
+    await answer(page, false); await proceed(page); await answer(page, false);
+    await expect(page.getByText('הסבר קצר מהעוזר.')).toBeVisible();
+    expect(aiCalls(log).filter((r) => r.path === '/api/ai/explain')).toHaveLength(2);
+    expect(aiCalls(log).at(-1).headers.authorization).toBe('Bearer stu_token_1');
+  });
+
+  // @contract (COUNCIL2-22): against the real Worker the code is the one it emailed, the payment page is the test
+  // provider's own (/api/billing/test-pay), and the link code is the one the child's device shows
+  test('a parent on their own phone signs in, pays and links the child\'s device, which then asks as the family', { tag: '@contract' }, async ({ browser, page }) => {
+    const base = baseOf();
+    const srv = await fakeServer(page.context(), { parentOk: true }, base);
+    const { log, attach } = srv;
+    // the child's device: settings → the family plan → a QR code and the code, no price
+    await open(page, '#/settings', withServer());
+    await page.locator('#ai-title').scrollIntoViewIfNeeded();
+    await shot(page, 'settings-free');
+    await page.getByRole('link', { name: 'חיבור למנוי משפחתי' }).click();
+    await expect(page.getByRole('heading', { name: 'המסך הזה בשביל ההורים' })).toBeVisible();
+    await expect(page.getByRole('img', { name: 'קוד QR לטלפון של ההורים' })).toBeVisible();
+    await expect(page.locator('.handoff-code')).toHaveText(/^[A-HJ-KMNP-Z2-9]{6}$/);
+    const linkCode = (await page.locator('.handoff-code').textContent()).trim();
+    if (!srv.contract) expect(linkCode).toBe('K7M4QX');
+    await expect(page.getByText('מחכים להורים…')).toBeVisible();
+    expect(await page.locator('body').innerText()).not.toMatch(FORBIDDEN);
+    await shot(page, 'handoff');
+    // the parent's own phone: no profile at all
+    const phone = await browser.newContext({ baseURL: base, viewport: page.viewportSize(), isMobile: true, hasTouch: true, locale: 'he-IL', reducedMotion: 'reduce' });
+    await attach(phone); // the same server answers both devices
+    const pp = await phone.newPage();
+    await open(pp, `#/parents/link?c=${linkCode}`, parentPhone());
+    await expect(pp.getByRole('heading', { name: 'המנוי המשפחתי: מה מקבלים ההורים' })).toBeVisible();
+    await expect(pp.locator('.parents-price')).toHaveText('₪29.90 לחודש, כולל מע״מאו ₪249 לשנה, כולל מע״מ');
+    await shot(pp, 'parents-info');
+    await signIn(pp, { wrongFirst: true, srv: srv.contract ? srv : null });
+    await expect(pp.getByRole('heading', { name: 'אין מנוי פעיל' })).toBeVisible();
+    await expect(pp.getByText('אחרי התשלום אפשר יהיה לחבר את המכשיר של הילד עם הקוד')).toBeVisible();
+    const saved = await pp.evaluate(() => JSON.parse(localStorage.getItem('madregot-parent')));
+    expect(saved.email).toBe('parent@example.test');
+    await expect(pp.getByText('סה״כ לתשלום היום: ₪29.90 (כולל מע״מ 18%).')).toBeVisible();
+    await shot(pp, 'parents-plans');
+    await pp.getByRole('button', { name: 'למעבר לתשלום מאובטח' }).click();
+    await expect(pp.getByRole('alert')).toContainText('מעל גיל 18');
+    await pp.getByLabel('אני מעל גיל 18, ואני ההורה או האפוטרופוס של הילד/ה').check();
+    await pp.getByLabel('קראתי את התקנון ואת מדיניות הביטול').check();
+    await pp.getByRole('button', { name: 'למעבר לתשלום מאובטח' }).click();
+    // the payment company's page: the fake's, or the Worker's own test page (BILLING_PROVIDER = "test")
+    await pp.waitForURL(srv.contract ? /\/api\/billing\/test-pay\/[a-f0-9]{16}$/ : `${PAY}/**`);
+    const checkout = log.find((r) => r.path === '/api/billing/checkout');
+    expect(checkout.body).toMatchObject({ plan: 'family_month', adult: true, terms: '2026-11' });
+    expect(checkout.body.amountAgorot).toBeUndefined();
+    // back from the payment page at the plain return address: the order is polled until the plan is active
+    if (srv.contract) await pp.getByRole('button', { name: 'תשלום מוצלח' }).click();
+    else await pp.getByRole('link', { name: 'חזרה לאתר' }).click();
+    // the fake confirms the order a few polls later ("מאשרים את התשלום…" first); the Worker's test provider settles it
+    // in the payment page's own request, so the page comes back with the plan already active (QA_DURABLE.md)
+    if (!srv.contract) await expect(pp.getByText('מאשרים את התשלום…')).toBeVisible();
+    await expect(pp.getByText('המנוי פעיל', { exact: true })).toBeVisible({ timeout: 15_000 });
+    // the code from the QR waits, filled in, for the parent: a link alone never attaches a device to the plan
+    const linkCard = pp.locator('section', { has: pp.getByRole('heading', { name: 'חיבור המכשיר של הילד' }) });
+    await expect(linkCard.getByLabel('הקוד מהמכשיר של הילד')).toHaveValue(linkCode);
+    await expect(linkCard.getByText('המכשיר שמציג את הקוד הזה יקבל את העוזר החכם דרך המנוי שלכם.')).toBeVisible();
+    expect(log.find((r) => r.path === '/api/family/link/claim')).toBeUndefined();
+    await linkCard.getByLabel('איך לקרוא למכשיר? (לא חובה. בלי שם הילד, למשל: הטאבלט)').fill('הטאבלט הגדול');
+    await linkCard.getByRole('button', { name: 'חיבור המכשיר' }).click();
+    await expect(pp.getByText('קיבלנו את הקוד. המכשיר של הילד יתחבר ברגע שהמסך עם הקוד פתוח בו.')).toBeVisible();
+    await expect(pp.getByText('המנוי פעיל', { exact: true })).toHaveCount(0); // one line at a time: the newer replaced it
+    expect(log.find((r) => r.path === '/api/family/link/claim').body).toEqual({ code: linkCode, label: 'הטאבלט הגדול' });
+    await shot(pp, 'parents-active');
+    // the child's device collects its token by itself, then asks as the family
+    await expect(page.getByText('העוזר החכם פתוח! אפשר לשאול אותו על כל תרגיל.')).toBeVisible({ timeout: 15_000 });
+    await page.getByRole('link', { name: 'לעוזר החכם' }).click();
+    const draft = page.getByLabel('ההודעה שלכם');
+    await draft.fill('שאלה'); await draft.press('Enter');
+    await expect(page.getByText('כדי לחבר מספרים עם סימנים שונים')).toBeVisible();
+    const last = aiCalls(log).at(-1);
+    expect(last.headers['x-family-device']).toMatch(/^fd1\.[a-f0-9]{64}$/);
+    expect(last.headers['x-account-token']).toBeUndefined();
+    const child = await page.evaluate(() => ({ store: JSON.parse(localStorage.getItem('madregot')).state.ai, parent: localStorage.getItem('madregot-parent') || sessionStorage.getItem('madregot-parent') }));
+    expect(child.store.account).toBeUndefined();
+    expect(child.store.familyDevice.token).toMatch(/^fd1\./);
+    expect(child.parent).toBeNull();
+    await phone.close();
+  });
+
+  test('the parent finishes on the child\'s device: it is linked, and the parent is signed out there', async ({ page }) => {
+    const { st, log } = await fakeServer(page, { parentOk: true, plan: livePlan() }, baseOf());
+    await open(page, '#/parents/info', withServer());
+    await page.getByRole('link', { name: 'להמשיך במכשיר הזה (להורים)' }).click();
+    // on the child's device the parent first passes the adult step (trust spec TRUST-8); the year goes nowhere
+    await page.getByLabel('שנת הלידה שלכם').fill('1985');
+    await page.getByRole('button', { name: 'המשך' }).click();
+    await signIn(page);
+    await expect(page.getByRole('heading', { name: /המנוי פעיל/ })).toBeVisible();
+    // a device with a profile keeps the parent's session for this tab only
+    expect(await page.evaluate(() => [!!sessionStorage.getItem('madregot-parent'), !!localStorage.getItem('madregot-parent')])).toEqual([true, false]);
+    await page.getByRole('button', { name: 'להפעיל את העוזר החכם במכשיר הזה' }).click();
+    await expect(page.getByText('המכשיר חובר. כדי שאי אפשר יהיה לשנות את המנוי מהמכשיר הזה, יצאנו מהחשבון שלכם בו.')).toBeVisible();
+    await shot(page, 'same-device-linked');
+    await expect(page.getByLabel('כתובת המייל שלכם')).toBeVisible(); // /parents asks for a code again
+    expect(await page.evaluate(() => [sessionStorage.getItem('madregot-parent'), localStorage.getItem('madregot-parent')])).toEqual([null, null]);
+    expect(st.sessions.size).toBe(0); // the server deleted the session that asked
+    const ai = await page.evaluate(() => JSON.parse(localStorage.getItem('madregot')).state.ai);
+    expect(ai.familyDevice.token).toBe(`fd1.${'e'.repeat(64)}`);
+    expect(log.find((r) => r.path === '/api/family/devices/this').headers['x-device']).toMatch(/^[a-f0-9]{32}$/);
+    await page.getByRole('button', { name: 'חזרה לאפליקציה' }).click();
+    await expect(page.getByText('העוזר החכם פתוח במכשיר הזה דרך המנוי המשפחתי.').or(page.getByLabel('ההודעה שלכם'))).toBeVisible();
+    await page.goto('./#/settings');
+    await expect(page.getByText('העוזר החכם פתוח במכשיר הזה דרך המנוי המשפחתי.')).toBeVisible();
+    await page.locator('#ai-title').scrollIntoViewIfNeeded();
+    await shot(page, 'settings-linked');
+  });
+
+  test('cancelling takes two taps from the plan card, names the end date and the 14-day refund, and can be undone', async ({ page }) => {
+    const { st, log } = await fakeServer(page, { parentOk: true, plan: livePlan() }, baseOf());
+    st.sessions.add(TOKEN(9));
+    await open(page, '#/parents', parentPhone(), { local: { 'madregot-parent': JSON.stringify({ token: TOKEN(9), email: 'parent@example.test' }) } });
+    await expect(page.getByRole('heading', { name: 'המנוי פעיל · החיוב הבא: ₪29.90 ב־10.12.2026' })).toBeVisible();
+    await shot(page, 'plan-card');
+    await page.getByRole('button', { name: 'ביטול המנוי' }).click();
+    const sheet = page.getByRole('dialog', { name: 'לבטל את המנוי?' });
+    await expect(sheet.getByText('העוזר החכם ימשיך לעבוד עד 10.12.2026, ואז יחזור ל־2 שאלות ביום.')).toBeVisible();
+    await expect(sheet.getByRole('radio', { name: /לבטל עכשיו ולקבל החזר מלא של ₪29.90/ })).toBeVisible();
+    await shot(page, 'cancel-sheet');
+    await sheet.getByRole('button', { name: 'כן, לבטל' }).click();
+    await expect(page.getByText('ביטלתם. שלחנו אישור למייל. מספר אישור: C-7F3A.')).toBeVisible();
+    const done = page.locator('.parents-banner');
+    await expect(done).toBeInViewport();
+    await expect(done).toBeFocused();
+    await expect(done.locator('bdi')).toHaveText('C-7F3A');
+    expect(log.find((r) => r.path === '/api/billing/cancel').body).toEqual({ subscriptionId: '5ab0000000000001', mode: 'period_end' });
+    await expect(page.getByRole('heading', { name: 'המנוי בוטל. העוזר החכם פתוח עד 10.12.2026, ולא יהיו חיובים נוספים.' })).toBeVisible();
+    await page.getByRole('button', { name: 'לחדש את המנוי' }).click();
+    await expect(page.getByRole('heading', { name: 'המנוי פעיל · החיוב הבא: ₪29.90 ב־10.12.2026' })).toBeVisible();
+    // devices: one is unlinked by the parent
+    st.devices.push({ id: 'd000000000000009', label: 'הטאבלט', token: `fd1.${'9'.repeat(64)}` });
+    await page.reload();
+    await page.getByRole('button', { name: 'מכשירים מחוברים (1)' }).click();
+    await expect(page.getByText('הטאבלט · חובר ב־05.11.2026 · שימוש אחרון 05.11.2026')).toBeVisible();
+    await page.getByRole('button', { name: 'ניתוק' }).click();
+    // a device alone needs a parent's OK again (trust spec TRUST-9)
+    await expect(page.getByText('העוזר החכם במכשיר "הטאבלט" יחכה שוב לאישור שלכם. אפשר לחבר אותו שוב בכל זמן.')).toBeVisible();
+    await page.getByRole('button', { name: 'כן, לנתק' }).click();
+    await expect(page.getByRole('button', { name: 'מכשירים מחוברים (0)' })).toBeVisible();
+    // deleting the account asks for a fresh code first
+    await page.getByRole('button', { name: 'מחיקת החשבון' }).click();
+    await page.getByRole('dialog', { name: 'למחוק את החשבון?' }).getByRole('button', { name: 'כן, למחוק' }).click();
+    await expect(page.getByText('כדי למחוק, שלחנו קוד חדש למייל.')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'אישור ומחיקה' })).toBeVisible();
+    await expect(page.getByText('צריך אותו רק כדי להצטרף')).toHaveCount(0);
+    await shot(page, 'delete-step-up');
+    await page.getByLabel('הקוד מהמייל').fill('123456');
+    await expect(page.getByLabel('כתובת המייל שלכם')).toBeVisible();
+    expect(st.deleted).toBe(true);
+  });
+
+  test('the front page\'s cancel link → /cancel → a code → cancel', async ({ page }) => {
+    const { st } = await fakeServer(page, { parentOk: true, plan: livePlan({ canRefundNow: false }) }, baseOf());
+    await open(page, '#/', parentPhone());
+    await expect(page.getByRole('navigation', { name: 'להורים ומידע משפטי' })).toBeVisible();
+    await shot(page, 'welcome-footer');
+    await page.getByRole('link', { name: 'ביטול מנוי' }).click();
+    await expect(page.getByRole('heading', { name: 'ביטול מנוי' })).toBeVisible();
+    await expect(page.getByText('אפשר לבטל גם במייל אל')).toBeVisible();
+    await shot(page, 'cancel-signed-out');
+    await signIn(page);
+    const sheet = page.getByRole('dialog', { name: 'לבטל את המנוי?' });
+    await expect(sheet).toBeVisible(); // it opens by itself after sign-in
+    await sheet.getByRole('button', { name: 'כן, לבטל' }).click();
+    await expect(page.getByText('מספר אישור: C-7F3A.')).toBeVisible();
+    expect(st.plan.status).toBe('canceled');
+    // the plain address works too (a link in an email)
+    await page.goto(`${baseOf()}cancel`);
+    await expect(page).toHaveURL(/#\/cancel$/);
+    await expect(page.getByRole('heading', { name: 'מדרגות · להורים' })).toBeVisible();
+  });
+
+  test('past_due, economy and an ended plan on the parents page', async ({ page }) => {
+    const { st } = await fakeServer(page, { parentOk: true, plan: livePlan({ status: 'past_due', portal: true, accessUntil: '2026-12-13T10:00:00Z' }) }, baseOf());
+    st.sessions.add(TOKEN(8));
+    await open(page, '#/parents', parentPhone(), { local: { 'madregot-parent': JSON.stringify({ token: TOKEN(8), email: 'parent@example.test' }) } });
+    await expect(page.getByRole('heading', { name: 'התשלום האחרון לא עבר' })).toBeVisible();
+    await expect(page.getByText('חברת הסליקה תנסה שוב בימים הקרובים, והעוזר החכם ממשיך לעבוד עד 13.12.2026.')).toBeVisible();
+    await expect(page.getByText('החיוב הבא')).toHaveCount(0);
+    await shot(page, 'past-due');
+    await expect(page.getByRole('button', { name: 'עדכון אמצעי תשלום' })).toBeVisible();
+    // a provider with no page for the card: the row says who updates it, and how to reach us
+    st.plan = livePlan({ status: 'past_due', portal: false, periodEnd: '2026-11-04T10:00:00Z', accessUntil: '2026-11-07T10:00:00Z' });
+    await page.reload();
+    await page.getByRole('button', { name: 'עדכון אמצעי תשלום' }).click();
+    await expect(page.getByText('עדכון אמצעי תשלום נעשה מול חברת הסליקה. כתבו לנו אל hello@example.test ונעזור.')).toBeVisible();
+    // its period is over: cancelling ends it now, and the sheet says so
+    await page.getByRole('button', { name: 'ביטול המנוי' }).click();
+    await expect(page.getByRole('dialog', { name: 'לבטל את המנוי?' }).getByText('התשלום האחרון לא עבר, אז העוזר החכם יחזור עכשיו ל־2 שאלות ביום.')).toBeVisible();
+    await page.keyboard.press('Escape');
+    st.plan = livePlan({ economy: true });
+    await page.reload();
+    await expect(page.getByText('החודש השימוש גבוה במיוחד, אז עד ה־1 בחודש העוזר עונה בשיחה בגרסה קצרה')).toBeVisible();
+    st.plan = null;
+    await page.reload();
+    await expect(page.getByRole('heading', { name: 'אין מנוי פעיל' })).toBeVisible();
+    await expect(page.getByRole('radio', { name: /שנתי/ })).toContainText('₪249 לשנה, כולל מע״מ (₪20.75 לחודש)');
+    // the disclosure, before payment
+    await expect(page.getByLabel('פרטי העסק')).toContainText('מדרגות בדיקה');
+    await expect(page.getByLabel('פרטי העסק').getByRole('link', { name: 'מדיניות הביטול' })).toHaveAttribute('href', '#/terms#cancel');
+    await expect(page.getByRole('contentinfo', { name: 'ביטול מנוי ומידע משפטי' })).toContainText('רחוב הבדיקה 1');
+    await expect(page.getByRole('contentinfo', { name: 'ביטול מנוי ומידע משפטי' }).getByRole('link', { name: 'בטיחות' })).toHaveAttribute('href', '#/safety');
+  });
+
+  test('before paying: the monthly plan renews each month until cancelled; the yearly plan is one year and never renews by itself', async ({ page }) => {
+    const { st, log } = await fakeServer(page, { parentOk: true }, baseOf());
+    st.sessions.add(TOKEN(9));
+    await open(page, '#/parents', parentPhone(), { local: { 'madregot-parent': JSON.stringify({ token: TOKEN(9), email: 'parent@example.test' }) } });
+    await expect(page.getByRole('heading', { name: 'אין מנוי פעיל' })).toBeVisible();
+    // the monthly plan (s.13ד): when it renews, for how much, until when, and how to stop it, next to the button
+    await expect(page.getByText('סה״כ לתשלום היום: ₪29.90 (כולל מע״מ 18%). החיוב הבא: 05.12.2026.')).toBeVisible();
+    await expect(page.getByText('המנוי מתחדש אוטומטית בכל חודש, ב־5 לחודש, ב־₪29.90 כולל מע״מ, עד שמבטלים. מבטלים בכל רגע באתר, במייל או בטלפון, בלי קנס.')).toBeVisible();
+    await expect(page.getByRole('radio', { name: /חודשי/ })).toContainText('מתחדש כל חודש');
+    await shot(page, 'checkout-month');
+    // the yearly plan (s.13א): one year, no further charge, the email before the end
+    await expect(page.getByRole('radio', { name: /שנתי/ })).toContainText('₪249 לשנה, כולל מע״מ (₪20.75 לחודש) · לשנה אחת, לא מתחדש מעצמו');
+    await page.getByRole('radio', { name: /שנתי/ }).click();
+    await expect(page.getByText('המנוי לשנה אחת, עד 05.11.2027. הוא לא מתחדש מעצמו ולא נחייב אתכם שוב. 45 ימים לפני הסוף נשלח מייל, ואם תרצו, תחדשו בלחיצה.')).toBeVisible();
+    await expect(page.getByText('סה״כ לתשלום היום: ₪249 (כולל מע״מ 18%).', { exact: true })).toBeVisible();
+    await expect(page.getByText(/החיוב הבא|מתחדש אוטומטית/)).toHaveCount(0);
+    await shot(page, 'checkout-year');
+    await page.getByLabel('אני מעל גיל 18, ואני ההורה או האפוטרופוס של הילד/ה').check();
+    await page.getByLabel('קראתי את התקנון ואת מדיניות הביטול').check();
+    await page.getByRole('button', { name: 'למעבר לתשלום מאובטח' }).click();
+    await page.waitForURL(`${PAY}/**`);
+    expect(log.find((r) => r.path === '/api/billing/checkout').body).toMatchObject({ plan: 'family_year', adult: true, terms: '2026-11' });
+  });
+
+  test('with only the one-year plan sold online (Grow before it may stop a standing order), /parents offers and prices it alone, never "write to us"', async ({ page }) => {
+    const { st, log } = await fakeServer(page, { parentOk: true, planOnline: { family_month: false, exam_pass: false } }, baseOf());
+    // a parent who has not signed in: what the plan is, the yearly price alone, how a one-year plan is cancelled
+    await open(page, '#/parents', parentPhone());
+    await expect(page.getByRole('heading', { name: 'המנוי המשפחתי: מה מקבלים ההורים' })).toBeVisible();
+    await expect(page.locator('.parents-price')).toHaveText('₪249 לשנה, כולל מע״מלשנה אחת, לא מתחדש מעצמו');
+    await expect(page.getByText('אפשר לבטל כאן באתר בשתי לחיצות. ב־14 הימים הראשונים מקבלים את כל הכסף בחזרה, ואחר כך החזר יחסי על הימים שנשארו.')).toBeVisible();
+    await expect(page.locator('body')).not.toContainText('₪29.90');
+    await expect(page.locator('body')).not.toContainText('לחודש,');
+    await expect(page.getByText('בלי התחייבות. מבטלים כאן באתר בשתי לחיצות.', { exact: false })).toHaveCount(0);
+    await shot(page, 'parents-year-only-info');
+    // signed in: the yearly plan, chosen, with its line; no monthly plan and no "write to us"
+    st.sessions.add(TOKEN(9));
+    await open(page, '#/parents', parentPhone(), { local: { 'madregot-parent': JSON.stringify({ token: TOKEN(9), email: 'parent@example.test' }) } });
+    await expect(page.getByRole('heading', { name: 'אין מנוי פעיל' })).toBeVisible();
+    await expect(page.getByText(/ההצטרפות באתר עוד לא פתוחה/)).toHaveCount(0);
+    const plans = page.getByRole('radiogroup', { name: 'מסלול' });
+    await expect(plans.getByRole('radio')).toHaveCount(1);
+    await expect(plans.getByRole('radio', { name: /שנתי/ })).toHaveAttribute('aria-checked', 'true');
+    await expect(plans.getByRole('radio', { name: /שנתי/ })).toContainText('₪249 לשנה, כולל מע״מ (₪20.75 לחודש) · לשנה אחת, לא מתחדש מעצמו');
+    await expect(page.getByText('סה״כ לתשלום היום: ₪249 (כולל מע״מ 18%).', { exact: true })).toBeVisible();
+    await expect(page.getByText('המנוי לשנה אחת, עד 05.11.2027. הוא לא מתחדש מעצמו ולא נחייב אתכם שוב. 45 ימים לפני הסוף נשלח מייל, ואם תרצו, תחדשו בלחיצה.')).toBeVisible();
+    await expect(page.getByText(/החיוב הבא|מתחדש אוטומטית/)).toHaveCount(0);
+    for (const b of await page.getByRole('radio').all()) expect((await b.boundingBox()).height).toBeGreaterThanOrEqual(44);
+    await shot(page, 'parents-year-only-checkout');
+    await page.getByLabel('אני מעל גיל 18, ואני ההורה או האפוטרופוס של הילד/ה').check();
+    await page.getByLabel('קראתי את התקנון ואת מדיניות הביטול').check();
+    await page.getByRole('button', { name: 'למעבר לתשלום מאובטח' }).click();
+    await page.waitForURL(`${PAY}/**`);
+    expect(log.find((r) => r.path === '/api/billing/checkout').body).toMatchObject({ plan: 'family_year', adult: true, terms: '2026-11' });
+  });
+
+  test('the exam pass (COUNCIL2-33): Grow at launch sells the year and the pass; the pass is 30 days, one charge, never renewed, and cancelled for its whole price', async ({ page }) => {
+    const { st, log } = await fakeServer(page, { parentOk: true, planOnline: { family_month: false } }, baseOf());
+    // signed out: the yearly price, then the pass with its days, and how a plan paid once is cancelled
+    await open(page, '#/parents', parentPhone());
+    await expect(page.locator('.parents-price')).toHaveText('₪249 לשנה, כולל מע״מלשנה אחת, לא מתחדש מעצמו');
+    await expect(page.locator('.parents-pass-price')).toHaveText('או חבילת מבחן: ₪39 ל־30 יום, כולל מע״מתשלום אחד, לא מתחדשת מעצמה');
+    await expect(page.getByText('אפשר לבטל כאן באתר בשתי לחיצות. ב־14 הימים הראשונים מקבלים את כל הכסף בחזרה, ואחר כך החזר יחסי על הימים שנשארו.')).toBeVisible();
+    await expect(page.locator('body')).not.toContainText('לחודש,');
+    await shot(page, 'parents-pass-info');
+    // signed in: two plans paid once; the pass, picked, with its line before the button
+    st.sessions.add(TOKEN(9));
+    await open(page, '#/parents', parentPhone(), { local: { 'madregot-parent': JSON.stringify({ token: TOKEN(9), email: 'parent@example.test' }) } });
+    const plans = page.getByRole('radiogroup', { name: 'מסלול' });
+    await expect(plans.getByRole('radio')).toHaveCount(2);
+    const pass = plans.getByRole('radio', { name: /חבילת מבחן/ });
+    await expect(pass).toContainText('₪39 ל־30 יום, כולל מע״מ · תשלום אחד, לא מתחדשת מעצמה');
+    await pass.click();
+    await expect(pass).toHaveAttribute('aria-checked', 'true');
+    await expect(page.getByText('סה״כ לתשלום היום: ₪39 (כולל מע״מ 18%).', { exact: true })).toBeVisible();
+    // NOW is 5.11.2026 10:00 (helpers.js): 30 days later
+    await expect(page.getByText('החבילה ל־30 יום, עד 05.12.2026. היא לא מתחדשת מעצמה ולא נחייב אתכם שוב. ב־14 הימים הראשונים אפשר לבטל ולקבל את כל הכסף בחזרה.')).toBeVisible();
+    await expect(page.getByText(/החיוב הבא|מתחדש אוטומטית/)).toHaveCount(0);
+    for (const b of await page.getByRole('radio').all()) expect((await b.boundingBox()).height).toBeGreaterThanOrEqual(44);
+    await shot(page, 'parents-pass-checkout');
+    await page.getByLabel('אני מעל גיל 18, ואני ההורה או האפוטרופוס של הילד/ה').check();
+    await page.getByLabel('קראתי את התקנון ואת מדיניות הביטול').check();
+    await page.getByRole('button', { name: 'למעבר לתשלום מאובטח' }).click();
+    await page.waitForURL(`${PAY}/**`);
+    const order = log.find((r) => r.path === '/api/billing/checkout');
+    expect(order.body).toMatchObject({ plan: 'exam_pass', adult: true, terms: '2026-11' });
+    expect(order.body.amountAgorot).toBeUndefined();
+    // paid: back on the page, the order is polled until the pass is active
+    await page.getByRole('link', { name: 'חזרה לאתר' }).click();
+    await expect(page.getByText('חבילת המבחן פעילה', { exact: true })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole('heading', { name: 'חבילת מבחן פעילה עד 05.12.2026' })).toBeVisible();
+    await expect(page.getByText('היא לא מתחדשת מעצמה, ולא נחייב אתכם שוב.')).toBeVisible();
+    await expect(page.getByText(/החיוב הבא/)).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'אין מנוי פעיל' })).toHaveCount(0);
+    await shot(page, 'parents-pass-active');
+    // cancelling in its 14 days: no "end of period" (nothing renews), the whole price back, at once
+    await page.getByRole('button', { name: 'ביטול החבילה' }).click();
+    const sheet = page.getByRole('dialog', { name: 'לבטל את חבילת המבחן?' });
+    await expect(sheet).toBeVisible();
+    await expect(sheet).toContainText('החבילה לא מתחדשת מעצמה, אז אין חיובים נוספים.');
+    await expect(sheet).toContainText('לבטל עכשיו ולקבל החזר מלא של ₪39 (העוזר החכם ייסגר מיד)');
+    await expect(sheet.getByText(/בסוף התקופה/)).toHaveCount(0);
+    await shot(page, 'parents-pass-cancel');
+    await sheet.getByRole('button', { name: 'כן, לבטל' }).click();
+    expect(log.filter((r) => r.path === '/api/billing/cancel').at(-1).body).toMatchObject({ mode: 'refund_now' });
+    await expect(page.getByRole('status').filter({ hasText: 'ביטלתם.' })).toContainText('ההחזר יגיע לאמצעי התשלום תוך 14 ימים לכל היותר.');
+  });
+
+  test('the end-date email\'s link (?renew=year): a one-year plan in its last 45 days renews here, a new consent; earlier, the page says from when', async ({ page }) => {
+    const year = { plan: 'family_year', priceAgorot: 24900, renews: false, canRefundNow: false, canResume: false };
+    const { st, log } = await fakeServer(page, { parentOk: true, plan: livePlan({ ...year, periodEnd: '2026-11-25T10:00:00Z', canRenew: true, renewFrom: '2026-10-11T10:00:00Z' }) }, baseOf());
+    st.sessions.add(TOKEN(10));
+    const session = { 'madregot-parent': JSON.stringify({ token: TOKEN(10), email: 'parent@example.test' }) };
+    await open(page, '#/parents?renew=year', parentPhone(), { local: session });
+    // the plan card: an end, no next charge
+    await expect(page.getByRole('heading', { name: 'המנוי לשנה פעיל עד 25.11.2026' })).toBeVisible();
+    await expect(page.getByText('הוא לא מתחדש מעצמו, ולא נחייב אתכם שוב בלי שתבקשו.')).toBeVisible();
+    await expect(page.getByText(/החיוב הבא/)).toHaveCount(0);
+    const card = page.locator('section', { has: page.getByRole('heading', { name: 'המנוי לשנה מסתיים ב־25.11.2026' }) });
+    await expect(card).toContainText('שנה נוספת: ₪249 (כולל מע״מ 18%), מ־25.11.2026 עד 25.11.2027.');
+    await expect(card).toContainText('ב־14 הימים אחרי התשלום אפשר לבטל אותה ולקבל החזר מלא, והמנוי הנוכחי ממשיך עד 25.11.2026.');
+    await expect(card).toContainText('אחרי 25.11.2026 אפשר להצטרף גם למנוי חודשי.');
+    await expect(card.getByLabel('פרטי העסק')).toContainText('מדרגות בדיקה');
+    await card.scrollIntoViewIfNeeded();
+    await shot(page, 'renew-year');
+    // a renewal is a new consent: the two boxes again
+    const renew = card.getByRole('button', { name: 'חידוש לשנה נוספת (₪249, כולל מע״מ)' });
+    await renew.click();
+    await expect(card.getByRole('alert')).toContainText('מעל גיל 18');
+    await card.getByLabel('אני מעל גיל 18, ואני ההורה או האפוטרופוס של הילד/ה').check();
+    await card.getByLabel('קראתי את התקנון ואת מדיניות הביטול').check();
+    await renew.click();
+    await page.waitForURL(`${PAY}/**`);
+    expect(log.find((r) => r.path === '/api/billing/checkout').body).toMatchObject({ plan: 'family_year', adult: true, terms: '2026-11' });
+    // the link opened too early: never a dead end, the page says from when
+    st.plan = livePlan({ ...year, periodEnd: '2027-06-01T10:00:00Z', canRenew: false, renewFrom: '2027-04-17T10:00:00Z' });
+    await open(page, '#/parents?renew=year', parentPhone(), { local: session });
+    await expect(page.getByRole('heading', { name: 'חידוש לשנה נוספת' })).toBeVisible();
+    await expect(page.getByText('אפשר לחדש את המנוי לשנה נוספת מ־17.04.2027. נשלח לכם מייל לפני כן.')).toBeVisible();
+    await expect(page.getByRole('button', { name: /חידוש לשנה נוספת \(/ })).toHaveCount(0);
+    // a renewal in its 14 days: cancelling it keeps the year that was paid before
+    st.plan = livePlan({ ...year, periodEnd: '2027-11-25T10:00:00Z', canRenew: false, canRefundNow: true, renewalUndoEnd: '2026-11-25T10:00:00Z' });
+    await open(page, '#/parents', parentPhone(), { local: session });
+    await page.getByRole('button', { name: 'ביטול המנוי' }).click();
+    await expect(page.getByRole('radio', { name: 'לבטל את החידוש ולקבל החזר מלא של ₪249 (המנוי ממשיך עד 25.11.2026)' })).toBeVisible();
+    await shot(page, 'renew-undo');
+  });
+
+  test('a teacher: the licence card, a request with code sign-in, a licence code, the join lock and removing a student', async ({ page }) => {
+    // a private group with the parents' consent (TRUST-11): a licence may be sold to it; the card is in the class settings
+    const { st, log } = await fakeServer(page, { parentOk: true, ai: PRIVATE_GROUP }, baseOf());
+    await open(page, '#/teacher/settings', teacher());
+    const card = page.locator('#t-licence');
+    await expect(card.getByRole('heading', { name: 'העוזר החכם בכיתה' })).toBeVisible();
+    await expect(card.getByText('בלי רישיון, כל תלמיד יכול לשאול את העוזר החכם 2 שאלות ביום.')).toBeVisible();
+    await shot(page, 'licence-card');
+    await card.getByRole('button', { name: 'הצעת מחיר לבית הספר' }).click();
+    const sheet = page.getByRole('dialog', { name: 'הצעת מחיר לבית הספר' });
+    // the staff-room computer: the sign-in lasts for this tab only
+    await sheet.getByRole('checkbox', { name: /מחשב משותף/ }).check();
+    await shot(page, 'licence-signin-shared');
+    await signIn(sheet);
+    await sheet.getByLabel('שם בית הספר').fill('חטיבת הביניים <הדר>');
+    await expect.poll(() => page.evaluate(() => [!!sessionStorage.getItem('madregot-parent'), localStorage.getItem('madregot-parent')])).toEqual([true, null]);
+    await sheet.getByLabel('כמה תלמידים בכיתה').fill('32');
+    await shot(page, 'licence-request');
+    await sheet.getByRole('button', { name: 'שליחה' }).click();
+    await expect(sheet.getByText('קיבלנו. נשלח הצעת מחיר וחשבונית למייל תוך יום עבודה.')).toBeVisible();
+    expect(st.request).toMatchObject({ wants: 'quote', school: 'חטיבת הביניים <הדר>', classes: 1, students: 32 });
+    expect(log.find((r) => r.path === '/api/teacher/licence/request').headers['x-account-token']).toBeTruthy();
+    await sheet.getByRole('button', { name: 'סגירה', exact: true }).first().click();
+    await expect(card.getByText('ביקשתם הצעת מחיר ב־05.11.2026. נחזור אליכם במייל.')).toBeVisible();
+    // a school's licence code
+    await card.getByRole('button', { name: 'יש לי קוד רישיון מבית הספר' }).click();
+    await card.getByLabel('קוד רישיון מבית הספר').fill('abcdefghjk23');
+    await expect(card.getByLabel('קוד רישיון מבית הספר')).toHaveValue('ABCD-EFGH-JK23');
+    await card.getByRole('button', { name: 'הפעלה' }).click();
+    await expect(card.getByRole('heading', { name: 'רישיון כיתה פעיל עד 31.08.2027' })).toBeVisible();
+    await expect(card.getByText('35 מקומות · 2 תלמידים בכיתה')).toBeVisible();
+    // the students tab: the join lock and removing a student
+    await page.getByRole('button', { name: 'חזרה ללוח' }).click();
+    await page.getByRole('tab', { name: 'תלמידים' }).click();
+    await page.getByRole('switch', { name: 'נעילת הכיתה לתלמידים חדשים' }).click();
+    await expect(page.getByText('הכיתה נעולה לתלמידים חדשים.')).toBeVisible();
+    await expect(page.getByRole('switch', { name: 'נעילת הכיתה לתלמידים חדשים' })).toBeChecked();
+    expect(st.joinLocked).toBe(true);
+    await shot(page, 'teacher-students');
+    // removing a student is on the student's page (TEACHER-8): the row's "פרטים", then "הסרה מהכיתה"
+    await page.getByRole('row', { name: /יואב/ }).getByRole('button', { name: 'פרטים על יואב' }).click();
+    await page.getByRole('dialog', { name: 'יואב' }).getByRole('button', { name: 'הסרה מהכיתה' }).click();
+    const rm = page.getByRole('dialog', { name: 'להסיר את יואב מהכיתה?' });
+    await expect(rm.getByText('כדי שלא תהיה הצטרפות מחדש באותו שם, נעלו את הכיתה.')).toBeVisible();
+    await rm.getByRole('button', { name: 'כן, להסיר' }).click();
+    await expect(page.getByRole('row', { name: /יואב/ })).toHaveCount(0);
+    expect(st.students.map((s) => s.name)).toEqual(['דנה']);
+  });
+
+  test('a copy without a server: the parents pages say so, nothing is requested, nothing is offered', async ({ page }) => {
+    const calls = [];
+    page.on('request', (r) => { if (/\/api\//.test(r.url())) calls.push(r.url()); });
+    await open(page, '#/parents', student());
+    // what the family plan includes, in the parents' page's words, and that nothing can be bought here (PRODUCT2-33)
+    const card = page.locator('.parents-nosrv');
+    await expect(card.getByRole('heading', { level: 2, name: 'מה כולל המנוי המשפחתי' })).toBeVisible();
+    await expect(card.getByRole('listitem')).toHaveText([
+      'סיכום התרגול מגיע לבד מהמכשיר של הילד בכל יום שבו מתרגלים, כל עוד השיתוף פועל אצל הילד. אפשר לראות את 8 השבועות האחרונים.',
+      'סיכום שבועי במייל בכל יום ראשון, אם תבחרו.',
+      'לפני מבחן: כמה מהמדרגות של המבחן כבר בשליטה, בעמוד ההורים ובמייל של יום ראשון.',
+      'עוזר שמסביר לילד את הטעות בתרגיל שעל המסך ובודק דף פתרון מצולם.',
+    ]);
+    await expect(card.getByText('בגרסה הזו אין שרת, ולכן אי אפשר לקנות כאן מנוי. כל השיעורים והתרגול חינם, ועובדים כרגיל.')).toBeVisible();
+    expect(await page.locator('main').innerText()).not.toMatch(/₪|לחודש|לשנה/);
+    await expect(page.getByRole('button', { name: /הצטרפות|לתשלום|מנוי/ })).toHaveCount(0);
+    await expectNoSidewaysScroll(page);
+    await shot(page, 'parents-nosrv');
+    await page.goto('./#/parents/info');
+    await expect(page.getByText('בגרסה הזו אין שרת, ולכן אי אפשר לקנות כאן מנוי.', { exact: false })).toBeVisible();
+    expect(await page.locator('main').innerText()).not.toMatch(/₪|לחודש|לשנה/);
+    await shot(page, 'parents-info-nosrv');
+    await page.goto('./#/cancel');
+    await expect(page.getByText('בגרסה הזו אין שרת, ולכן אי אפשר לקנות כאן מנוי.', { exact: false })).toBeVisible();
+    await page.goto('./#/settings');
+    await expect(page.getByText('בגרסה הזו העוזר החכם לא מחובר.')).toBeVisible();
+    await expect(page.getByRole('link', { name: 'חיבור למנוי משפחתי' })).toHaveCount(0);
+    await page.goto('./#/assistant');
+    await expect(page.getByRole('heading', { name: 'מדי מסביר בכל שיעור' })).toBeVisible();
+    await open(page, '#/');
+    await expect(page.getByRole('navigation', { name: 'להורים ומידע משפטי' })).toHaveCount(0);
+    await page.goto('./#/terms');
+    await expect(page.getByRole('heading', { level: 1, name: 'תקנון' })).toBeVisible();
+    await shot(page, 'legal-terms');
+    expect(calls).toEqual([]);
+  });
+
+  test('QA hooks render the tutor and parents states with no request', async ({ page }) => {
+    const calls = [];
+    page.on('request', (r) => { if (/\/api\//.test(r.url())) calls.push(r.url()); });
+    await open(page, '#/assistant?qa-ai=free1', student());
+    await expect(page.getByText('היום אפשר לשאול את העוזר החכם עוד שאלה אחת.')).toBeVisible();
+    await open(page, '#/parents?qa-parent=refund-window', student());
+    await expect(page.getByRole('heading', { name: 'המנוי פעיל · החיוב הבא: ₪29.90 ב־10.12.2026' })).toBeVisible();
+    await page.getByRole('button', { name: 'ביטול המנוי' }).click();
+    await expect(page.getByRole('radio', { name: /החזר מלא/ })).toBeVisible();
+    await open(page, '#/parents?qa-parent=plans', student());
+    await expect(page.getByRole('heading', { name: 'אין מנוי פעיל' })).toBeVisible();
+    expect(calls).toEqual([]);
+  });
+  test('a payment that did not go through hands the page back: a calm line and the pay button again', async ({ page }) => {
+    const { st, log } = await fakeServer(page, { parentOk: true, failPayment: true }, baseOf());
+    await open(page, '#/parents', parentPhone());
+    await signIn(page);
+    await page.getByLabel('אני מעל גיל 18, ואני ההורה או האפוטרופוס של הילד/ה').check();
+    await page.getByLabel('קראתי את התקנון ואת מדיניות הביטול').check();
+    await page.getByRole('button', { name: 'למעבר לתשלום מאובטח' }).click();
+    await page.waitForURL(`${PAY}/**`);
+    await page.getByRole('link', { name: 'חזרה לאתר' }).click();
+    await expect(page.getByText('התשלום לא הושלם. אפשר לנסות שוב.')).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole('button', { name: 'למעבר לתשלום מאובטח' })).toBeVisible();
+    expect(new URL(page.url()).hash).not.toContain('order=');
+    // a new attempt opens a new order
+    st.failPayment = false;
+    await page.getByLabel('אני מעל גיל 18, ואני ההורה או האפוטרופוס של הילד/ה').check();
+    await page.getByLabel('קראתי את התקנון ואת מדיניות הביטול').check();
+    await page.getByRole('button', { name: 'למעבר לתשלום מאובטח' }).click();
+    await page.waitForURL(`${PAY}/**`);
+    const keys = log.filter((r) => r.path === '/api/billing/checkout').map((r) => r.headers['idempotency-key']);
+    expect(new Set(keys).size).toBe(2);
+  });
+
+  test('a class licence bought by card shows on the parents page with its receipts, and can be cancelled with a refund', async ({ page }) => {
+    const lic = {
+      classCode: 'K7Q2MD', status: 'active', until: '2027-11-05T10:00:00Z',
+      plan: { id: 'c1a0000000000001', kind: 'class', plan: 'class_year', status: 'active', priceAgorot: 58800, periodEnd: '2027-11-05T10:00:00Z', accessUntil: '2027-11-05T10:00:00Z', seats: 12, classCode: 'K7Q2MD', canRefundNow: true, canProrata: false, prorataAgorot: null },
+    };
+    const { st, log } = await fakeServer(page, { parentOk: true, classes: [lic], classPayments: [{ id: 'p000000000000009', subscriptionId: 'c1a0000000000001', planKind: 'class', at: '2026-11-05T09:00:00Z', amountAgorot: 58800, kind: 'charge', hasInvoice: true }] }, baseOf());
+    st.sessions.add(TOKEN(7));
+    await open(page, '#/parents', teacher(), { local: { 'madregot-parent': JSON.stringify({ token: TOKEN(7), email: 'teacher@example.test' }) } });
+    // a teacher's device keeps the teacher's session (it is what opens a class bound to the email): no new code
+    const card = page.locator('section', { has: page.getByRole('heading', { name: /רישיון הכיתה K7Q2MD פעיל עד 05\.11\.2027/ }) });
+    await expect(card).toBeVisible();
+    await expect(card.getByText('12 מקומות')).toBeVisible();
+    await card.getByRole('button', { name: 'קבלות וחשבוניות' }).click();
+    await expect(card.getByText('05.11.2026 · ₪588 · חיוב')).toBeVisible();
+    await card.getByRole('button', { name: 'ביטול הרישיון' }).click();
+    const sheet = page.getByRole('dialog', { name: 'לבטל את רישיון הכיתה?' });
+    await expect(sheet.getByRole('radio', { name: /החזר מלא של ₪588/ })).toBeVisible();
+    await sheet.getByRole('button', { name: 'כן, לבטל' }).click();
+    await expect(page.getByText('ביטלתם את רישיון הכיתה. שלחנו אישור למייל. מספר אישור: C-1B00.')).toBeVisible();
+    expect(log.find((r) => r.path === '/api/billing/cancel').body).toEqual({ subscriptionId: 'c1a0000000000001', mode: 'refund_now' });
+    await expect(page.getByRole('heading', { name: /רישיון הכיתה K7Q2MD/ })).toHaveCount(0);
+  });
+
+  test('a class bound to the teacher\'s email opens with the session, with no key on this device; leaving the board ends the session', async ({ page }) => {
+    const { st, log } = await fakeServer(page, { owned: true }, baseOf());
+    st.sessions.add(TOKEN(5));
+    const profile = { role: 'teacher', name: 'רונית', grade: '7', classes: [{ code: 'K7Q2MD', key: null, className: 'ז׳3', grade: '7', owned: true }], active: 'K7Q2MD' };
+    await open(page, '#/teacher', withServer({ profile }), { local: { 'madregot-parent': JSON.stringify({ token: TOKEN(5), email: 'teacher@example.test', shared: false }) } });
+    await expect(page.getByText('תרגלו היום')).toBeVisible();
+    await shot(page, 'teacher-board-by-email');
+    const teacherCalls = log.filter((r) => r.path.startsWith('/api/teacher/') || r.path === '/api/ai/status');
+    expect(teacherCalls.length).toBeGreaterThan(1);
+    for (const r of teacherCalls) {
+      expect(r.headers['x-class-code']).toBe('K7Q2MD');
+      expect(r.headers['x-account-token']).toBe(TOKEN(5));
+      expect(r.headers['x-teacher-key']).toBeUndefined();
+    }
+    // the session survives a reload
+    await page.reload();
+    await expect(page.getByText('תרגלו היום')).toBeVisible();
+    // the account page: deleting the account would leave the class in place
+    await page.goto('./#/parents');
+    await page.getByRole('button', { name: 'מחיקת החשבון' }).click();
+    await expect(page.getByRole('dialog', { name: 'למחוק את החשבון?' }).getByText('הכיתות שלכם לא נמחקות עם החשבון, והן ימשיכו להיפתח עם מפתח המורה. כדי למחוק כיתה: לוח המורה › הגדרות הכיתה › מחיקת הכיתה.')).toBeVisible();
+    await shot(page, 'account-delete-owned-classes');
+    await page.getByRole('button', { name: 'לא למחוק' }).click();
+    await page.goto('./#/teacher');
+    await page.getByRole('button', { name: 'יציאה מהלוח' }).click();
+    await page.getByRole('dialog', { name: 'לצאת מהלוח?' }).getByRole('button', { name: 'כן, לצאת' }).click();
+    await expect.poll(() => log.filter((r) => r.path === '/api/account/signout').map((r) => r.headers['x-account-token'])).toEqual([TOKEN(5)]);
+    expect(st.sessions.has(TOKEN(5))).toBe(false);
+    await expect.poll(() => page.evaluate(() => [localStorage.getItem('madregot-parent'), sessionStorage.getItem('madregot-parent')])).toEqual([null, null]);
+  });
+
+  test('the licence card: an ending licence offers only the renewal quote; a trial takes a school licence code', async ({ page }) => {
+    const { st } = await fakeServer(page, { parentOk: true, ai: PRIVATE_GROUP }, baseOf());
+    st.licence = { ...st.licence, status: 'ending', until: '2026-11-20T10:00:00Z', seats: 30 };
+    // "מחר" keeps one line while the licence ends; it opens the class settings at the card (TEACHER-9 §1.4)
+    await open(page, '#/teacher', teacher());
+    await page.getByRole('link', { name: /רישיון הכיתה מסתיים ב־20\.11\.2026\. לחידוש/ }).click();
+    await expect(page).toHaveURL(/#\/teacher\/settings$/);
+    const card = page.locator('#t-licence');
+    await expect(card.getByRole('heading', { name: 'הרישיון מסתיים ב־20.11.2026' })).toBeVisible();
+    await expect(card.getByRole('button', { name: 'לחידוש: הצעת מחיר' })).toBeVisible();
+    for (const name of ['ניסיון של שבועיים לכיתה', 'רכישה בכרטיס אשראי', 'יש לי קוד רישיון מבית הספר']) await expect(card.getByRole('button', { name })).toHaveCount(0);
+    st.licence = { ...st.licence, status: 'trial', until: '2026-11-19T10:00:00Z', seats: 30 };
+    await page.reload();
+    await expect(card.getByRole('heading', { name: 'ניסיון פעיל עד 19.11.2026' })).toBeVisible();
+    await card.getByRole('button', { name: 'יש לי קוד רישיון מבית הספר' }).click();
+    await card.getByLabel('קוד רישיון מבית הספר').fill('abcdefghjk23');
+    await card.getByRole('button', { name: 'הפעלה' }).click();
+    await expect(card.getByRole('heading', { name: 'רישיון כיתה פעיל עד 31.08.2027' })).toBeVisible();
+  });
+
+  test('with the switch off, the front page offers no parents\' or cancel link (there is nothing to join or cancel)', async ({ page }) => {
+    await fakeServer(page, { parentOk: true, paywall: false }, baseOf());
+    await open(page, '#/', parentPhone());
+    const nav = page.getByRole('navigation', { name: 'מידע משפטי' });
+    for (const name of ['פרטיות', 'נגישות', 'בטיחות']) await expect(nav.getByRole('link', { name })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'תקנון' })).toHaveCount(0);
+    await expect(page.getByRole('link', { name: 'ביטול מנוי' })).toHaveCount(0);
+    await expect(page.getByRole('link', { name: 'להורים' })).toHaveCount(0);
+  });
+
+  test('with the switch off and its day in dollars spent (COUNCIL2-19): a class student gets the calm resting sheet with no price, and the assistant rests without asking again', async ({ page }) => {
+    const { st, log } = await fakeServer(page, { parentOk: true, paywall: false, ai: { ...PRIVATE_GROUP, studentAi: 'on' } }, baseOf());
+    await open(page, '#/assistant', classStudent());
+    st.breakNext = { status: 503, body: { error: 'free_paused', resetsAt: '2026-11-06T00:00:00+02:00' } };
+    const draft = page.getByLabel('ההודעה שלכם');
+    await draft.fill('שאלה'); await draft.press('Enter');
+    const rest = page.getByRole('dialog', { name: 'העוזר החכם נח היום' });
+    await expect(rest).toBeVisible();
+    await expect(rest.getByText('ומחר הוא חוזר')).toBeVisible();
+    const text = await page.locator('body').innerText();
+    expect(text).not.toMatch(FORBIDDEN);
+    expect(text).not.toContain('מנוי');
+    await expect(page.locator('.form-error')).toHaveCount(0);
+    await shot(page, 'open-paused-sheet');
+    await page.setViewportSize({ width: 320, height: 568 });
+    await shot(page, 'open-paused-sheet-320');
+    await rest.getByRole('button', { name: 'סגירה' }).click();
+    await expect(draft).toHaveValue('שאלה'); // the question waits for tomorrow
+    // the assistant itself now rests (before this stage the open tier ignored it and asked again): the calm line, the
+    // way back to practice, and no photo or exercise tools
+    const resting = page.getByRole('status', { name: 'העוזר החכם' });
+    await expect(resting.getByText('העוזר החכם נח היום. מחר הוא חוזר.')).toBeVisible();
+    await expect(resting.getByRole('button', { name: 'להמשיך לתרגל' })).toBeVisible();
+    await expect(draft).toHaveAttribute('placeholder', 'העוזר החכם חוזר מחר');
+    await expect(page.getByRole('button', { name: 'בדיקת פתרון מצולם' })).toHaveCount(0);
+    await shot(page, 'open-paused-assistant-320');
+    // asking again keeps the draft and the calm card, and nothing more is sent
+    await draft.press('Enter');
+    await expect(draft).toHaveValue('שאלה');
+    await expect(resting.getByText('העוזר החכם נח היום. מחר הוא חוזר.')).toBeVisible();
+    expect(aiCalls(log)).toHaveLength(1);
+  });
+});
+
+// TRUST-11 §6: a class whose students have no AI by the Ministry of Education's rules (a school class while Madregot is
+// not in the catalogue, or the teacher's switch). The child sees calm words about the class's rules and the way back to
+// practice: never a price, a plan, or a link to parents. The screens are the safety lane's (trust.spec.js has the same
+// states): Madi's bubble says it with no tools, and the input stays usable (TRUST-3: a message that reads as distress
+// still goes), with the class's placeholder.
+test.describe('TRUST-11: a class whose AI is off', () => {
+  test.skip(({ viewport }) => viewport.width > 800, 'phone layouts');
+  const CALM = 'כך החליטו בכיתה, לפי ההנחיות של משרד החינוך. מדי, השיעורים והתרגול פתוחים כמו תמיד.';
+  const noPrice = async (page) => {
+    const text = await page.locator('body').innerText();
+    expect(text).not.toMatch(FORBIDDEN);
+    expect(text).not.toContain('מנוי');
+    expect(text).not.toContain('₪');
+  };
+
+  test('the server says the class\'s AI is off: the assistant shows the calm card, with nothing to buy and no parents', async ({ page }) => {
+    const { log } = await fakeServer(page, { classAiOff: true }, baseOf());
+    await open(page, '#/assistant', classStudent());
+    await expect(page.getByRole('heading', { name: 'בכיתה הזו העוזר החכם כבוי' })).toBeVisible();
+    await expect(page.getByText(CALM)).toBeVisible();
+    const draft = page.getByLabel('ההודעה שלכם');
+    await expect(draft).toBeEnabled();
+    await expect(draft).toHaveAttribute('placeholder', 'העוזר החכם כבוי בכיתה הזו');
+    await expect(page.locator('.chat-rest').getByRole('button', { name: 'להמשיך לתרגל' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'איך מחברים את העוזר' })).toHaveCount(0);
+    await expect(page.getByText('כשהעוזר מחובר, אפשר:')).toHaveCount(0);
+    await expect(page.getByRole('link', { name: 'מידע להורים' })).toHaveCount(0);
+    await noPrice(page);
+    expect(aiCalls(log)).toHaveLength(0);
+    await shot(page, 'class-ai-off-assistant');
+  });
+
+  test('a call refused with class_ai_off (the status was older): the calm sheet, then the screen says it too', async ({ page }) => {
+    const { st, log } = await fakeServer(page, { classAiOff: true, staleStatus: true, classLicence: true }, baseOf());
+    await open(page, '#/assistant', classStudent());
+    const draft = page.getByLabel('ההודעה שלכם');
+    await draft.fill('איך מחסרים מספר שלילי?'); await draft.press('Enter');
+    const sheet = page.getByRole('dialog', { name: 'בכיתה הזו העוזר החכם כבוי' });
+    await expect(sheet).toBeVisible();
+    await expect(sheet.getByText(CALM)).toBeVisible();
+    await expect(sheet.getByRole('button', { name: 'להמשיך לתרגל' })).toBeVisible();
+    await expect(sheet.getByRole('button', { name: 'מידע להורים' })).toHaveCount(0);
+    await expect(sheet.getByRole('button', { name: 'על רישיון כיתה' })).toHaveCount(0);
+    await noPrice(page);
+    await shot(page, 'class-ai-off-sheet');
+    expect(aiCalls(log).at(-1).headers.authorization).toBe('Bearer stu_token_1');
+    // behind the sheet the screen already says it: the class's placeholder, and Madi's calm card under the conversation
+    await expect(draft).toHaveAttribute('placeholder', 'העוזר החכם כבוי בכיתה הזו');
+    await expect(page.locator('.chat-rest')).toBeAttached();
+    const calls = aiCalls(log).length;
+    // "להמשיך לתרגל" goes back to practice; nothing more is asked
+    st.staleStatus = false;
+    await sheet.getByRole('button', { name: 'להמשיך לתרגל' }).click();
+    await expect(sheet).toHaveCount(0);
+    await expect(page).toHaveURL(/#\/$/);
+    await noPrice(page);
+    expect(aiCalls(log)).toHaveLength(calls);
+  });
+});

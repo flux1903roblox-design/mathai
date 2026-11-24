@@ -1,0 +1,153 @@
+// The landing pages (STUDENT-13), built into dist-test by scripts/landing-build.mjs with stand-in owner values
+// (playwright.config.js): /mivchan/ for parents and /pilot/ for schools. Each says what the app does in one screen, and
+// its button leads into the right place in the app: Exam Rescue after the first questions, or the teacher's way in.
+// They read well in light and dark, never scroll sideways at 320, and count a view and a press with a beacon (count.js).
+// LANDING_SHOTS=<folder> saves full-page screenshots for a look (nothing is compared).
+import { test, expect } from '@playwright/test';
+import { mkdirSync, readFileSync } from 'node:fs';
+import { NOW, student, onboard, expectNoSidewaysScroll, openLanding, landingMetrics } from './helpers.js';
+import { expectTextContrast } from './contrast.js';
+
+const API = 'https://api.madregot.test'; // API_BASE in playwright.config.js
+/** Each grade's coverage sentence, as the listing and /programme say it (store/counts.json, programme-md.mjs). */
+const COVERAGE = JSON.parse(readFileSync(new URL('../../store/counts.json', import.meta.url), 'utf8')).coverage;
+const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': '*', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS' };
+
+test.skip(({ viewport }) => viewport.width > 800, 'the phone sizes; the desktop layout is in qa-evidence/student/landing');
+
+// the Worker's /api/metrics (landingMetrics) and a landing page opened at the fixed time (openLanding): helpers.js,
+// shared with a11y.spec.js
+const metrics = landingMetrics;
+
+async function shot(page, name) {
+  const dir = process.env.LANDING_SHOTS; if (!dir) return;
+  mkdirSync(dir, { recursive: true });
+  await page.screenshot({ path: `${dir}/${test.info().project.name}-${name}.png`, fullPage: true });
+}
+
+test('/mivchan/: the question, the plan in one screen, and its button leads to Exam Rescue after the first questions', async ({ page }) => {
+  const counted = await metrics(page);
+  await openLanding(page, 'mivchan/');
+  await expect(page).toHaveTitle('מבחן במתמטיקה ביום חמישי? · מדרגות');
+  await expect(page.getByRole('heading', { level: 1, name: 'מבחן במתמטיקה ביום חמישי?' })).toBeVisible();
+  const cta = page.getByRole('link', { name: 'לבנות תוכנית חזרה, חינם' }).first();
+  // the question, what the app does and the way in, all in the first screen of a phone
+  await expect(cta).toBeInViewport();
+  await expect(page.getByText('בונה לילד תוכנית חזרה לימים שנשארו')).toBeInViewport();
+  await expect(page.getByRole('img', { name: /מסך תוכנית החזרה/ })).toBeVisible();
+  // the price is the server's own, with its VAT words, for the plans sold online only (the build sells as Grow does
+  // before it may stop a standing order: the one-year plan, which never renews, and no "cancel on the site"), and the
+  // topics are the app's
+  await expect(page.getByText('₪249 לשנה, כולל מע״מ. לשנה אחת, לא מתחדש מעצמו.', { exact: true })).toBeVisible();
+  // the exam pass (COUNCIL2-33): one charge too, so Grow sells it at launch, at wrangler.toml's price
+  await expect(page.getByText('לפני מבחן: חבילה ל־30 יום ב־₪39, כולל מע״מ. תשלום אחד, לא מתחדשת מעצמה.', { exact: true })).toBeVisible();
+  await expect(page.locator('body')).not.toContainText('לחודש');
+  await expect(page.locator('body')).not.toContainText('מבטלים באתר');
+  await expect(page.getByRole('listitem').filter({ hasText: 'כיתה ז׳:' })).toContainText('מספרים מכוונים');
+  // the family plan's card lists what the parents get (PRODUCT2-30): the report that comes by itself first, the helper
+  // last, then the price lines of the plans sold online (the year, then the exam pass)
+  const plan = page.locator('.plans .card').filter({ has: page.getByRole('heading', { level: 3, name: 'המנוי המשפחתי' }) });
+  await expect(plan.getByRole('listitem')).toHaveText([
+    'סיכום התרגול מגיע לבד מהמכשיר של הילד בכל יום שבו מתרגלים, כל עוד השיתוף פועל אצל הילד. אפשר לראות את 8 השבועות האחרונים.',
+    'סיכום שבועי במייל בכל יום ראשון, אם תבחרו.',
+    'לפני מבחן: כמה מהמדרגות של המבחן כבר בשליטה, בעמוד ההורים ובמייל של יום ראשון.',
+    'עוזר שמסביר לילד את הטעות בתרגיל שעל המסך ובודק דף פתרון מצולם.',
+  ]);
+  await expect(plan.locator('.price')).toHaveText(['₪249 לשנה, כולל מע״מ. לשנה אחת, לא מתחדש מעצמו.', 'לפני מבחן: חבילה ל־30 יום ב־₪39, כולל מע״מ. תשלום אחד, לא מתחדשת מעצמה.']);
+  // each grade's coverage on its own, in the sentences the listing and /programme use (SK-BUYERS-3): no combined share
+  expect(COVERAGE['7']).toMatch(/כיתה ז׳ \(\d+%\)\.$/);
+  expect(COVERAGE['8']).toMatch(/כיתה ח׳ \(\d+%\)\.$/);
+  await expect(page.getByRole('listitem').filter({ hasText: 'שעות ההוראה של כיתה' })).toHaveText(`${COVERAGE['7']} ${COVERAGE['8']}`);
+  expect(await page.locator('main').innerText()).not.toMatch(/כיתות ז׳ ו־ח׳/);
+  await expectNoSidewaysScroll(page);
+  await expect.poll(() => counted).toEqual(['landing_view_mivchan']);
+  await shot(page, 'mivchan');
+
+  await cta.click();
+  await expect(page).toHaveURL(/#\/\?next=\/rescue&src=mivchan$/);
+  await expect(page.getByRole('button', { name: 'מתחילים', exact: true })).toBeVisible();
+  await expect.poll(() => counted).toEqual(['landing_view_mivchan', 'landing_cta_mivchan']);
+  await onboard(page, { name: 'נועה', grade: '7', start: null });
+  // no "where to start" question: the link's place is next, and its button says so
+  await expect(page).toHaveURL(/#\/rescue$/);
+  await expect(page.getByText('מתי המבחן?')).toBeVisible();
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('madregot')).state.profile);
+  expect(saved).toMatchObject({ role: 'student', name: 'נועה', grade: '7' });
+});
+
+test('the daily goal\'s button names the link\'s place, and a student who already uses the app goes straight there', async ({ page }) => {
+  await openLanding(page, 'mivchan/');
+  await page.getByRole('link', { name: 'לבנות תוכנית חזרה, חינם' }).first().click();
+  await page.getByRole('button', { name: 'מתחילים', exact: true }).click();
+  await page.fill('#w-name', 'דנה');
+  for (const pick of [/^כיתה ח׳/, /^קצת מוכר/]) {
+    await page.getByRole('button', { name: 'המשך', exact: true }).click();
+    await page.getByRole('radio', { name: pick }).click();
+  }
+  await page.getByRole('button', { name: 'המשך', exact: true }).click();
+  await expect(page.getByText('כמה זמן ביום מתאים לכם?')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'לתוכנית החזרה', exact: true })).toBeVisible();
+  await expect(page.getByRole('radio', { name: /^בדיקת רמה קצרה/ })).toHaveCount(0);
+
+  // a returning student: the same link opens Exam Rescue at once
+  await openLanding(page, 'mivchan/', student('7'));
+  await page.getByRole('link', { name: 'לבנות תוכנית חזרה, חינם' }).first().click();
+  await expect(page).toHaveURL(/#\/rescue$/);
+  await expect(page.getByText('מתי המבחן?')).toBeVisible();
+});
+
+test('/pilot/: two weeks, one class, free; its button opens the teacher\'s way in (start=teacher, and role=teacher)', async ({ page }) => {
+  const counted = await metrics(page);
+  await openLanding(page, 'pilot/');
+  await expect(page).toHaveTitle('פיילוט לכיתה · מדרגות');
+  await expect(page.getByRole('heading', { level: 1, name: 'פיילוט של שבועיים בכיתה אחת. חינם.' })).toBeVisible();
+  const cta = page.getByRole('link', { name: 'לפתוח כיתה' }).first();
+  await expect(cta).toBeInViewport();
+  // nothing about prices on the schools' page; the message for parents is there to copy, as plain text
+  await expect(page.locator('body')).not.toContainText('₪');
+  await expect(page.locator('#wa-text')).toHaveText('שלום, אני מנסה בכיתה שלנו אפליקציה לתרגול מתמטיקה בשם מדרגות. הקישור לכיתה יגיע מחר. אין צורך בהרשמה או במייל.');
+  await expect(page.getByRole('link', { name: 'hello@example.test' }).first()).toHaveAttribute('href', 'mailto:hello@example.test');
+  await expect.poll(() => counted).toEqual(['landing_view_pilot']);
+  await shot(page, 'pilot');
+
+  await cta.click();
+  await expect(page).toHaveURL(/#\/\?start=teacher&src=pilot$/);
+  // this build has no server: the teacher's way in (the school lane's TeacherStart) points to the full app, whose
+  // address the build names (VITE_TEACHER_URL); with a server it opens a class
+  await expect(page.getByRole('heading', { name: 'לוח המורה נמצא באתר המלא' })).toBeVisible();
+  await expect.poll(() => counted).toEqual(['landing_view_pilot', 'landing_cta_pilot']);
+  // back goes to the student's first screen
+  await page.getByRole('button', { name: 'חזרה' }).click();
+  await expect(page.getByRole('button', { name: 'מתחילים', exact: true })).toBeVisible();
+
+  await openLanding(page, '#/?role=teacher');
+  await expect(page.getByRole('heading', { name: 'לוח המורה נמצא באתר המלא' })).toBeVisible();
+});
+
+for (const scheme of ['light', 'dark']) {
+  test(`both pages: text contrast in ${scheme}, a skip link first, and no sideways scroll at 320`, async ({ page }) => {
+    await page.emulateMedia({ colorScheme: scheme });
+    for (const path of ['mivchan/', 'pilot/']) {
+      await page.setViewportSize({ width: 390, height: 844 });
+      await openLanding(page, path);
+      const paper = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+      expect(paper).toBe(scheme === 'dark' ? 'rgb(14, 16, 36)' : 'rgb(255, 255, 255)');
+      // the whole page at once: a phone's width, tall enough that every line is on screen
+      const height = await page.evaluate(() => document.documentElement.scrollHeight);
+      await page.setViewportSize({ width: 390, height });
+      await expectTextContrast(page, `${path} ${scheme}`);
+      await page.setViewportSize({ width: 320, height: 568 });
+      await expectNoSidewaysScroll(page);
+      // the keyboard: the skip link comes first and takes focus to the content
+      await page.keyboard.press('Tab');
+      const skip = page.getByRole('link', { name: 'דילוג לתוכן העיקרי' });
+      await expect(skip).toBeFocused();
+      await expect(skip).toBeInViewport();
+      await page.keyboard.press('Enter');
+      await expect(page.locator('main#main')).toBeFocused();
+      // every press target is at least 44px tall
+      const small = await page.evaluate(() => [...document.querySelectorAll('main a, footer a')].filter((a) => a.getBoundingClientRect().height < 44).map((a) => a.textContent.trim()));
+      expect(small, `${path}: links under 44px`).toEqual([]);
+    }
+  });
+}

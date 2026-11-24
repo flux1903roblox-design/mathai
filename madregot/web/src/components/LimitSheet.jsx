@@ -1,0 +1,62 @@
+// The sheet that opens when the tutor says "not now": today's questions are used, it rests today, a shared ceiling is
+// reached, or this month's checks are over. Mounted once in the app. It speaks to a child calmly (Madi encouraging,
+// no red, no countdown, no price): Madi and practice are always open, and the questions come back tomorrow.
+import { lazy, Suspense } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useApp } from '@/lib/store.js';
+import { useLimitSheet, closeLimitSheet } from '@/lib/account.js';
+import { canSell } from '@/lib/price.js';
+import { limitVariant } from './limitCopy.js';
+import { Button, Sheet } from './ui.jsx';
+import Mascot from './Mascot.jsx';
+import { HelpLine } from './SupportSheet.jsx';
+import { t as tr } from '@/lib/i18n.js';
+// the teacher's sign-in and bind (with the 18+ declaration, COUNCIL2-5): loaded only when a teacher's sheet needs it, so
+// the email form stays out of the first load
+const TeacherBind = lazy(() => import('./teacher/TeacherBind.jsx'));
+
+const PRACTICE = /^\/(lesson|practice|placement|learn|repair|rescue\/)/;
+
+export default function LimitSheet() {
+  const { open, reason, tier, scope, onMadi } = useLimitSheet();
+  const role = useApp((s) => s.profile?.role);
+  const navigate = useNavigate();
+  // a store app sells nothing: the store's words, and no way to the parents' pages (STUDENT-12)
+  const v = limitVariant({ reason, tier, scope, role, store: !canSell() });
+  const go = (to, state) => { closeLimitSheet(); navigate(to, state ? { state } : undefined); };
+  // Where practice is (a lesson, a check, a teaching stage): read when the sheet opens or is tapped, not subscribed,
+  // so the sheet does not re-render on every navigation.
+  const inPractice = () => PRACTICE.test(window.location.hash.replace(/^#/, ''));
+  // "להמשיך לתרגל" closes the sheet where practice is; elsewhere it goes to the map
+  const practice = () => {
+    closeLimitSheet();
+    if (!inPractice() && role !== 'teacher') navigate('/');
+  };
+  // "מידע להורים" would leave the lesson (and ask the child to give it up): it is offered only outside practice
+  const parentsLink = v.parents && role !== 'teacher' && !inPractice();
+  const madi = onMadi && v.actions.includes('madi');
+  const buttons = v.actions.filter((a) => a !== 'madi' || madi);
+  return (
+    <Sheet open={open} onOpenChange={(o) => !o && closeLimitSheet()} title={v.title}>
+      <div className="exit-sheet limit-sheet">
+        <Mascot mood="encouraging" size={88} />
+        <div className="lead confirm-text">{v.text.map((t) => <p key={t}>{t}</p>)}</div>
+        {buttons.map((a, i) => {
+          const variant = i === 0 ? 'primary' : 'secondary';
+          const cls = i === 0 ? 'btn-block btn-lg' : 'btn-block';
+          if (a === 'madi') return <Button key={a} variant={variant} className={cls} onClick={() => { const fn = onMadi; closeLimitSheet(); fn?.(); }}>{tr('shell.limitsheet.1')}</Button>;
+          if (a === 'licence') return <Button key={a} variant={variant} className={cls} onClick={() => go('/teacher/settings', { focus: 'licence' })}>{tr('shell.limitsheet.2')}</Button>;
+          // the screen to hand to a parent (a QR code, no price): the one way to the parent's OK (TRUST-9)
+          if (a === 'parents') return <Button key={a} variant={variant} className={cls} onClick={() => go('/parents/info')}>{tr('shell.limitsheet.3')}</Button>;
+          // a teacher whose class has no adult behind it signs in here, and the class is bound to that email (TRUST-9)
+          if (a === 'bind') return <Suspense key={a} fallback={<p className="muted" role="status">{tr('shell.limitsheet.4')}</p>}><TeacherBind onDone={closeLimitSheet} /></Suspense>;
+          return <Button key={a} variant={variant} className={cls} onClick={practice}>{tr('shell.limitsheet.5')}</Button>;
+        })}
+        {parentsLink && <button type="button" className="link-btn limit-parents" onClick={() => go('/parents/info')}>{tr('shell.limitsheet.6')}</button>}
+        {/* a person to talk to is always one tap away, whatever the tutor says (trust spec TRUST-3 §3.5): the link and
+            ער״ן's number to call (COUNCIL2-4) */}
+        <HelpLine className="limit-support" onOpen={closeLimitSheet} />
+      </div>
+    </Sheet>
+  );
+}

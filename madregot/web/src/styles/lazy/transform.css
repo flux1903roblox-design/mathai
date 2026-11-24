@@ -1,0 +1,80 @@
+/* The transform object (GEOM-2, components/manip/Transform.jsx): move, flip and turn a copy of a shape on the grid.
+   Loaded with the object, not with the first screen (STUDENT-15). Colours are tokens only: the original in a light
+   ink fill, the copy in the unit's colour (--c), the mirror lines dashed ink, a named target dashed gold; green
+   only for the shown answer and red never (feedback lives in the lesson's panel). */
+.manip-transform .manip-canvas { aspect-ratio: 1 / 1; max-width: 440px; cursor: default; }
+.manip-transform .manip-canvas.can-drag .mp-tf-copy { cursor: grab; }
+.manip-transform .manip-canvas.can-drag:active .mp-tf-copy { cursor: grabbing; }
+
+/* the original stays: a light fill and its letters */
+.mp-tf-orig polygon { fill: color-mix(in srgb, var(--ink-2) 12%, transparent); stroke: var(--ink-2); stroke-width: 2; stroke-linejoin: round; }
+.mp-tf-letter { fill: var(--ink-2); font-family: KaTeX_Main, 'Times New Roman', serif; font-size: 17px; font-style: italic; font-weight: 700;
+  paint-order: stroke; stroke: var(--paper); stroke-width: 4px; stroke-linejoin: round; }
+/* the copy the student moves: the unit's colour, its letters A′, B′, C′ at its own vertices */
+.mp-tf-copy { transform-box: view-box; }
+.mp-tf-copy polygon { fill: color-mix(in srgb, var(--c, var(--brand)) 24%, transparent); stroke: var(--c, var(--brand)); stroke-width: 3; stroke-linejoin: round; }
+.mp-tf-copy circle { fill: var(--c, var(--brand)); stroke: var(--paper); stroke-width: 2; }
+.mp-tf-letter.copy { fill: var(--c-ink, var(--brand-d)); font-size: 18px; }
+/* a mirror line, always drawn, with its equation; the centre O of a turn */
+.mp-tf-mirror line { stroke: var(--ink); stroke-width: 2.5; stroke-dasharray: 7 5; stroke-linecap: round; }
+.mp-tf-eq { fill: var(--ink); font-family: KaTeX_Main, 'Times New Roman', serif; font-size: 16px; font-weight: 700;
+  paint-order: stroke; stroke: var(--paper); stroke-width: 4px; stroke-linejoin: round; }
+.mp-tf-var { font-style: italic; }
+.mp-tf-centre circle { fill: var(--ink); stroke: var(--paper); stroke-width: 2; }
+.mp-tf-letter.target { fill: var(--gold-ink); }
+/* a shape the question names, to cover: dashed gold, as every target of the objects */
+.mp-tf-target polygon { fill: color-mix(in srgb, var(--gold) 10%, transparent); stroke: var(--gold-d); stroke-width: 2.5; stroke-dasharray: 7 5; stroke-linejoin: round; }
+/* the shown answer (after the last try): green, dashed */
+.mp-tf-ghost polygon { fill: none; stroke: var(--good); stroke-width: 3; stroke-dasharray: 6 5; stroke-linejoin: round; }
+.mp-tf-letter.ghost { fill: var(--good-ink); }
+/* the hint: which vertex of the original went to which vertex of the copy */
+.mp-tf-link { stroke: var(--c-d, var(--brand-d)); stroke-width: 1.8; stroke-dasharray: 3 4; stroke-linecap: round; }
+
+/* the readout: the copy's vertices in chips, read left to right; or why a move was not done */
+.mp-tf-read { flex: none; min-height: 34px; gap: 4px 6px; }
+.mp-tf-chip { display: inline-flex; align-items: center; padding: 1px 10px; border-radius: 999px; background: var(--c-tint, var(--brand-tint)); color: var(--ink);
+  font-family: var(--font-ui); font-size: var(--t-base); font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.mp-tf-refuse { font-family: var(--font-ui); font-size: var(--t-sm); font-weight: 600; line-height: 1.35; padding-block: 2px; color: var(--ink); text-wrap: balance; }
+
+/* the controls: at most two rows of 44px buttons, short words seen, the full names read */
+.mp-tf-controls { flex-direction: column; align-items: center; gap: var(--s2); }
+.mp-tf-row { display: flex; flex-wrap: nowrap; justify-content: center; gap: var(--s2); max-width: 100%; }
+.mp-tf-row.arrows { gap: 8px; } /* four 44px arrows in one 200px row, then התחלה מחדש */
+.mp-tf-row.arrows .mp-tf-reset { margin-inline-start: 4px; }
+.step-btn.mp-tf-btn { display: inline-flex; align-items: center; gap: 5px; width: auto; min-width: 44px; padding: 0 12px; font-size: var(--t-sm); font-weight: 700; white-space: nowrap; }
+.mp-tf-btn .katex { font-size: 1.05em; }
+.mp-tf-btn svg, .mp-tf-turn-icon { flex: none; }
+/* four flips and turns on a narrow phone: the mirror's name alone beside its icon (the full name is the button's label) */
+@media (max-width: 400px) {
+  .mp-tf-row.many .mp-tf-word { display: none; }
+  .mp-tf-row.many .step-btn.mp-tf-btn { padding: 0 9px; }
+}
+@media (max-width: 340px) { .step-btn.mp-tf-btn { padding: 0 9px; gap: 4px; } }
+/* three or four vertices in one line on a narrow phone, even with minus signs: smaller chips */
+@media (max-width: 380px) {
+  .mp-tf-read { gap: 3px; }
+  .mp-tf-chip { font-size: var(--t-xs); padding: 0 5px; font-variant-numeric: normal; }
+}
+
+/* motion (the glide, the fold, the sweep, the shake) is played from Transform.jsx and never under reduced motion */
+
+/* a short screen: the readout takes מדי's line (one line instead of two) */
+@media (max-height: 639px) {
+  .manip-transform + .manip-coach { display: none; }
+  .mp-tf-read { min-height: 24px; }
+  .mp-tf-chip { line-height: 1.5; }
+  .mp-tf-controls, .mp-tf-row { gap: 6px; }
+}
+
+/* a teaching step (GEOM-2.3): the plane is as large as the room between the step's question and the bar with בדיקה,
+   after its readout and its rows of buttons (Transform.jsx measures it into --tf-fit), so every button and בדיקה are
+   on the first screen, whatever the question's length. On a short screen the panel's padding shrinks. When the chips'
+   line would take the plane under 220 px (.is-tight), the chips leave the screen but not the page: a screen reader
+   still hears the copy's vertices as it moves, and a refused move's sentence still shows */
+.step-player .manip-transform .manip-canvas { max-width: var(--tf-fit, 440px); }
+.step-player .manip-transform.is-tight .mp-tf-read:not(:has(.mp-tf-refuse)) {
+  position: absolute; width: 1px; height: 1px; min-height: 0; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0;
+}
+@media (max-height: 700px) {
+  .ls-explore .lm-canvas:has(.manip-transform) { padding-block: 4px; }
+}

@@ -1,0 +1,1834 @@
+// The drawings of the teaching steps (Stage A, "מבינים את הרעיון"). A step that names a shape or a part of one (a ray,
+// a vertex, a leg, the hypotenuse, a transversal, an exterior angle) shows it: every angles and Pythagoras step has a
+// drawing or an object to move. A drawing must agree with its text and with itself:
+//  - its letters are the text's letters (a drawing never names a point the text does not, and when it names points,
+//    every point the text names is in it); a side named a, b or c, or an angle named α or β, is named so in the text;
+//  - every angle written in degrees is drawn that size, every right-angle mark is 90°;
+//  - numbers on sides are in proportion to the drawn lengths, and a number in a square is its side squared;
+//  - the coordinate drawings put their points where the text says.
+import { describe, it, expect, vi } from 'vitest';
+import { createElement } from 'react';
+// @ts-ignore: react-dom has no type declarations here
+import { renderToStaticMarkup } from 'react-dom/server';
+import { contentOf, loadAllContent } from './content/index';
+import type { DiscoverStep, FigSpec } from './types';
+// @ts-ignore: plain JS
+import Figure, { geoSweep, geoSquare, FIG_TYPES } from '@/components/Figure.jsx';
+// @ts-ignore: plain JS
+import { axisName, seriesAt, seriesCrossings, seriesMeet, sgraphRiseRun, figNum, chartAxis, chartNum, pictoIcons, AXIS_LABELS } from '@/content/manip.js';
+// @ts-ignore: plain JS
+import { graphFrame, numWidth, numbered, GRAPH_FONT } from '@/components/manip/graphAxes.jsx';
+// @ts-ignore: plain JS
+import { protractorLabels } from '@/components/manip/protractor.jsx';
+import { protractorFig, clockFig } from './content/geo';
+// @ts-ignore: plain JS
+import { makeItem, figPlain } from '@/content/index.js';
+import { seeded } from './expr';
+import { CHALLENGE_TASKS as CHALLENGES } from './challenges/all';
+// @ts-ignore: plain JS
+import { rectStory, angleEqStory, rectFig } from '@/content/eq.js';
+// @ts-ignore: plain JS
+import { straightThree, linearPairDiff, fanItem, threeLines, crossBisect, splitTriangleS1, splitTriangleS2, parallelTriangle, parallelBisect, parallelX, parallelConverse, parallelBend } from '@/content/angleItems.js';
+// @ts-ignore: plain JS
+import { bisItem, bisCheckItem, quadItem } from '@/content/angles67.js';
+// @ts-ignore: plain JS
+import { netfigLabels, netModel, solidLabels } from '@/content/net.js';
+// @ts-ignore: plain JS
+import { geoClashes } from '@/components/geoLayout.js';
+// @ts-ignore: plain JS
+import { mirrorWords, tfStart, TF_RANGE } from '@/content/transform.js';
+// @ts-ignore: plain JS
+import { tfClashes } from '@/components/manip/tfLayout.js';
+// @ts-ignore: plain JSX
+import { gridGeometry } from '@/components/manip/grid.jsx';
+// @ts-ignore: plain JS
+import { TRANSF_KINDS } from '@/content/transf.gen.js';
+// @ts-ignore: plain JS
+import { CONGR_KINDS } from '@/content/congr.gen.js';
+// @ts-ignore: plain JS
+import { SIM_KINDS } from '@/content/sim.gen.js';
+// @ts-ignore: plain JS
+import { TILES_MAX, BALANCE_MAX, FBAR_MAX_DEN, balanceTilt, dlineAt } from '@/content/manip.js';
+
+// the teaching content loads one topic at a time (DURABLE-11): these tests run on all of it, loaded (CONTENT: every
+// stair, for the student lane's sweeps over every teaching step)
+const CONTENT = await loadAllContent();
+
+type Pt = [number, number];
+type Geo = FigSpec & { pts: Record<string, Pt>; segs?: any[]; angles?: any[]; squares?: any[]; polys?: any[]; dots?: string[]; words?: any[]; hide?: string[]; view?: [number, number]; pad?: number | [number, number]; label?: string; match?: [string, string][] };
+
+const TOPICS = { angles: 7, pyth: 5, congr: 5, sim: 4 } as Record<string, number>;
+
+const steps = () => Object.entries(TOPICS).flatMap(([topic, n]) => Array.from({ length: n }, (_, i) => `${topic}:${i + 1}`))
+  .flatMap((skill) => contentOf(skill)!.discover.map((st, i) => ({ skill, i, st })));
+const figOf = (st: DiscoverStep) => (st as { fig?: FigSpec }).fig;
+
+/** The capital letters the step's maths names (inside $…$ and in its display), TeX commands removed. */
+function mathOf(st: DiscoverStep) {
+  const parts = [...st.text.matchAll(/\$([^$]+)\$/g)].map((m) => m[1]);
+  if ('display' in st && st.display) parts.push(st.display);
+  // an area written S with a subscript (S_{\triangle ABD}) names no point
+  return parts.join(' ').replace(/[A-Z](?=_\{)/g, ' ').replace(/\\[a-zA-Z]+/g, ' ');
+}
+const capitals = (s: string) => new Set([...s.matchAll(/[A-Z]/g)].map((m) => m[0]));
+/** Point letters in the text: capitals, except the letter-shapes of angle pairs ("Z", "C" as shapes) when the drawing has none. */
+
+const dist = (p: Pt, q: Pt) => Math.hypot(p[0] - q[0], p[1] - q[1]);
+const num = (t: unknown) => (typeof t === 'string' && /^\d+(\.\d+)?$/.test(t) ? Number(t) : null);
+
+describe('teaching drawings: every step that names a shape shows it', () => {
+  it('every angles and Pythagoras step of Stage A has a drawing or an object to move', () => {
+    const missing = steps().filter(({ st }) => !figOf(st) && !(st as { manip?: unknown }).manip);
+    expect(missing.map(({ skill, i, st }) => `${skill} #${i}: ${st.text.slice(0, 50)}`)).toEqual([]);
+  });
+
+  it('every drawing renders, with no broken numbers', () => {
+    for (const { skill, i, st } of steps()) {
+      const fig = figOf(st); if (!fig) continue;
+      const html = renderToStaticMarkup(createElement(Figure, { fig }));
+      // a drawing, or a proof's table (GEOM-3.9)
+      expect(html, `${skill} #${i}`).toMatch(/<svg|<table/);
+      expect(html, `${skill} #${i}`).not.toMatch(/NaN|undefined|Infinity/);
+    }
+  }, 60_000); // every stair's drawings: well under a second alone, more on a busy machine
+});
+
+describe('teaching drawings agree with their text and with themselves', () => {
+  const geos = steps().filter(({ st }) => figOf(st)?.type === 'geo').map(({ skill, i, st }) => ({ where: `${skill} #${i}`, st, f: figOf(st) as Geo }));
+
+  it('there are drawings to check', () => { expect(geos.length).toBeGreaterThan(60); });
+
+  it('every name a drawing uses is one of its points', () => {
+    for (const { where, f } of geos) {
+      const has = (k: unknown) => typeof k !== 'string' || k in f.pts;
+      const used = [
+        ...(f.segs || []).flatMap((s) => [s.a, s.b]), ...(f.angles || []).flatMap((g) => [g.at, g.from, g.to]),
+        ...(f.squares || []).flatMap((q) => [q.a, q.b, q.away]), ...(f.polys || []).flatMap((p) => p.pts), ...(f.dots || []), ...(f.words || []).map((w) => w.at),
+      ];
+      expect(used.filter((k) => k != null && !has(k)), where).toEqual([]);
+    }
+  });
+
+  it('letters in a drawing match the letters in its text', () => {
+    for (const { where, st, f } of geos) {
+      const drawn = new Set(Object.keys(f.pts).filter((k) => !k.startsWith('_') && !(f.hide || []).includes(k)));
+      drawn.forEach((k) => expect(k, `${where}: a point is named by one capital letter`).toMatch(/^[A-Z]$/));
+      // a point named with a subscript (C₁ and C₂, the two places the same data allow) is a word on a hidden point
+      for (const w of f.words || []) { const m = /^([A-Z])[₀-₉]+$/.exec(w.text); if (m) drawn.add(m[1]); }
+      const said = capitals(mathOf(st));
+      // the drawing names no point the text does not
+      expect([...drawn].filter((k) => !said.has(k)), `${where}: letters in the drawing but not in the text`).toEqual([]);
+      // and when it names points, it names every point the text names
+      if (drawn.size) expect([...said].filter((k) => !drawn.has(k)), `${where}: letters in the text but not in the drawing`).toEqual([]);
+      // sides named a, b, c and angles named α, β are named so in the text or its display
+      const math = `${st.text} ${'display' in st ? st.display || '' : ''}`;
+      for (const s of f.segs || []) if (/^[a-z]$/.test(s.label || '')) expect(math, `${where}: side ${s.label}`).toMatch(new RegExp(`\\b${s.label}\\b|${s.label}\\^`));
+      for (const g of f.angles || []) {
+        if (g.text === 'α') expect(math, where).toContain('\\alpha');
+        if (g.text === 'β') expect(math, where).toContain('\\beta');
+      }
+    }
+  });
+
+  it('an angle written in degrees is drawn that size, and a right-angle mark is 90°', () => {
+    let checked = 0;
+    for (const { where, f } of geos) {
+      for (const g of f.angles || []) {
+        const { deg } = geoSweep(f.pts, g);
+        if (g.right) { expect(Math.min(deg, 360 - deg), `${where}: right angle at ${g.at}`).toBeCloseTo(90, 1); checked += 1; }
+        const m = /^(\d+)°$/.exec(g.text || '');
+        if (m) { expect(Math.abs(deg - Number(m[1])), `${where}: ${g.text} at ${g.at} is drawn ${deg.toFixed(1)}°`).toBeLessThan(0.6); checked += 1; }
+        // an arc marks an angle inside the shape, never the reflex angle outside it
+        if (!g.right) expect(deg, `${where}: the arc at ${g.at} spans ${deg.toFixed(1)}°`).toBeLessThanOrEqual(180.0001);
+      }
+    }
+    expect(checked).toBeGreaterThan(40);
+  });
+
+  it('numbers on sides are in proportion, and a number in a square is its side squared', () => {
+    let checked = 0;
+    for (const { where, f } of geos) {
+      const ratios: number[] = [];
+      for (const s of f.segs || []) { const n = num(s.label); if (n != null) ratios.push(n / dist(f.pts[s.a], f.pts[s.b])); }
+      for (const q of f.squares || []) { const n = num(q.text); if (n != null) ratios.push(Math.sqrt(n) / dist(f.pts[q.a], f.pts[q.b])); }
+      if (ratios.length >= 2) {
+        const k = ratios[0];
+        ratios.forEach((r) => expect(Math.abs(r / k - 1), `${where}: sides out of proportion (${ratios.map((x) => x.toFixed(3)).join(', ')})`).toBeLessThan(0.01));
+        checked += 1;
+      }
+      // a square is built outside its triangle, on the side away from the third corner
+      for (const q of f.squares || []) {
+        if (!q.away) continue;
+        const c = geoSquare(f.pts[q.a], f.pts[q.b], f.pts[q.away]);
+        const mid: Pt = [(c[2][0] + c[3][0]) / 2, (c[2][1] + c[3][1]) / 2];
+        expect(dist(mid, f.pts[q.away]), `${where}: square on ${q.a}${q.b}`).toBeGreaterThan(dist(f.pts[q.a], f.pts[q.away]) * 0.5);
+      }
+    }
+    expect(checked).toBeGreaterThan(15);
+  });
+
+  it('the coordinate drawings put their points where the text says, and name only the text\'s points', () => {
+    for (const { skill, i, st } of steps()) {
+      const f = figOf(st) as any; if (f?.type !== 'coord') continue;
+      const where = `${skill} #${i}`;
+      const said = capitals(mathOf(st));
+      const drawn = new Set<string>((f.points || []).map((p: { label: string }) => p.label));
+      expect([...drawn].filter((k) => !said.has(k)), where).toEqual([]);
+      if (drawn.size) expect([...said].filter((k) => !drawn.has(k)), where).toEqual([]);
+      // a point written with its coordinates, like A(1, 2), is drawn there
+      for (const m of st.text.matchAll(/([A-Z])\((-?\d+),\s*(-?\d+)\)/g)) {
+        const p = (f.points || []).find((q: { label: string }) => q.label === m[1]);
+        expect(p, `${where}: ${m[0]}`).toBeTruthy();
+        expect([p.x, p.y], `${where}: ${m[0]}`).toEqual([Number(m[2]), Number(m[3])]);
+      }
+      const inside = (v: number) => Math.abs(v) <= f.range;
+      for (const [[x1, y1], [x2, y2]] of f.segments || []) expect([x1, y1, x2, y2].every(inside), where).toBe(true);
+    }
+  });
+});
+
+// ---------------------------------------------------------------- STUDENT-8: the teaching figures of every topic
+// The new types (numline, thermo, machine, dots, bars) and the plane's quadrants, walks, lines, meeting point and
+// rise-and-run must agree with themselves everywhere they appear, and, in every topic, with their step's text:
+//  - a letter the text names alone ($A$, $x$) or a point it names by its coordinates ($A(3, 4)$) is written in the figure;
+//  - a point named with its coordinates is drawn there (a mark on a number line, a point, a corner of a walk or the
+//    meeting point on a plane);
+//  - a predict step's answer is not written in its own figure;
+//  - a function's graph is never the 'linear' figure (a linear pair of angles) in line:* or sys:*;
+//  - two lines that meet, meet on a whole or half number inside the plane.
+type AnyFig = Record<string, any> & { type: string };
+const plainOf = (s: unknown) => String(s ?? '').replace(/\$/g, '').replace(/[−–]/g, '-').replace(/\s+/g, ' ').trim();
+const fmt = (v: number) => String(Math.round(v * 1000) / 1000);
+const halfStep = (v: number) => Math.abs(v * 2 - Math.round(v * 2)) < 1e-9;
+const meetOf = (p: { m: number; b: number }, q: { m: number; b: number }): Pt | null => (p.m === q.m ? null : [(q.b - p.b) / (p.m - q.m), (p.m * (q.b - p.b)) / (p.m - q.m) + p.b]);
+
+/** What a figure writes on itself (names, numbers in labels, words), normalised: not the numbers along an axis. */
+function labelsOf(f: AnyFig): Set<string> {
+  const io = (v: unknown, d: string) => (v == null ? d : String(v));
+  const out: unknown[] = (() => {
+    switch (f.type) {
+      case 'numline': return [...(f.marks || []).map((k: any) => k.label), ...(f.jumps || []).map((j: any) => j.label)];
+      case 'thermo': return [fmt(f.value), f.label, ...(f.also ? [fmt(f.also.value), f.also.label] : [])];
+      case 'machine': return [io(f.inX, 'x'), io(f.outY, 'y'), f.rule];
+      case 'dots': return [f.unit];
+      case 'bars': return [...f.labels, ...f.values.map((v: number | null) => (v == null ? '?' : fmt(v))), f.unit, f.level != null && fmt(f.level)];
+      case 'coord': {
+        const lines = [...(f.line ? [f.line] : []), ...(f.lines || [])];
+        const meet = f.meet && f.lines?.length > 1 ? meetOf(f.lines[0], f.lines[1]) : null;
+        const rr = f.riseRun && lines[0] ? [fmt(f.riseRun.run), fmt(lines[0].m * f.riseRun.run)] : [];
+        return ['x', 'y', ...(f.points || []).filter((p: any) => !p.hidden).map((p: any) => p.label), ...(f.lines || []).map((l: any) => l.label),
+          ...(meet ? [`(${fmt(meet[0])}, ${fmt(meet[1])})`] : []), ...rr, ...(f.words || []).map((w: any) => w.text),
+          // the transform object's still twin (GEOM-2.8): each shape's letters and name, the centre O, the mirror's equation
+          ...(f.shapes || []).flatMap((sh: any) => [...(sh.names || []), sh.label]), ...(f.arrows || []).map((a: any) => a.label),
+          ...(f.centre ? ['O'] : []), ...(f.mirror && typeof f.mirror !== 'string' ? [mirrorWords(f.mirror)] : [])];
+      }
+      case 'geo': return [...Object.keys(f.pts).filter((k) => !k.startsWith('_') && !(f.hide || []).includes(k)), ...(f.segs || []).map((s: any) => s.label),
+        ...(f.angles || []).map((g: any) => g.text), ...(f.squares || []).map((q: any) => q.text), ...(f.words || []).map((w: any) => w.text),
+        ...(f.circles || []).map((c: any) => c.label)];
+      // a net (stage 3) writes its face letters, its lengths or its faces' areas
+      case 'netfig': return [...(f.letters && f.solid !== 'cylinder' ? netModel({ ...f, task: 'face' }).ids : []),
+        ...netfigLabels(f).faces.map((x: any) => x.text), ...netfigLabels(f).edges.map((x: any) => x.text), ...Object.values(f.names || {})];
+      // a solid (stage 4) writes its lengths and its word
+      case 'solid': return [...Object.values(solidLabels(f)), f.label, ...(f.segs || []).map((s: any) => s.label)];
+      // the algebra objects write x on a box or a long tile, and the rectangle its sides (and parts' areas)
+      case 'tiles': return [f.px && 'x', f.nx && '-x', f.p1 && '1', f.n1 && '-1'];
+      case 'scale': return [(f.left.x || f.right.x) && 'x'];
+      case 'area': return ['x', fmt(f.a), f.b && fmt(f.b), ...(f.areas ? [`${f.a === 1 ? '' : f.a}x`, fmt(f.a * f.b)] : [])];
+      case 'right': return [f.a, f.b, f.c];
+      case 'ladder': return [f.wall, f.foot, f.len];
+      case 'table': return [...f.head, ...f.rows.flat()];
+      // a situation graph writes its axes' names, its series' and points' names, the numbers of its rise and run, and the
+      // direction arrow's words (not the numbers along its axes); its two axes are x and y, as its words read them ("ציר x",
+      // "ציר y"), so a text that says "ציר $x$" names an axis the figure has
+      // a protractor's numbers are its scales (like an axis's): it writes its letters; a clock writes only its hours
+      case 'protractor': return f.letters ? [f.letters.vertex, f.letters.a, f.letters.b] : [];
+      case 'clock': return [];
+      case 'sgraph': {
+        const rr = sgraphRiseRun(f);
+        return ['x', 'y', axisName(f.x), axisName(f.y), ...(f.series || []).map((s: any) => s.label), ...(f.marks || []).map((k: any) => k.label),
+          ...(rr ? [fmt(rr.run), fmt(rr.rise)] : []), f.dirArrow && 'משמאל לימין'];
+      }
+      // the data figures (DATA-3): names, the numbers printed on bars, slices and points (not with labels: false), the
+      // '?' of a hidden one, a line's xs and level, a pictogram's key; a table of outcomes its headings and cells
+      case 'chart': return [...(f.cats || []), ...(f.mode === 'line' ? (f.xs || []).map(String) : []), f.unit, f.mode === 'picto' && fmt(f.key),
+        f.level != null && chartNum(f.level, f.dp), f.mark != null && String(f.mark),
+        ...f.values.map((v: number | null, i: number) => (f.hide === i ? '?' : f.labels === false || f.mode === 'picto' || v == null ? null : `${chartNum(v, f.dp)}${f.pct ? '%' : ''}`))];
+      case 'outcomes': return [f.rowHead, f.colHead, ...(f.rows || []), ...f.cols, ...(f.cells || []).flat()];
+      case 'pair': return (f.items || []).flatMap((x: AnyFig) => [...labelsOf(x)]);
+      default: return [];
+    }
+  })();
+  return new Set(out.filter((x) => x != null && x !== '' && x !== 0).map(plainOf));
+}
+
+/** A chart agrees with itself: a name for every value, values on its axis, a key that halves, marks on the chart. */
+function chartProblems(f: AnyFig): string[] {
+  const bad: string[] = [];
+  const n = f.values.length; const at = (i: number) => Number.isInteger(i) && i >= 0 && i < n;
+  if (!['bar', 'pie', 'line', 'picto'].includes(f.mode)) bad.push(`chart mode ${f.mode}`);
+  if (f.mode !== 'line' && (f.cats || []).length !== n) bad.push(`chart: ${(f.cats || []).length} names for ${n} values`);
+  if (f.mode === 'line' && f.xs && f.xs.length !== n) bad.push(`chart: ${f.xs.length} xs for ${n} values`);
+  if (f.values.some((v: number | null) => v != null && v < 0)) bad.push('chart with a value under 0');
+  if (f.hide != null && !at(f.hide)) bad.push(`chart hide ${f.hide}`);
+  for (const i of f.cross || []) if (!at(i)) bad.push(`chart cross ${i}`);
+  if (f.mode === 'bar' || f.mode === 'line') {
+    const ax = chartAxis(f);
+    for (const v of f.values) if (v != null && (v < ax.from - 1e-9 || v > ax.max + 1e-9)) bad.push(`chart value ${v} off the axis ${ax.from}..${ax.max}`);
+    if (f.level != null && (f.level < ax.from || f.level > ax.max)) bad.push(`chart level ${f.level} off the axis`);
+    if (f.step && Math.abs((ax.max - ax.from) / f.step - Math.round((ax.max - ax.from) / f.step)) > 1e-9) bad.push(`chart axis ${ax.from}..${ax.max} is not whole steps of ${f.step}`);
+  }
+  if (f.mode === 'line' && f.dashed != null && !(f.dashed >= 1 && f.dashed < n)) bad.push(`chart dashed ${f.dashed}`);
+  if (f.mode === 'line' && f.mark != null) {
+    const xs = f.xs || [];
+    const ok = typeof f.mark === 'number' && xs.every((x: unknown) => typeof x === 'number') ? f.mark >= Math.min(...xs) && f.mark <= Math.max(...xs) : xs.includes(f.mark);
+    if (!ok) bad.push(`chart mark ${f.mark} is not on the line`);
+  }
+  if (f.mode === 'picto') {
+    if (!(f.key > 0)) bad.push(`pictogram key ${f.key}`);
+    else for (const v of f.values) if (v != null && Math.abs(pictoIcons(v, f.key) - (2 * v) / f.key / 2) > 1e-9) bad.push(`pictogram value ${v} is not a whole or half icon of ${f.key}`);
+  }
+  if (f.mode === 'pie' && !(f.values.reduce((a: number, v: number | null) => a + (v || 0), 0) > 0)) bad.push('a pie with nothing in it');
+  return bad;
+}
+
+/** The structural checks: a figure agrees with itself. */
+function selfProblems(skill: string, f: AnyFig): string[] {
+  const bad: string[] = [];
+  const within = (v: number, lo: number, hi: number) => v >= lo - 1e-9 && v <= hi + 1e-9;
+  const topic = skill.split(':')[0];
+  if (f.type === 'linear' && (topic === 'line' || topic === 'sys')) bad.push("a function's graph drawn as 'linear', which is a linear pair of angles: use coord with line or lines");
+  if (f.type === 'numline') {
+    if (!(f.from < f.to)) bad.push(`numline from ${f.from} to ${f.to}`);
+    if (f.den != null && !(Number.isInteger(f.den) && f.den > 0)) bad.push(`numline den ${f.den}`);
+    for (const k of f.marks || []) if (!within(k.x, f.from, f.to)) bad.push(`numline mark at ${k.x} outside [${f.from}, ${f.to}]`);
+    for (const j of f.jumps || []) if (!within(j.from, f.from, f.to) || !within(j.to, f.from, f.to)) bad.push(`numline jump ${j.from} → ${j.to} outside [${f.from}, ${f.to}]`);
+  }
+  if (f.type === 'thermo') for (const v of [f.value, ...(f.also ? [f.also.value] : [])]) if (!(f.min < f.max && within(v, f.min, f.max))) bad.push(`thermo ${v} on a scale ${f.min}..${f.max}`);
+  if (f.type === 'machine' && !String(f.rule || '').trim()) bad.push('a machine with no rule');
+  if (f.type === 'dots') {
+    const [lo, hi] = f.axis; const vs: number[] = f.values; const k = f.mark || {};
+    if (!(lo < hi)) bad.push(`dots axis ${lo}..${hi}`);
+    for (const v of vs) if (!within(v, lo, hi)) bad.push(`dots value ${v} outside the axis ${lo}..${hi}`);
+    const sorted = [...vs].sort((a, b) => a - b); const n = sorted.length;
+    const count = (v: number) => vs.filter((x) => x === v).length; const most = Math.max(...vs.map(count));
+    if (k.mode != null && count(k.mode) !== most) bad.push(`dots mode ${k.mode} is not the most common value`);
+    if (k.median != null && Math.abs(k.median - (n % 2 ? sorted[(n - 1) / 2] : (sorted[n / 2 - 1] + sorted[n / 2]) / 2)) > 1e-9) bad.push(`dots median ${k.median} is not the median`);
+    if (k.mean != null && Math.abs(k.mean - vs.reduce((a, b) => a + b, 0) / n) > 1e-9) bad.push(`dots mean ${k.mean} is not the mean`);
+  }
+  if (f.type === 'bars') {
+    if (f.labels.length !== f.values.length) bad.push(`bars: ${f.labels.length} names for ${f.values.length} values`);
+    if (f.values.some((v: number | null) => v != null && v < 0)) bad.push('bars with a value under 0');
+    if (f.highlight != null && !(f.highlight >= 0 && f.highlight < f.values.length)) bad.push(`bars highlight ${f.highlight}`);
+    if (f.level != null && !(f.level >= 0)) bad.push(`bars level ${f.level}`);
+  }
+  if (f.type === 'chart') bad.push(...chartProblems(f));
+  if (f.type === 'outcomes') {
+    const n = f.rows?.length || 1;
+    if (f.cells && (f.cells.length !== n || f.cells.some((r: unknown[]) => r.length !== f.cols.length))) bad.push(`outcomes: cells are not ${n} × ${f.cols.length}`);
+    for (const [i, j] of f.marked || []) if (!(i >= 0 && i < n && j >= 0 && j < f.cols.length)) bad.push(`outcomes: marked (${i}, ${j}) outside the table`);
+  }
+  if (f.type === 'pair') {
+    if (f.items?.length !== 2) bad.push(`pair of ${f.items?.length} sources`);
+    for (const x of f.items || []) if (x?.type === 'pair') bad.push('a pair inside a pair'); else if (x) bad.push(...selfProblems(skill, x).map((p) => `source: ${p}`));
+  }
+  if (f.type === 'coord') {
+    const r = f.range || 6; const inside = ([x, y]: Pt) => Math.abs(x) <= r && Math.abs(y) <= r;
+    for (const p of f.path || []) if (!inside(p)) bad.push(`a walk through (${p}) outside the plane`);
+    const first = f.line || f.lines?.[0];
+    if (f.riseRun) {
+      if (!first) bad.push('riseRun with no line');
+      else {
+        const { x, run } = f.riseRun; const ends: Pt[] = [[x, first.m * x + first.b], [x + run, first.m * (x + run) + first.b]];
+        if (!ends.every(inside)) bad.push(`riseRun from x = ${x}, run ${run} leaves the plane`);
+      }
+    }
+    if (f.meet) {
+      if (!(f.lines?.length >= 2)) bad.push('meet with fewer than two lines');
+      else {
+        const p = meetOf(f.lines[0], f.lines[1]);
+        if (!p) bad.push('meet on two parallel lines');
+        else if (!p.every(halfStep) || !inside(p)) bad.push(`the lines meet at (${p.map(fmt)}): not a whole or half number inside the plane`);
+      }
+    }
+  }
+  if (f.type === 'sgraph') bad.push(...sgraphProblems(f));
+  if (f.type === 'protractor') {
+    const [a, b] = f.arms || [];
+    const five = (v: number) => Number.isInteger(v) && v % 5 === 0;
+    if (![a, b].every((v) => five(v) && v >= 0 && v <= 180)) bad.push(`protractor arms ${a}, ${b}: each a multiple of 5 from 0 to 180`);
+    else if (Math.abs(a - b) < 15) bad.push(`protractor arms ${a}, ${b} are less than 15° apart`);
+    if (!Number.isInteger((f.base || 0) / 15)) bad.push(`protractor turned ${f.base}°: not a multiple of 15`);
+    if (f.letters && ![f.letters.vertex, f.letters.a, f.letters.b].every((l: string) => /^[A-Z]$/.test(l))) bad.push('protractor letters are not capital letters');
+    // on a 320px phone (288px drawn) its numbers never touch
+    const L = protractorLabels({ drawn: 288, base: f.base || 0, arms: [a, b] });
+    L.forEach((p: any, i: number) => L.slice(i + 1).forEach((q: any) => { if (!(p.box[2] <= q.box[0] || q.box[2] <= p.box[0] || p.box[3] <= q.box[1] || q.box[3] <= p.box[1])) bad.push(`protractor numbers ${p.text} and ${q.text} touch`); }));
+  }
+  if (f.type === 'clock' && !(Number.isInteger(f.h) && f.h >= 1 && f.h <= 12 && Number.isInteger(f.m) && f.m >= 0 && f.m < 60)) bad.push(`clock at ${f.h}:${f.m}`);
+  return bad;
+}
+
+/**
+ * A situation graph agrees with itself: axes of whole steps with names; every point of every series, and every lettered
+ * point, on a grid crossing inside the axes (so what the eye reads off it is exact), a series read left to right (x
+ * growing: one y for each x); bands, guides and the rise and run on the first series and inside the axes; two series that
+ * meet, meeting on the grid; and numbers that fit side by side where they are drawn.
+ */
+function sgraphProblems(f: AnyFig): string[] {
+  const bad: string[] = [];
+  const lo = (a: any) => a.min ?? 0;
+  const steps = (a: any, v: number) => (v - lo(a)) / a.step;
+  const onGrid = (a: any, v: number) => v >= lo(a) - 1e-9 && v <= a.max + 1e-9 && Math.abs(steps(a, v) - Math.round(steps(a, v))) < 1e-9;
+  for (const [name, a] of [['x', f.x], ['y', f.y]] as const) {
+    if (!a || !(a.step > 0 && a.max > lo(a)) || !onGrid(a, a.max)) bad.push(`sgraph ${name} axis ${a && `${lo(a)}..${a.max} every ${a.step}`} is not a whole number of steps`);
+    else if (!a.label) bad.push(`sgraph ${name} axis has no name`);
+  }
+  if (bad.length) return bad;
+  const at = ([x, y]: Pt, what: string) => { if (!onGrid(f.x, x) || !onGrid(f.y, y)) bad.push(`sgraph ${what} (${x}, ${y}) is not on the grid inside the axes`); };
+  const series = (f.series || []) as { pts: Pt[] }[];
+  if (!series.length) bad.push('sgraph with no series');
+  series.forEach((s, i) => {
+    s.pts.forEach((p) => at(p, `series ${i + 1} point`));
+    if (s.pts.some((p, k) => k > 0 && !(p[0] > s.pts[k - 1][0]))) bad.push(`sgraph series ${i + 1} does not go left to right`);
+  });
+  (f.marks || []).forEach((k: any) => at([k.x, k.y], `point ${k.label}`));
+  const first = series[0]?.pts || [];
+  (f.bands || []).forEach((b: any) => { if (!(b.from < b.to) || !onGrid(f.x, b.from) || !onGrid(f.x, b.to)) bad.push(`sgraph band ${b.from}..${b.to} is not an interval of the x axis`); });
+  if (f.guide?.x != null && (!onGrid(f.x, f.guide.x) || seriesAt(first, f.guide.x) == null)) bad.push(`sgraph guide from x = ${f.guide.x} does not reach the graph`);
+  if (f.guide?.y != null && (!onGrid(f.y, f.guide.y) || !seriesCrossings(first, f.guide.y).length)) bad.push(`sgraph guide from y = ${f.guide.y} does not reach the graph`);
+  if (f.riseRun) { const rr = sgraphRiseRun(f); if (!rr || !(rr.run > 0)) bad.push(`sgraph riseRun ${f.riseRun.from}..${f.riseRun.to} is not on the first series`); }
+  if (f.meet) {
+    const p = series.length > 1 ? seriesMeet(series[0].pts, series[1].pts) : null;
+    if (!p) bad.push('sgraph meet: the first two series do not meet');
+    else at(p as Pt, 'meeting point');
+  }
+  // numbers side by side: on the x axis each number needs its width and a gap; up the y axis, its height
+  const fr = graphFrame(f.x, f.y);
+  const xs = numbered(f.x) as number[]; const ys = numbered(f.y) as number[];
+  const xGap = xs.length > 1 ? fr.X(xs[1]) - fr.X(xs[0]) : Infinity; const xWide = Math.max(...xs.map((v) => numWidth(figNum(v))));
+  if (xGap < xWide + 4) bad.push(`sgraph x numbers ${xGap.toFixed(1)} apart, ${xWide.toFixed(1)} wide: set x.every`);
+  const yGap = ys.length > 1 ? fr.Y(ys[0]) - fr.Y(ys[1]) : Infinity;
+  if (yGap < GRAPH_FONT.num + 2) bad.push(`sgraph y numbers ${yGap.toFixed(1)} apart: set y.every`);
+  return bad;
+}
+
+/** The checks against the text, for topics that are fully drawn. A predict step that asks where a point is, or what its
+ * coordinates are, lists that point as hidden (in its place, not drawn), so the figure does not answer the question:
+ * there a hidden point counts as the text's point. */
+function textProblems(st: DiscoverStep, f: AnyFig): string[] {
+  const bad: string[] = [];
+  const asks = st.kind === 'predict';
+  const labels = labelsOf(f);
+  if (asks && f.type === 'coord') for (const p of f.points || []) if (p.hidden) labels.add(plainOf(p.label));
+  const groups = [...st.text.matchAll(/\$([^$]+)\$/g)].map((m) => m[1]);
+  // a letter named alone, or a point named by its coordinates, is written in the figure; a letter as a shape ("צורת $Z$",
+  // the shape of alternate angles) names no point
+  const letters = new Set<string>();
+  for (const m of st.text.matchAll(/(צורת\s*)?\$([^$]+)\$/g)) {
+    const one = /^\s*([A-Za-z])\s*$/.exec(m[2]); if (one && !m[1]) letters.add(one[1]);
+    for (const p of m[2].matchAll(/([A-Z])\s*\(\s*-?\d/g)) letters.add(p[1]);
+  }
+  // a letter is written in the figure on its own (A, x) or inside a label: m = 2, (0, b), y = 2x + 1
+  const words = new Set([...labels].flatMap((l) => l.split(/[^A-Za-z]+/)).filter(Boolean));
+  // the letters of a fraction written in general ($\frac{a}{b}$, the fraction unit's rule) are its numerator and
+  // denominator, not points: the figure shows one case of them (3/5), never the letters
+  // (in either case: the percent unit's $\frac{A}{p}$), and a letter a rule multiplies or divides by is a quantity too
+  // ($\frac{p}{100} \cdot N$; "כופלים ב־$S$", a map's scale): the figure shows one case of them, never the letters
+  const general = new Set([
+    ...[...st.text.matchAll(/\\[dt]?frac\{([A-Za-z])\}\{([A-Za-z0-9]+)\}|\\[dt]?frac\{([A-Za-z0-9]+)\}\{([A-Za-z])\}/g)].flatMap((m) => m.slice(1)),
+    ...[...st.text.matchAll(/\\cdot\s*([A-Za-z])(?![A-Za-z])|(?<![A-Za-z\\])([A-Za-z])\s*\\cdot/g)].flatMap((m) => m.slice(1)),
+    ...[...st.text.matchAll(/(?:כופלים|מחלקים)\s+ב־?\$([A-Za-z])\$/g)].map((m) => m[1]),
+  ].filter(Boolean));
+  for (const k of letters) if (!labels.has(k) && !words.has(k) && !general.has(k)) bad.push(`the text names ${k}, the figure does not`);
+  // a point named with its coordinates is drawn there
+  for (const g of groups) {
+    for (const m of g.matchAll(/(?:([A-Z])\s*)?\(\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\)/g)) {
+      if (f.type !== 'coord') continue;
+      const [x, y] = [Number(m[2]), Number(m[3])];
+      const lines = f.lines || [];
+      const meet = f.meet && lines.length > 1 ? meetOf(lines[0], lines[1]) : null;
+      const at = (p: Pt) => Math.abs(p[0] - x) < 1e-9 && Math.abs(p[1] - y) < 1e-9;
+      const ok = (f.points || []).some((p: any) => (asks || !p.hidden) && (!m[1] || p.label === m[1]) && at([p.x, p.y]))
+        || (!m[1] && ((meet && at(meet)) || (f.path || []).some((p: Pt) => at(p))))
+        // a shape's vertex by its letter (or any vertex, unnamed), the centre O, an arrow's end
+        || (f.shapes || []).some((sh: any) => sh.pts.some((p: Pt, j: number) => (!m[1] || sh.names?.[j] === m[1]) && at(p)))
+        || (!!f.centre && (!m[1] || m[1] === 'O') && at(f.centre))
+        || (!m[1] && (f.arrows || []).some((a: any) => at(a.from) || at(a.to)));
+      if (!ok) bad.push(`${m[0]} is not drawn there`);
+    }
+    for (const m of g.matchAll(/([A-Z])\s*\(\s*(-?\d+(?:\.\d+)?)\s*\)/g)) {
+      if (f.type !== 'numline') continue;
+      if (!(f.marks || []).some((k: any) => k.label === m[1] && Math.abs(k.x - Number(m[2])) < 1e-9)) bad.push(`${m[0]} is not marked there`);
+    }
+  }
+  // a prediction's answer is not written in its own figure (a table's cells are data, where a number may come up by
+  // chance: its headings count; so is a bar the step's own text or display gives, like the 4 of 2, 7, 4, 3)
+  const given = new Set([...`${st.text} ${'display' in st ? st.display || '' : ''}`.matchAll(/-?\d+(?:\.\d+)?/g)].map((m) => m[0]));
+  const written = f.type === 'table' ? new Set((f.head as unknown[]).map(plainOf))
+    : f.type === 'bars' ? new Set([...labelsOf({ ...f, values: f.values.filter((v: number | null) => v == null || !given.has(fmt(v))) })]) : labelsOf(f);
+  // (a choice that is a point's own letter picks a vertex of the drawing, as "to which vertex does B correspond?")
+  const ans = st.kind === 'predict' ? plainOf(st.choices[st.answer]) : '';
+  if (st.kind === 'predict' && written.has(ans) && !(f.type === 'geo' && /^[A-Z]$/.test(ans) && ans in f.pts)) bad.push(`the answer ${ans} is written in the figure`);
+  return bad;
+}
+
+/** Situation graphs that agree with themselves (the fixtures of FUNC-1; the func stairs bring their own). */
+const SGRAPHS: AnyFig[] = [
+  { type: 'sgraph', x: { max: 45, step: 5, label: 'זמן', unit: 'דקות', every: 2 }, y: { max: 700, step: 100, label: 'מרחק מהבית', unit: 'מטרים' }, series: [{ pts: [[0, 0], [10, 600], [25, 600], [45, 0]] }], bands: [{ from: 10, to: 25 }], guide: { x: 5, y: 300 } },
+  { type: 'sgraph', x: { min: 6, max: 18, step: 2, label: 'שעה' }, y: { min: 10, max: 26, step: 1, every: 2, label: 'טמפרטורה', unit: 'מעלות' }, series: [{ pts: [[6, 12], [8, 15], [10, 18], [12, 22], [14, 24], [16, 21], [18, 18]], dots: true }], marks: [{ x: 14, y: 24, label: 'A' }] },
+  { type: 'sgraph', x: { max: 4, step: 1, label: 'זמן', unit: 'שעות' }, y: { max: 240, step: 60, label: 'מרחק מתל אביב', unit: 'ק״מ' }, series: [{ pts: [[0, 0], [4, 240]], label: 'רכב א' }, { pts: [[0, 240], [4, 0]], label: 'רכב ב', dashed: true }], meet: true, riseRun: { from: 1, to: 3 }, dirArrow: true },
+  { type: 'sgraph', x: { max: 10, step: 1, label: 'זמן', unit: 'שניות', every: 2 }, y: { max: 20, step: 2, label: 'גובה המים', unit: 'ס״מ' }, series: [{ pts: [[0, 0], [4, 4], [7, 10], [9, 16], [10, 20]], smooth: true }] },
+];
+
+const ALL_STEPS = () => Object.values(CONTENT).flatMap((c) => [
+  ...c.discover.map((st, i) => ({ skill: c.skill, where: `${c.skill} #${i}`, st, main: true })),
+  ...c.misconceptions.flatMap((mc) => mc.remedy.map((st, i) => ({ skill: c.skill, where: `${c.skill} ${mc.id} remedy #${i}`, st, main: false }))),
+]);
+
+describe('the teaching figures (STUDENT-8) agree with themselves and with their text', () => {
+  it('every figure in every topic agrees with itself (marks on the line, dots on the axis, lines that meet, no angles for a graph)', () => {
+    const bad = ALL_STEPS().flatMap(({ skill, where, st }) => { const f = figOf(st) as AnyFig | undefined; return f ? selfProblems(skill, f).map((p) => `${where}: ${p}`) : []; });
+    expect(bad).toEqual([]);
+  });
+
+  it('in every topic, a figure writes what its text names and never the answer it asks for', () => {
+    const bad = ALL_STEPS()
+      .flatMap(({ where, st }) => { const f = figOf(st) as AnyFig | undefined; return f ? textProblems(st, f).map((p) => `${where}: ${p}`) : []; });
+    expect(bad).toEqual([]);
+  });
+
+  // every teaching figure of every stair is drawn once: about 2 s alone and up to 9 s on a busy machine, past vitest's 5 s
+  // default, so it gets its own time as engines.test's slip check does (over 5 s on a busy machine since the data unit too)
+  it('every figure renders, with no broken numbers', () => {
+    for (const { where, st } of ALL_STEPS()) {
+      const fig = figOf(st); if (!fig) continue;
+      const html = renderToStaticMarkup(createElement(Figure, { fig }));
+      expect(html, where).toMatch(/<svg|<table/);
+      expect(html, where).not.toMatch(/NaN|undefined|Infinity/);
+    }
+  }, 60_000);
+
+  // Pythagoras in space (stage 2): a solid writes only numbers its step gives, and marks the box's diagonal (or a
+  // cube's) only where its step speaks of a diagonal or of the longest rod
+  it('in Pythagoras in space, a solid writes the numbers of its step and marks the box\'s diagonal only where the step speaks of it', () => {
+    const steps = ALL_STEPS().filter(({ skill }) => skill.startsWith('space:'));
+    expect(steps.length).toBeGreaterThan(20);
+    const bad = steps.flatMap(({ where, st }) => {
+      const f = figOf(st) as AnyFig | undefined; if (!f || f.type !== 'solid') return [];
+      const out: string[] = [];
+      const said = `${st.text} ${'display' in st ? st.display || '' : ''}`;
+      const given = new Set([...said.matchAll(/\d+(?:\.\d+)?/g)].map((m) => m[0]));
+      for (const l of Object.values(solidLabels(f))) if (/^\d+(\.\d+)?$/.test(String(l)) && !given.has(String(l))) out.push(`${where}: the solid writes ${l}, its step does not`);
+      if ([f.diag || []].flat().includes('space') && !/אלכסון|d\^2|מקל|מוט/.test(said)) out.push(`${where}: the box's diagonal is marked on a step that does not speak of it`);
+      return out;
+    });
+    expect(bad).toEqual([]);
+  });
+
+  // the checks themselves, on made-up steps: each catches what it is for, and lets a right figure through
+  const say = (text: string, fig: AnyFig): DiscoverStep => ({ kind: 'say', text, fig: fig as FigSpec });
+  const predict = (text: string, fig: AnyFig, choices: string[], answer: number): DiscoverStep => ({ kind: 'predict', text, fig: fig as FigSpec, choices, answer, why: '' });
+  const both = (skill: string, st: DiscoverStep) => [...selfProblems(skill, figOf(st) as AnyFig), ...textProblems(st, figOf(st) as AnyFig)];
+
+  it('200 situation graphs of func:1\'s exercises and of each of its models agree with themselves and render', () => {
+    const rnd = seeded(11);
+    const c = contentOf('func:1')!;
+    const figs: { where: string; f: AnyFig }[] = [];
+    for (let i = 0; figs.length < 200 && i < 2000; i += 1) { const it = makeItem('func', 1); if (it.fig?.type === 'sgraph') figs.push({ where: it.key, f: it.fig }); }
+    for (const m of [c.diag, c.transfer!]) for (let i = 0; i < 200; i += 1) { const p = m.params(rnd); figs.push({ where: JSON.stringify(p), f: m.fig!(p) as AnyFig }); }
+    expect(figs.length).toBe(600);
+    const bad = figs.flatMap(({ where, f }) => selfProblems('func:1', f).map((x) => `${where}: ${x}`));
+    expect(bad).toEqual([]);
+    for (const { where, f } of figs.slice(0, 60)) expect(renderToStaticMarkup(createElement(Figure, { fig: f })), where).not.toMatch(/NaN|undefined|Infinity/);
+  });
+
+  it('200 graphs of func:3\'s exercises and 200 of its model agree with themselves and render', () => {
+    const rnd = seeded(13);
+    const c = contentOf('func:3')!;
+    const figs: { where: string; f: AnyFig }[] = [];
+    for (let i = 0; figs.length < 200 && i < 2000; i += 1) { const it = makeItem('func', 3); if (it.fig?.type === 'sgraph') figs.push({ where: it.key, f: it.fig }); }
+    for (let i = 0; i < 200; i += 1) { const p = c.diag.params(rnd); figs.push({ where: JSON.stringify(p), f: c.diag.fig!(p) as AnyFig }); }
+    expect(figs.length).toBe(400);
+    const bad = figs.flatMap(({ where, f }) => selfProblems('func:3', f).map((x) => `${where}: ${x}`));
+    expect(bad).toEqual([]);
+    for (const { where, f } of figs.slice(0, 60)) expect(renderToStaticMarkup(createElement(Figure, { fig: f })), where).not.toMatch(/NaN|undefined|Infinity/);
+  });
+
+  it('200 graphs of func:4\'s two runners agree with themselves and render', () => {
+    const figs: { where: string; f: AnyFig }[] = [];
+    for (let i = 0; figs.length < 200 && i < 20000; i += 1) { const it = makeItem('func', 4); if (it.fig?.type === 'sgraph') figs.push({ where: it.key, f: it.fig }); }
+    expect(figs.length).toBe(200);
+    const bad = figs.flatMap(({ where, f }) => selfProblems('func:4', f).map((x) => `${where}: ${x}`));
+    expect(bad).toEqual([]);
+    for (const { where, f } of figs.slice(0, 60)) expect(renderToStaticMarkup(createElement(Figure, { fig: f })), where).not.toMatch(/NaN|undefined|Infinity/);
+  });
+
+  it('200 meeting graphs of eq:6\'s exercises agree with themselves and render, the meeting on a grid crossing', () => {
+    const figs: { where: string; f: AnyFig }[] = [];
+    for (let i = 0; figs.length < 200 && i < 20000; i += 1) { const it = makeItem('eq', 6); if (it.fig?.type === 'sgraph') figs.push({ where: it.key, f: it.fig }); }
+    expect(figs.length).toBe(200);
+    // the meeting is read off the graph: it is not marked, but it lies on a grid crossing (meet checks it there)
+    const bad = figs.flatMap(({ where, f }) => selfProblems('eq:6', { ...f, meet: true }).map((x) => `${where}: ${x}`));
+    expect(bad).toEqual([]);
+    expect(figs.every(({ f }) => !(f as { meet?: boolean }).meet)).toBe(true);
+    for (const { where, f } of figs.slice(0, 60)) expect(renderToStaticMarkup(createElement(Figure, { fig: f })), where).not.toMatch(/NaN|undefined|Infinity/);
+  });
+
+  it('the challenge tasks\' situation graphs agree with themselves and render (func:c2, func:c3)', () => {
+    const graphs = CHALLENGES.filter((t) => t.fig?.type === 'sgraph');
+    expect(graphs.map((t) => t.id)).toEqual(expect.arrayContaining(['func:c2', 'func:c3']));
+    graphs.forEach((t) => {
+      expect(selfProblems(t.after, t.fig as AnyFig), t.id).toEqual([]);
+      expect(renderToStaticMarkup(createElement(Figure, { fig: t.fig })), t.id).not.toMatch(/NaN|undefined|Infinity/);
+    });
+  });
+
+  it('lets right figures through', () => {
+    expect(both('signed:1', say('מתחילים ב־$-2$ וזזים $5$ ימינה.', { type: 'numline', from: -6, to: 6, marks: [{ x: 0, label: '0' }], jumps: [{ from: -2, to: 3, label: '+5' }], anim: true }))).toEqual([]);
+    expect(both('signed:1', say('הנקודה $A(-3)$ על הציר.', { type: 'numline', from: -6, to: 6, marks: [{ x: -3, label: 'A' }] }))).toEqual([]);
+    expect(both('coord:1', say('הנקודה $B(3, 4)$ ברביע הראשון.', { type: 'coord', range: 6, quadrants: true, points: [{ x: 3, y: 4, label: 'B' }], path: [[3, 0], [3, 4]] }))).toEqual([]);
+    expect(both('line:2', say('הישר $y = 2x - 1$: צעד אחד ימינה, שניים למעלה.', { type: 'coord', range: 6, line: { m: 2, b: -1 }, riseRun: { x: 0, run: 1 } }))).toEqual([]);
+    expect(both('sys:1', say('שני הישרים נפגשים בנקודה $(2, 3)$.', { type: 'coord', range: 6, lines: [{ m: 1, b: 1 }, { m: -1, b: 5 }], meet: true }))).toEqual([]);
+    expect(both('line:1', say('המכונה מקבלת $x$ ומחזירה $2x + 1$.', { type: 'machine', rule: '2x + 1' }))).toEqual([]);
+    expect(both('stats:1', say('הציונים: $6, 7, 7, 8, 9$.', { type: 'dots', values: [6, 7, 7, 8, 9], axis: [5, 10], mark: { mode: 7, median: 7, mean: 7.4 } }))).toEqual([]);
+    expect(both('stats:1', say('כמה תלמידים בחרו כל ענף.', { type: 'bars', labels: ['כדורגל', 'כדורסל'], values: [12, 8], highlight: 0 }))).toEqual([]);
+    expect(both('signed:1', say('בלילה הטמפרטורה ירדה.', { type: 'thermo', value: -4, min: -10, max: 10 }))).toEqual([]);
+    expect(both('signed:2', say('ביום ראשון $-3$ מעלות, וביום שני $-8$.', { type: 'thermo', value: -3, label: 'יום ראשון', also: { value: -8, label: 'יום שני' }, min: -10, max: 10 }))).toEqual([]);
+    expect(both('coord:4', say('שטח מלבן הוא רוחב $a$ כפול גובה $b$.', { type: 'coord', range: 5, polygon: [[0, 0], [4, 0], [4, 3], [0, 3]], words: [{ at: [2, -0.6], text: 'a' }, { at: [4.6, 1.5], text: 'b' }] }))).toEqual([]);
+    // a predict step that asks where a point is keeps it hidden, in its place
+    const asked = { type: 'coord', range: 6, quadrants: true, points: [{ x: 0, y: -3, label: 'E', hidden: true }] };
+    expect(both('coord:1', predict('ואיפה $E(0, -3)$?', asked, ['על ציר $y$', 'בראשית'], 0))).toEqual([]);
+    const corner = { type: 'coord', range: 6, points: [{ x: 1, y: -3, label: 'A' }, { x: 1, y: 2, label: 'D', hidden: true }] };
+    expect(both('coord:5', predict('נתון $A(1, -3)$. מה השיעורים של $D$?', corner, ['$(1, 2)$', '$(2, 1)$'], 0))).toEqual([]);
+    // situation graphs (FUNC-1): a walk with a marked interval and guides; a dot graph with a lettered point; two movers
+    // that meet, with a rise and run and the direction arrow; a smooth curve
+    for (const f of SGRAPHS) expect(both('signed:1', say('הגרף מספר סיפור.', f)), f.series[0].pts.join(' ')).toEqual([]);
+    expect(both('signed:1', say('הנקודה $A$ היא השעה החמה ביותר.', SGRAPHS[1]))).toEqual([]);
+    expect(both('signed:1', predict('בכמה ק״מ התקדם רכב א בשעתיים?', SGRAPHS[2], ['$120$', '$2$'], 0))).toEqual(['the answer 120 is written in the figure']);
+    // a protractor and a clock (FUNC-1.3b): their scale numbers and hours are not "written answers", their letters are names
+    expect(both('angles:1', predict('השוק $BA$ על $0$ של הסולם שמתחיל משמאל. מה גודל $\\sphericalangle ABC$?', protractorFig([180, 130], { letters: { vertex: 'B', a: 'A', b: 'C' } }) as AnyFig, ['$50^\\circ$', '$130^\\circ$'], 0))).toEqual([]);
+    expect(both('angles:1', say('מד זווית מוטה.', protractorFig([0, 65], { base: 45 }) as AnyFig))).toEqual([]);
+    expect(both('angles:1', predict('מה הזווית בין המחוגים בשעה $2{:}30$?', clockFig(2, 30) as AnyFig, ['$105^\\circ$', '$120^\\circ$'], 0))).toEqual([]);
+    expect(textProblems(say('הנקודה $D$ על השוק.', protractorFig([0, 40], { letters: { vertex: 'B', a: 'A', b: 'C' } }) as AnyFig), protractorFig([0, 40], { letters: { vertex: 'B', a: 'A', b: 'C' } }) as AnyFig)).toEqual(['the text names D, the figure does not']);
+  });
+
+  it('catches a protractor or a clock that disagrees with itself', () => {
+    expect(selfProblems('angles:1', protractorFig([0, 200] as [number, number]) as AnyFig)).toEqual(['protractor arms 0, 200: each a multiple of 5 from 0 to 180']);
+    expect(selfProblems('angles:1', protractorFig([0, 37] as [number, number]) as AnyFig)).toEqual(['protractor arms 0, 37: each a multiple of 5 from 0 to 180']);
+    expect(selfProblems('angles:1', protractorFig([40, 45]) as AnyFig)).toEqual(['protractor arms 40, 45 are less than 15° apart']);
+    expect(selfProblems('angles:1', protractorFig([0, 40], { base: 20 }) as AnyFig)).toEqual(['protractor turned 20°: not a multiple of 15']);
+    expect(selfProblems('angles:1', protractorFig([0, 40], { letters: { vertex: 'b', a: 'A', b: 'C' } }) as AnyFig)).toEqual(['protractor letters are not capital letters']);
+    expect(selfProblems('angles:1', clockFig(13, 0) as AnyFig)).toEqual(['clock at 13:0']);
+    expect(selfProblems('angles:1', clockFig(4, 60) as AnyFig)).toEqual(['clock at 4:60']);
+    expect(selfProblems('angles:1', clockFig(4, 30) as AnyFig)).toEqual([]);
+  });
+
+  it('catches a situation graph that disagrees with itself', () => {
+    const [walk, , meet] = SGRAPHS;
+    expect(selfProblems('signed:1', { ...walk, series: [{ pts: [[0, 0], [10, 650], [25, 600], [45, 0]] }] })).toEqual(['sgraph series 1 point (10, 650) is not on the grid inside the axes']);
+    expect(selfProblems('signed:1', { ...walk, series: [{ pts: [[0, 0], [10, 600], [50, 0]] }] })).toEqual(['sgraph series 1 point (50, 0) is not on the grid inside the axes']);
+    expect(selfProblems('signed:1', { ...walk, series: [{ pts: [[0, 0], [25, 600], [10, 600]] }] })).toContain('sgraph series 1 does not go left to right');
+    expect(selfProblems('signed:1', { ...walk, bands: [{ from: 25, to: 10 }] })).toEqual(['sgraph band 25..10 is not an interval of the x axis']);
+    expect(selfProblems('signed:1', { ...walk, guide: { y: 650 } })).toEqual(['sgraph guide from y = 650 does not reach the graph']);
+    expect(selfProblems('signed:1', { ...walk, x: { max: 90, step: 5, label: 'זמן' } })[0]).toMatch(/x numbers .* set x.every/);
+    expect(selfProblems('signed:1', { ...walk, y: { max: 700, step: 25, label: 'מרחק' }, series: [{ pts: [[0, 0], [10, 600]] }], guide: undefined })[0]).toMatch(/y numbers .* set y.every/);
+    expect(selfProblems('signed:1', { ...walk, x: { max: 44, step: 5, label: 'זמן' } })[0]).toMatch(/not a whole number of steps/);
+    expect(selfProblems('signed:1', { ...meet, series: [meet.series[0], { pts: [[0, 240], [4, 60]] }] })[0]).toMatch(/^sgraph meeting point \(2\.28\d+, 137\.1\d+\) is not on the grid/);
+    expect(selfProblems('signed:1', { ...meet, series: [meet.series[0]] })).toEqual(['sgraph meet: the first two series do not meet']);
+    expect(selfProblems('signed:1', { ...meet, riseRun: { from: 1, to: 7 } })).toEqual(['sgraph riseRun 1..7 is not on the first series']);
+  });
+
+  it('catches a figure that disagrees with itself', () => {
+    expect(selfProblems('signed:1', { type: 'numline', from: -6, to: 6, marks: [{ x: 8 }] })).toEqual(['numline mark at 8 outside [-6, 6]']);
+    expect(selfProblems('signed:1', { type: 'numline', from: 0, to: 5, jumps: [{ from: 2, to: 7 }] })).toHaveLength(1);
+    expect(selfProblems('stats:1', { type: 'dots', values: [1, 12], axis: [0, 10] })).toEqual(['dots value 12 outside the axis 0..10']);
+    expect(selfProblems('stats:1', { type: 'dots', values: [1, 2, 2, 9], axis: [0, 10], mark: { mode: 1, median: 3, mean: 3 } })).toEqual([
+      'dots mode 1 is not the most common value', 'dots median 3 is not the median', 'dots mean 3 is not the mean']);
+    expect(selfProblems('signed:1', { type: 'thermo', value: 15, min: -10, max: 10 })).toHaveLength(1);
+    expect(selfProblems('line:3', { type: 'linear', a: 40 })).toHaveLength(1);
+    expect(selfProblems('sys:2', { type: 'linear', a: 40 })).toHaveLength(1);
+    expect(selfProblems('angles:1', { type: 'linear', a: 40 })).toEqual([]); // in angles it is what it is: a linear pair
+    expect(selfProblems('sys:1', { type: 'coord', lines: [{ m: 2, b: 1 }, { m: 2, b: -3 }], meet: true })).toEqual(['meet on two parallel lines']);
+    expect(selfProblems('sys:1', { type: 'coord', lines: [{ m: 3, b: 0 }, { m: 0, b: 1 }], meet: true })[0]).toMatch(/not a whole or half number/);
+    expect(selfProblems('sys:1', { type: 'coord', range: 6, lines: [{ m: 1, b: 0 }, { m: -1, b: 16 }], meet: true })[0]).toMatch(/inside the plane/);
+    expect(selfProblems('line:2', { type: 'coord', riseRun: { x: 0, run: 1 } })).toEqual(['riseRun with no line']);
+    expect(selfProblems('stats:2', { type: 'bars', labels: ['א'], values: [1, 2] })).toHaveLength(1);
+    expect(selfProblems('stats:5', { type: 'bars', labels: ['', ''], values: [3, null], level: 5 })).toEqual([]); // a missing value is not a negative one
+    expect(selfProblems('stats:5', { type: 'bars', labels: ['', ''], values: [3, -1], level: -2 })).toEqual(['bars with a value under 0', 'bars level -2']);
+    expect(selfProblems('signed:2', { type: 'thermo', value: -3, also: { value: -12 }, min: -10, max: 10 })).toEqual(['thermo -12 on a scale -10..10']);
+  });
+
+  it('catches a figure that disagrees with its text, or gives away the answer', () => {
+    expect(textProblems(say('הנקודה $C$ על הציר.', { type: 'numline', from: 0, to: 5, marks: [{ x: 2, label: 'B' }] }), { type: 'numline', from: 0, to: 5, marks: [{ x: 2, label: 'B' }] }))
+      .toEqual(['the text names C, the figure does not']);
+    const par = { type: 'parallel', a: 55, kind: 'alternate' };
+    expect(textProblems(say('זוויות מתחלפות (צורת $Z$).', par), par)).toEqual([]); // a letter as a shape is no point
+    const f = { type: 'coord', points: [{ x: 4, y: 3, label: 'B' }] };
+    expect(textProblems(say('הנקודה $B(3, 4)$.', f), f)).toEqual(['B(3, 4) is not drawn there']);
+    const nl = { type: 'numline', from: -6, to: 6, marks: [{ x: 2, label: 'A' }] };
+    expect(textProblems(say('הנקודה $A(-2)$.', nl), nl)).toEqual(['A(-2) is not marked there']);
+    const out = { type: 'machine', inX: 3, rule: '2x + 1', outY: 7 };
+    expect(textProblems(predict('מה יוצא מהמכונה?', out, ['$7$', '$6$'], 0), out)).toEqual(['the answer 7 is written in the figure']);
+    const asked = { ...out, outY: '?' };
+    expect(textProblems(predict('מה יוצא מהמכונה?', asked, ['$7$', '$6$'], 0), asked)).toEqual([]);
+    const meet = { type: 'coord', lines: [{ m: 1, b: 1 }, { m: -1, b: 5 }], meet: true };
+    expect(textProblems(predict('איפה הישרים נפגשים?', meet, ['$(2, 3)$', '$(3, 2)$'], 0), meet)).toEqual(['the answer (2, 3) is written in the figure']);
+    // a hidden point stands for the text's point only where a prediction asks about it, and only in its place
+    const hid = { type: 'coord', points: [{ x: 0, y: -3, label: 'E', hidden: true }] };
+    expect(textProblems(say('הנקודה $E(0, -3)$ על ציר $y$.', hid), hid)).toEqual(['the text names E, the figure does not', 'E(0, -3) is not drawn there']);
+    const off = { type: 'coord', points: [{ x: 0, y: 3, label: 'E', hidden: true }] };
+    expect(textProblems(predict('ואיפה $E(0, -3)$?', off, ['$1$', '$2$'], 0), off)).toEqual(['E(0, -3) is not drawn there']);
+    const side = { type: 'coord', words: [{ at: [0, 0], text: 'a' }] };
+    expect(textProblems(say('רוחב $a$ כפול גובה $b$.', side), side)).toEqual(['the text names b, the figure does not']);
+    // a letter inside a label counts (m = 2, (0, b)); a letter inside a longer name does not (AB is not A)
+    const mb = { type: 'coord', points: [{ x: 0, y: 1, label: '(0, b)' }], words: [{ at: [3, 3], text: 'm = 2' }] };
+    expect(textProblems(say('שני מספרים: $m$ ו־$b$.', mb), mb)).toEqual([]);
+    const ab = { type: 'coord', words: [{ at: [0, 0], text: 'AB' }] };
+    expect(textProblems(say('הנקודה $A$.', ab), ab)).toEqual(['the text names A, the figure does not']);
+    const pair = { type: 'thermo', value: -3, also: { value: -8 }, min: -10, max: 10 };
+    expect(textProblems(predict('איפה קר יותר?', pair, ['$-8$', '$-3$'], 0), pair)).toEqual(['the answer -8 is written in the figure']);
+    // a bar the step's own data gives is data (the 4 of 2, 7, 4, 3); a bar, a level or a missing value it does not give
+    // is a giveaway
+    const shells = { type: 'bars', labels: ['', '', '', ''], values: [2, 7, 4, 3] };
+    expect(textProblems({ kind: 'predict', text: 'כמה יקבל כל אחד?', display: '2,\\ 7,\\ 4,\\ 3', fig: shells as FigSpec, choices: ['$4$', '$16$'], answer: 0, why: '' }, shells)).toEqual([]);
+    const even = { type: 'bars', labels: ['', '', '', ''], values: [4, 4, 4, 4] };
+    expect(textProblems(predict('כמה יקבל כל אחד?', even, ['$4$', '$16$'], 0), even)).toEqual(['the answer 4 is written in the figure']);
+    const level = { type: 'bars', labels: ['', ''], values: [2, 6], level: 4 };
+    expect(textProblems(predict('מה הממוצע של $2$ ו־$6$?', level, ['$4$', '$8$'], 0), level)).toEqual(['the answer 4 is written in the figure']);
+    // a dot plot's line over it counts as written (n = 7 there names the n of the text)
+    const n = { type: 'dots', values: [1, 2, 3], axis: [0, 4], unit: 'יש n = 3 נתונים' };
+    expect(textProblems(say('עם $n$ נתונים.', n), n)).toEqual([]);
+    expect(textProblems(say('עם $n$ נתונים.', { ...n, unit: undefined }), { ...n, unit: undefined })).toEqual(['the text names n, the figure does not']);
+  });
+
+  it('in every topic, a say step that opens a stair draws itself in when its figure can', () => {
+    const DRAWS = new Set(['numline', 'thermo', 'machine', 'dots', 'coord', 'bars', 'table', 'chart']);
+    const bad = Object.values(CONTENT).flatMap((c) => {
+      const st = c.discover[0]; const f = figOf(st) as AnyFig | undefined;
+      return st.kind === 'say' && f && DRAWS.has(f.type) && !f.anim ? [`${c.skill} #0: ${f.type} without anim`] : [];
+    });
+    expect(bad).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------- DATA-3: the data figures and their extensions
+// chart (bar, pie, line, picto), outcomes and pair, drawn on their own before any topic uses them: each renders with no
+// broken number, says every number it draws in figPlain (and nothing it hides), and keeps its drawing rules (a grid
+// line at every step, at most 8 axis numbers, no value on a labels: false bar, a legend under a pie in its clockwise
+// order, half icons, runs, two sources). The checks of selfProblems and labelsOf above hold the content stages to them.
+describe('the data figures (DATA-3)', () => {
+  const html = (fig: AnyFig) => renderToStaticMarkup(createElement(Figure, { fig: fig as FigSpec }));
+  const count = (h: string, cls: string) => (h.match(new RegExp(`class="${cls}"`, 'g')) || []).length;
+  const sports = { type: 'chart', mode: 'bar', cats: ['כדורגל', 'כדורסל', 'שחייה', 'טניס'], values: [12, 8, 6, 4], max: 14, step: 2 };
+  const FIGS: Record<string, AnyFig> = {
+    bar: sports,
+    barBlank: { ...sports, labels: false },
+    truncated: { type: 'chart', mode: 'bar', cats: ['ראשקל', 'בלי כאב'], values: [82, 88], from: 80, max: 90, step: 2 },
+    clubs: { type: 'chart', mode: 'bar', cats: ['בלי חוג', 'חוג אחד', 'יותר מחוג אחד'], values: [30, 70, 100], max: 140, step: 10, every: 2 },
+    bill: { type: 'chart', mode: 'bar', cats: ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי'], values: [520, 480, 420, 390, 360], step: 100, hide: 2, cross: [0], level: 350 },
+    pie: { type: 'chart', mode: 'pie', cats: ['שיחה', 'אין תשובה', 'קו מקולקל', 'תפוס'], values: [50, 20, 25, 5], pct: true },
+    pieHidden: { type: 'chart', mode: 'pie', cats: ['אדום', 'כחול', 'ירוק'], values: [0.3, 0.25, 0.45], hide: 2 },
+    years: { type: 'chart', mode: 'line', xs: [2010, 2016], values: [2, 3.2], mark: 2014, dp: 1, step: 0.5, max: 3.5 },
+    tickets: { type: 'chart', mode: 'line', xs: ['8:00', '10:00', '12:00', '14:00', '16:00'], values: [200, 350, 500, 650, 800], dashed: 1, step: 100, max: 900, every: 2 },
+    wind: { type: 'chart', mode: 'line', xs: [1, 2, 3, 4], values: [0.5, 1.2, 2.4, 1.8], level: 2, dp: 1, step: 0.5, max: 3, cross: [2] },
+    picto: { type: 'chart', mode: 'picto', cats: ['מתח', 'מדע בדיוני', 'שירה'], values: [14, 8, 2], key: 4, unit: 'ילדים', icon: 'person' },
+    dice: { type: 'outcomes', rowHead: 'קובייה א׳', colHead: 'קובייה ב׳', rows: ['1', '2', '3', '4', '5', '6'], cols: ['1', '2', '3', '4', '5', '6'], cells: [1, 2, 3, 4, 5, 6].map((r) => [1, 2, 3, 4, 5, 6].map((c) => String(r + c))), marked: [[4, 5], [5, 4]], label: 'של שתי קוביות' },
+    coinDie: { type: 'outcomes', rowHead: 'מטבע', colHead: 'קובייה', rows: ['עץ', 'פלי'], cols: ['1', '2', '3', '4', '5', '6'] },
+    raffle: { type: 'outcomes', colHead: 'כרטיסים', cols: ['1–9', '10–45', '46–72'], marked: [[0, 0], [0, 2]] },
+    pair: { type: 'pair', items: [
+      { type: 'chart', mode: 'line', xs: [1, 2, 3, 4], values: [0.5, 1.2, 2.4, 1.8], level: 2, dp: 1, step: 0.5, max: 3, cross: [2] },
+      { type: 'table', head: ['קפיצה', 'מרחק (מטר)'], rows: [[1, '6.20'], [2, '6.45'], [3, '6.80'], [4, '6.50']], cross: [2] },
+    ] },
+  };
+
+  it('every figure renders, with no broken number, agrees with itself and is a type Figure draws', () => {
+    for (const [k, f] of Object.entries(FIGS)) {
+      const h = html(f);
+      expect(h, k).toMatch(/<svg|<table/);
+      expect(h, k).not.toMatch(/NaN|undefined|Infinity|null/);
+      expect(selfProblems('data:1', f), k).toEqual([]);
+      expect(FIG_TYPES, k).toContain(f.type);
+    }
+    expect(FIG_TYPES).toEqual(expect.arrayContaining(['chart', 'outcomes', 'pair']));
+  });
+
+  it('figPlain says every number a chart draws, its axis, and never the value it hides', () => {
+    expect(figPlain(FIGS.bar)).toBe('דיאגרמת עמודות: כדורגל 12, כדורסל 8, שחייה 6, טניס 4; הציר מ־0 עד 14 בקפיצות של 2');
+    expect(figPlain(FIGS.pie)).toBe('דיאגרמת עוגה, בכיוון השעון מלמעלה: שיחה 50%, אין תשובה 20%, קו מקולקל 25%, תפוס 5%');
+    expect(figPlain(FIGS.picto)).toBe('פיקטוגרמה, כל סמל 4 ילדים: מתח 3 סמלים וחצי, מדע בדיוני 2 סמלים, שירה חצי סמל');
+    expect(figPlain(FIGS.truncated)).toContain('הציר מ־80 עד 90 בקפיצות של 2');
+    for (const k of ['bar', 'barBlank', 'truncated', 'clubs', 'bill', 'pie', 'years', 'tickets', 'wind']) {
+      const f = FIGS[k]; const said = figPlain(f);
+      f.values.forEach((v: number, i: number) => { if (f.hide !== i) expect(said, `${k} ${v}`).toContain(chartNum(v, f.dp)); });
+      (f.cats || []).forEach((c: string) => expect(said, k).toContain(c));
+    }
+    // a hidden value is a question mark, in the drawing and in the words
+    expect(figPlain(FIGS.bill)).toContain('מרץ ?'); expect(figPlain(FIGS.bill)).not.toContain('420');
+    expect(figPlain(FIGS.pieHidden)).toContain('ירוק ?'); expect(figPlain(FIGS.pieHidden)).not.toContain('0.45');
+    expect(html(FIGS.pieHidden)).not.toContain('0.45');
+    // what is drawn on a chart is said too: the crossed bar, the level line, the dashed continuation, the marked year
+    expect(figPlain(FIGS.bill)).toContain('ינואר 520 (מחוק)');
+    expect(figPlain(FIGS.bill)).toContain('קו מקווקו בגובה 350');
+    expect(figPlain(FIGS.tickets)).toContain('16:00: 800 (המשך המגמה, בקו מקווקו)');
+    expect(figPlain(FIGS.years)).toBe('גרף: 2010: 2.0, 2016: 3.2; הציר האנכי מ־0 עד 3.5 בקפיצות של 0.5; מסומן 2014');
+  });
+
+  it('a bar chart has a grid line at every step and at most 8 axis numbers; labels: false prints no value on its bars', () => {
+    const bar = html(FIGS.bar);
+    expect(count(bar, 'fig-ch-grid')).toBe(7); // 2, 4, …, 14 (0 is the base)
+    expect(count(bar, 'fig-ch-tick')).toBe(8); // 0, 2, …, 14
+    expect(count(bar, 'fig-ch-val')).toBe(4);
+    expect(count(html(FIGS.barBlank), 'fig-ch-val')).toBe(0);
+    // max 140, step 10, every 2: 15 grid lines' worth of steps, 8 numbers; with no every the axis still says 8 at most
+    const clubs = html(FIGS.clubs);
+    expect(count(clubs, 'fig-ch-grid')).toBe(14);
+    expect(count(clubs, 'fig-ch-tick')).toBe(8);
+    expect(chartAxis({ ...FIGS.clubs, every: undefined }).labelled).toHaveLength(8);
+    expect(chartAxis({ ...FIGS.clubs, every: 1 }).labelled.length).toBeLessThanOrEqual(AXIS_LABELS);
+    expect(chartAxis({ values: [7, 3] })).toMatchObject({ from: 0, step: 1, max: 7 });
+    // the truncated axis starts at 80, and the first category is on the right
+    const tr = html(FIGS.truncated);
+    expect(tr).toMatch(/class="fig-ch-tick">80</);
+    const xOf = (h: string, word: string) => Number(new RegExp(`<text x="([\\d.]+)"[^>]*class="fig-ch-cat"[^>]*><tspan[^>]*>${word}<`).exec(h)?.[1]);
+    expect(xOf(bar, 'כדורגל')).toBeGreaterThan(xOf(bar, 'טניס'));
+    // a long name wraps to two lines in its slot
+    expect((clubs.match(/<tspan/g) || []).length).toBe(4); // בלי חוג, חוג אחד, and יותר מחוג / אחד
+  });
+
+  it('a pie draws its slices clockwise from 12 o\'clock with a legend of chips under it, in that order, never in a slice', () => {
+    const h = html(FIGS.pie);
+    const chips = [...h.matchAll(/class="fig-ch-chip-text"[^>]*>([^<]+)</g)].map((m) => m[1]);
+    expect(chips).toEqual(['שיחה 50%', 'אין תשובה 20%', 'קו מקולקל 25%', 'תפוס 5%']);
+    // the first slice is the right half: it starts at 12 o'clock (160, cy − R) and ends at 6 (160, cy + R)
+    expect(h).toMatch(/d="M 160 70 L 160 6 A 64 64 0 0 1 160 134 Z"/);
+    // tones beyond the first carry a pattern, so colour is never the only cue; no number is written inside the circle
+    expect((h.match(/fill="url\(#/g) || []).length).toBe(2 * 3); // three patterned slices, three patterned chip swatches
+    expect(count(h, 'fig-ch-val')).toBe(0);
+  });
+
+  it('a line chart runs left to right, continues dashed, marks an x, crosses a point and draws a level line', () => {
+    const t = html(FIGS.tickets);
+    expect(count(t, 'fig-ch-line dashed')).toBe(1);
+    expect(count(t, 'fig-ch-line')).toBe(3);
+    expect(count(t, 'fig-ch-pt est')).toBe(1);
+    const xs = [...t.matchAll(/class="fig-ch-x[^"]*">([^<]+)</g)].map((m) => m[1]);
+    expect(xs).toEqual(['8:00', '10:00', '12:00', '14:00', '16:00']);
+    const y = html(FIGS.years);
+    expect(y).toMatch(/class="fig-ch-mark"/);
+    expect(y).toMatch(/class="fig-ch-x on">2014</);
+    const w = html(FIGS.wind);
+    expect(w).toMatch(/class="fig-ch-level"/);
+    expect(w).toMatch(/class="fig-ch-level-num">2\.0</);
+    expect(count(w, 'fig-ch-cross')).toBe(1);
+  });
+
+  it('a pictogram draws whole icons and a half icon as a half, with its key', () => {
+    const h = html(FIGS.picto);
+    expect(pictoIcons(14, 4)).toBe(3.5);
+    expect((h.match(/clip-path="url\(#/g) || []).length).toBe(2); // the half icons of מתח (3.5) and שירה (0.5)
+    expect(h).toContain('מקרא:');
+    expect(h).toMatch(/class="fig-ch-key-text"[^>]*>4 ילדים</);
+  });
+
+  it('a table of outcomes: two stages as rows × cols, one stage as one row (runs), marked cells said', () => {
+    const d = html(FIGS.dice);
+    expect((d.match(/<td/g) || []).length).toBe(36 + 1); // and the empty corner over the row names
+    expect(count(d, 'on')).toBe(2);
+    expect((d.match(/\(מסומן\)/g) || []).length).toBe(2);
+    expect(figPlain(FIGS.dice)).toContain('מסומנים 2 תאים: (5, 6) 11, (6, 5) 11');
+    expect(figPlain(FIGS.dice)).toMatch(/^טבלת תוצאות של שתי קוביות: /);
+    expect(html(FIGS.coinDie)).toContain('(עץ, 1)');
+    const r = html(FIGS.raffle);
+    expect((r.match(/<td/g) || []).length).toBe(3);
+    expect(figPlain(FIGS.raffle)).toBe('טבלת תוצאות: כרטיסים: 1–9, 10–45, 46–72; מסומנים 2 תאים: 1–9, 46–72');
+  });
+
+  it('a pair stacks two titled sources, each compact, and says both; a pair holds no pair', () => {
+    const h = html(FIGS.pair);
+    expect([...h.matchAll(/class="fig-pair-title">([^<]+)</g)].map((m) => m[1])).toEqual(['מקור 1', 'מקור 2']);
+    expect(h).toMatch(/fig-chart fig-chart-line compact/);
+    expect(h).toMatch(/fg-table compact/);
+    expect(figPlain(FIGS.pair)).toMatch(/^מקור 1: גרף: 1: 0\.5, 2: 1\.2, 3: 2\.4 \(מחוק\), 4: 1\.8; .*; מקור 2: טבלה: .*; מחוק: 3 → 6\.80$/);
+    const nested = { type: 'pair', items: [FIGS.pair, FIGS.bar] };
+    expect(selfProblems('stats:7', nested)).toContain('a pair inside a pair');
+    expect(html(nested)).not.toContain('fig-pair-src"><p class="fig-pair-title">מקור 1</p><div class="fig-pair-body"><div');
+  });
+
+  it('the figure extensions: a table\'s shaded cell and struck row, fbar tones, a range arrow, words at 0 and 1', () => {
+    const t = { type: 'table', head: ['שטר', 'כמה'], rows: [['20 ש״ח', 4], ['50 ש״ח', 2], ['100 ש״ח', 1]], highlight: [[0, 1]], cross: [2] };
+    const th = html(t);
+    expect(th).toMatch(/<td class="hi">/);
+    expect(th).toMatch(/<tr class="cross"/);
+    expect(figPlain(t)).toBe('טבלה: 20 ש״ח → 4; 50 ש״ח → 2; 100 ש״ח → 1; מסומן: 4; מחוק: 100 ש״ח → 1');
+    const tones = { type: 'fbar', den: 20, tones: [{ n: 6, label: 'ירוק', tone: 2 }, { n: 9, label: 'כחול' }, { n: 5, label: 'אדום', tone: 3 }] };
+    const fh = html(tones);
+    expect((fh.match(/mp-fbar-part on fig-tone-/g) || []).length).toBe(20);
+    expect((fh.match(/mp-fbar-cut group/g) || []).length).toBe(2);
+    expect(figPlain(tones)).toBe('פס שברים: הפס מחולק ל־20 חלקים; ירוק 6 חלקים, כחול 9 חלקים, אדום 5 חלקים');
+    const dots = { type: 'dots', values: [12, 5, 9, 17, 8], axis: [4, 18], span: { from: 5, to: 17, label: '12' } };
+    expect(html(dots)).toMatch(/class="fig-dt-span-num">12</);
+    expect(figPlain(dots)).toContain('חץ מ־5 עד 17 (12)');
+    expect(selfProblems('stats:6', dots)).toEqual([]);
+    const words = { type: 'numline', from: 0, to: 1, step: 0.5, marks: [{ x: 0, label: 'בלתי אפשרי' }, { x: 0.5, label: 'סיכוי שווה' }, { x: 1, label: 'ודאי' }] };
+    const nh = html(words);
+    expect(figPlain(words)).toBe('ציר מספרים מ־0 עד 1, נקודה ב־0: בלתי אפשרי, נקודה ב־0.5: סיכוי שווה, נקודה ב־1: ודאי');
+    // under the line, held inside the drawing at both ends
+    const placed = [...nh.matchAll(/<text x="([\d.]+)" y="([\d.]+)"[^>]*class="fig-nl-word"[^>]*><tspan[^>]*>([^<]+)</g)].map((m) => ({ x: Number(m[1]), y: Number(m[2]), w: m[3] }));
+    expect(placed.map((p) => p.w)).toEqual(['בלתי אפשרי', 'סיכוי שווה', 'ודאי']);
+    const line = Number(/<line x1="10" y1="([\d.]+)"/.exec(nh)?.[1]);
+    placed.forEach((p) => expect(p.y).toBeGreaterThan(line + 30));
+    expect(placed[0].x).toBeGreaterThan(22); // running inward from 0 (at x = 22)
+    expect(placed[1].x).toBe(160); // a word between the ends is centred on its point
+    expect(placed[2].x).toBeLessThan(298); // and from 1 (at x = 298)
+  });
+});
+
+// CLASSROOM-8: the class's rectangle and angles with x. A side may carry an expression ('x + 5') or a found length
+// ('16 ס״מ'); equal sides carry the same number of ticks, and they are opposite sides: as long as each other and sharing
+// no corner. The angles with x are drawn to their size, each with its expression on its arc.
+describe('the class\'s word-problem drawings', () => {
+  const ticked = (f: Geo) => {
+    const groups: Record<number, any[]> = {};
+    (f.segs || []).forEach((sg: any) => { if (sg.ticks) (groups[sg.ticks] ||= []).push(sg); });
+    return groups;
+  };
+  it('a rectangle\'s ticks sit on opposite, equal sides, and its expression labels are drawn', () => {
+    for (let i = 0; i < 200; i += 1) {
+      const it = rectStory(); const f = it.fig as Geo;
+      const groups = ticked(f);
+      expect(Object.keys(groups).sort(), it.key).toEqual(['1', '2']);
+      Object.values(groups).forEach(([a, b]) => {
+        expect([a.a, a.b].some((k) => k === b.a || k === b.b), `${it.key}: ticked sides share a corner`).toBe(false);
+        expect(dist(f.pts[a.a], f.pts[a.b])).toBeCloseTo(dist(f.pts[b.a], f.pts[b.b]), 9);
+      });
+      const html = renderToStaticMarkup(createElement(Figure, { fig: f }));
+      expect(html).not.toMatch(/NaN|undefined|Infinity/);
+      const labels = (f.segs || []).map((sg: any) => sg.label).filter(Boolean);
+      expect(labels).toContain('x');
+      expect(labels.some((l: string) => /^x \+ \d$|^2x$/.test(l)), it.key).toBe(true);
+    }
+    // the found lengths written back, in proportion and right to left
+    const done = rectFig('16 ס״מ', '11 ס״מ', { long: 16 / 11 }) as Geo;
+    expect(dist(done.pts._A, done.pts._B) / dist(done.pts._B, done.pts._C)).toBeCloseTo(16 / 11, 9);
+    expect(renderToStaticMarkup(createElement(Figure, { fig: done }))).toContain('direction="rtl"');
+  });
+  it('angles with x are drawn to their size, each with its expression on its arc', () => {
+    for (let i = 0; i < 300; i += 1) {
+      const it = angleEqStory(i % 2 ? 3 : 4); const f = it.fig as Geo;
+      const [, n, cs, es] = String(it.key).split(':'); const c = cs.split(',').map(Number); const e = es.split(',').map(Number);
+      const total = Number(n) === 3 ? 180 : 360; const x = (total - e.reduce((a, b) => a + b, 0)) / c.reduce((a, b) => a + b, 0);
+      (f.angles || []).forEach((g: any, k: number) => {
+        expect(geoSweep(f.pts, g).deg, `${it.key} at ${g.at}`).toBeCloseTo(c[k] * x + e[k], 6);
+        expect(g.text, it.key).toMatch(/^\d*x( [+−] \d+°)?$/);
+      });
+      expect(renderToStaticMarkup(createElement(Figure, { fig: f }))).not.toMatch(/NaN|undefined|Infinity/);
+    }
+  });
+});
+
+// CURRICULUM-10: the two-step angle questions draw their numbers in the figure only. 200 of each kind: the drawing has no
+// letter (no text names a point), every given angle is drawn its size and is a number of the key, the '?' is drawn the
+// size of the answer, a bisector's two halves are equal, and no arc marks a reflex angle.
+describe('the two-step angle questions are drawn to size', () => {
+  const kinds = [
+    ['three angles on a line', straightThree, (k: string[]) => [Number(k[1]), Number(k[2])]],
+    ['two adjacent angles and their difference', linearPairDiff, () => []],
+    ['three lines through one point', threeLines, (k: string[]) => [Number(k[1]), Number(k[2])]],
+    ['a bisector after a crossing', crossBisect, (k: string[]) => [Number(k[1])]],
+    ['a triangle between parallel lines', parallelTriangle, (k: string[]) => [Number(k[1]), Number(k[2])]],
+    ['a bisector after parallel lines', parallelBisect, (k: string[]) => [Number(k[1])]],
+  ] as const;
+  it.each(kinds)('%s', (_name, make, givens) => {
+    for (let i = 0; i < 200; i += 1) {
+      const it = make(); const f = it.fig as Geo;
+      expect(f.type, it.key).toBe('geo');
+      expect(Object.keys(f.pts).filter((k) => !k.startsWith('_')), `${it.key}: a letter no text names`).toEqual([]);
+      const shown: number[] = []; const asked: number[] = []; const halves: number[] = [];
+      for (const g of f.angles || []) {
+        const { deg } = geoSweep(f.pts, g);
+        expect(deg, `${it.key}: the arc at ${g.at} spans ${deg.toFixed(1)}°`).toBeLessThanOrEqual(180.0001);
+        const m = /^(\d+)°$/.exec(g.text || '');
+        if (m) { expect(Math.abs(deg - Number(m[1])), `${it.key}: ${g.text} drawn ${deg.toFixed(1)}°`).toBeLessThan(0.6); shown.push(Number(m[1])); }
+        if (g.target) { expect(g.text, it.key).toBe('?'); asked.push(deg); }
+        if (g.n === 2) halves.push(deg);
+      }
+      expect(asked, it.key).toHaveLength(1);
+      expect(Math.abs(asked[0] - it.answer), `${it.key}: the '?' is drawn ${asked[0].toFixed(1)}°, the answer is ${it.answer}°`).toBeLessThan(0.6);
+      expect(shown.sort((a, b) => a - b), it.key).toEqual([...givens(String(it.key).split(':'))].sort((a, b) => a - b));
+      if (halves.length) { expect(halves, it.key).toHaveLength(2); expect(Math.abs(halves[0] - halves[1]), it.key).toBeLessThan(0.01); }
+      expect(renderToStaticMarkup(createElement(Figure, { fig: f })), it.key).not.toMatch(/NaN|undefined|Infinity/);
+    }
+  });
+  it('reads a drawing in words, so the tutor, an answer key and the guessing test see its numbers', () => {
+    // figPlain's geo case (GEOM-1.5, which landed first in this branch): each angle with its vertex, CURRICULUM-10's
+    // "שרטוט: 40°, ?" with the vertex named
+    expect(figPlain({ type: 'geo', angles: [{ at: 'O', from: 'A', to: 'B', text: '40°' }, { at: 'O', from: 'B', to: 'C', text: '?', target: true }] })).toBe('שרטוט: ∢O 40°, ∢O ?');
+    const it = parallelTriangle();
+    const [, a, b] = String(it.key).split(':');
+    expect(figPlain(it.fig)).toContain(`${a}°`);
+    expect(figPlain(it.fig)).toContain(`${b}°`);
+  });
+});
+
+// CLASSROOM-11's rule, over every angle drawing of the angles stairs (teaching steps, repairs, worked examples and their
+// steps): an angle the text treats as known (∢X = 50°, ∢ABC = 90°, "the angle at C is right") is drawn, a right angle
+// as a square, at the point the text names; and every number on an arc sits inside its own angle: at the distance the
+// drawing puts it, it is still between the angle's two arms (it never floats past their ends, where it would read as
+// another angle's).
+/** The drawing's scale in pixels per unit, as components/Figure.jsx fits it (Geo). */
+function geoScale(f: Geo): number { return geoFit(f).s; }
+/** The drawing's scale and its map from units to pixels (y down), as components/Figure.jsx fits it (Geo). */
+function geoFit(f: Geo): { s: number; X: (p: Pt) => Pt } {
+  const [W, H] = (f.view as [number, number]) || [300, 200];
+  const [padX, padY] = Array.isArray(f.pad) ? (f.pad as [number, number]) : [(f.pad as number) ?? 30, (f.pad as number) ?? 30];
+  const P = f.pts;
+  const ends = (f.segs || []).flatMap((sg: any) => {
+    const a = P[sg.a]; const b = P[sg.b]; const len = dist(a, b) || 1; const u = [(b[0] - a[0]) / len, (b[1] - a[1]) / len]; const [e0, e1] = sg.ext || [0, 0];
+    return [[a[0] - u[0] * e0, a[1] - u[1] * e0], [b[0] + u[0] * e1, b[1] + u[1] * e1]] as Pt[];
+  });
+  const sq = (f.squares || []).flatMap((q: any) => geoSquare(P[q.a], P[q.b], q.away ? P[q.away] : null) as Pt[]);
+  const all = [...Object.values(P), ...ends, ...sq, ...((f.words || []).filter((w: any) => Array.isArray(w.at)).map((w: any) => w.at) as Pt[]), ...(((f as any).moves || []).flatMap((m: any) => [m.from, m.to]) as Pt[])];
+  const xs = all.map((p) => p[0]); const ys = all.map((p) => p[1]);
+  const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
+  const s = Math.min((W - 2 * padX) / Math.max(x1 - x0, 1e-9), (H - 2 * padY) / Math.max(y1 - y0, 1e-9));
+  const ox = (W - (x1 - x0) * s) / 2 - x0 * s; const oy = (H + (y1 - y0) * s) / 2 + y0 * s;
+  return { s, X: (p: Pt) => [ox + p[0] * s, oy - p[1] * s] };
+}
+/** Where Figure.jsx puts an angle's number: its distance from the vertex in pixels. */
+const labelDistance = (g: any, deg: number) => (g.r ?? 24) + (deg < 40 ? 30 : deg < 60 ? 22 : 16) + Math.max(0, String(g.text || '').length - 4) * 3;
+/** The angles a step's text gives as known: ∢X = n° or ∢XYZ = n° (vertex Y), and a right angle named in words. */
+function knownAngles(text: string): { at: string; deg: number }[] {
+  const out: { at: string; deg: number }[] = [];
+  for (const m of text.matchAll(/(?<!\+\s{0,3})\\sphericalangle\s*([A-Z]{1,3})\s*=\s*(\d+)\^\\circ/g)) out.push({ at: m[1].length === 3 ? m[1][1] : m[1][0], deg: Number(m[2]) });
+  for (const m of text.matchAll(/הזווית(?: ב־)?\s*\$([A-Z])\$\s*ישרה/g)) out.push({ at: m[1], deg: 90 });
+  return out;
+}
+// The council's round 3 (unit 8.3, ח׳'s continuation of the parallel angles): the angles written with x, the converse and
+// the point between the parallels with its helper line are drawn to size, write only E as a letter, and keep every
+// number off every other number and line (components/geoLayout.js)
+describe('ח׳\'s parallel-angle questions are drawn to size', () => {
+  const kinds = [['angles written with x', parallelX], ['the converse', parallelConverse], ['a point between the parallels', parallelBend]] as const;
+  it.each(kinds)('%s', (_name, make) => {
+    for (let i = 0; i < 200; i += 1) {
+      const it = make() as any; const f = it.fig as Geo;
+      expect(Object.keys(f.pts).filter((k) => !k.startsWith('_')), it.key).toEqual(String(it.key).startsWith('an4h') ? ['E'] : []);
+      const k = String(it.key).split(':');
+      // an4x: each arc is the size its expression gives for the x the two angles make
+      const x = k[0] === 'an4x' ? (() => { const [a1, c1, a2, c2] = k.slice(2, 6).map(Number); return k[1] === 'e' ? (c2 - c1) / (a1 - a2) : (180 - c1 - c2) / (a1 + a2); })() : NaN;
+      (f.angles || []).forEach((g: any, j: number) => {
+        const { deg } = geoSweep(f.pts, g);
+        const m = /^(\d+)°$/.exec(g.text || '');
+        if (m) expect(Math.abs(deg - Number(m[1])), `${it.key}: ${g.text} drawn ${deg.toFixed(1)}°`).toBeLessThan(0.6);
+        if (g.target) expect(Math.abs(deg - it.answer), `${it.key}: ? drawn ${deg.toFixed(1)}°`).toBeLessThan(0.6);
+        if (k[0] === 'an4x') { const [a, c] = j ? [Number(k[4]), Number(k[5])] : [Number(k[2]), Number(k[3])]; expect(Math.abs(deg - (a * x + c)), `${it.key}: arc ${j}`).toBeLessThan(0.6); }
+      });
+      // the converse never marks its lines parallel; the others do, and the helper line through E is parallel to them
+      const marked = (f.segs || []).filter((s: any) => s.arrows);
+      expect(marked.length, it.key).toBe(k[0] === 'an4c' ? 0 : 2);
+      expect(geoClashes(f), it.key).toEqual([]);
+      expect(renderToStaticMarkup(createElement(Figure, { fig: f })), it.key).not.toMatch(/NaN|undefined|Infinity/);
+    }
+  });
+});
+
+describe('every angle drawing shows what its text gives, and every number sits inside its own angle', () => {
+  const angleFigs = () => Object.values(CONTENT).filter((c) => c.topic === 'angles').flatMap((c) => [
+    ...c.discover.map((st, i) => ({ where: `${c.skill} #${i}`, text: `${st.text} ${'display' in st ? st.display || '' : ''}`, f: figOf(st) })),
+    ...c.misconceptions.flatMap((m) => m.remedy.map((st, i) => ({ where: `${c.skill} ${m.id} remedy #${i}`, text: st.text, f: figOf(st) }))),
+    ...c.examples.flatMap((ex, k) => [{ where: `${c.skill} example ${k + 1}`, text: ex.problem, f: ex.fig }, ...ex.steps.map((sp, i) => ({ where: `${c.skill} example ${k + 1} step ${i + 1}`, text: sp.action, f: sp.fig }))]),
+  ]).filter((x) => (x.f as any)?.type === 'geo') as { where: string; text: string; f: Geo }[];
+  it('there are angle drawings to check', () => { expect(angleFigs().length).toBeGreaterThan(40); });
+  it('an angle the text gives is drawn at its vertex, a right angle as a square', () => {
+    const bad: string[] = [];
+    for (const { where, text, f } of angleFigs()) {
+      for (const k of knownAngles(text)) {
+        if (!(k.at in f.pts)) continue; // the text's point is not one this drawing names (a sketch of part of the shape)
+        const at = (f.angles || []).filter((g: any) => g.at === k.at);
+        const ok = k.deg === 90 ? at.some((g: any) => g.right || g.text === '90°') : at.some((g: any) => g.text === `${k.deg}°` || g.target);
+        if (!ok) bad.push(`${where}: ${k.deg}° at ${k.at} is not drawn`);
+      }
+    }
+    expect(bad).toEqual([]);
+  });
+  it('every number on an arc sits inside its own angle, between its two arms', () => {
+    const bad: string[] = [];
+    for (const { where, f } of angleFigs()) {
+      const s = geoScale(f);
+      for (const g of f.angles || []) {
+        if (g.right || !/\d/.test(String(g.text || ''))) continue;
+        const { deg } = geoSweep(f.pts, g);
+        const reach = labelDistance(g, deg);
+        // the arms are drawn at least to the points they are named by
+        const arm = Math.min(dist(f.pts[g.at], f.pts[g.from]), dist(f.pts[g.at], f.pts[g.to])) * s;
+        if (reach > arm + 4) bad.push(`${where}: ${g.text} at ${g.at} sits ${reach.toFixed(0)}px out, past arms ${arm.toFixed(0)}px long`);
+      }
+    }
+    expect(bad).toEqual([]);
+  });
+});
+
+// CLASSROOM-9 and -11: the fan's drawn angles are T and a; the split triangle has its square at C, D on BC, and every
+// given (∢ADC, ∢BAD or ∢BAC) drawn its size in its own arc, β drawn the size of the answer.
+describe('the fan and the split triangle are drawn to size', () => {
+  it('the fan: ∢AOC is T, ∢AOB is a, and the asked ∢BOC is T − a, with the letters the text names', () => {
+    for (let i = 0; i < 200; i += 1) {
+      const it = fanItem(); const f = it.fig as Geo; const [, T, a] = String(it.key).split(':').map(Number);
+      const by = (from: string, to: string) => (f.angles || []).find((g: any) => g.from === from && g.to === to);
+      expect(geoSweep(f.pts, by('A', 'C')).deg, it.key).toBeCloseTo(T, 1);
+      expect(geoSweep(f.pts, by('A', 'B')).deg, it.key).toBeCloseTo(a, 1);
+      expect(geoSweep(f.pts, by('B', 'C')).deg, it.key).toBeCloseTo(it.answer, 1);
+      expect([by('A', 'C').text, by('A', 'B').text, by('B', 'C').text]).toEqual([`${T}°`, `${a}°`, '?']);
+      expect(Object.keys(f.pts).sort()).toEqual(['A', 'B', 'C', 'O']);
+    }
+  });
+  it.each([['S1', splitTriangleS1], ['S2', splitTriangleS2]] as const)('the split triangle, %s', (_n, make) => {
+    for (let i = 0; i < 200; i += 1) {
+      const it = make(); const f = it.fig as Geo;
+      expect(Object.keys(f.pts).sort(), it.key).toEqual(['A', 'B', 'C', 'D']);
+      // the right angle at C is drawn as a square, and is right
+      const right = (f.angles || []).find((g: any) => g.right);
+      expect(right?.at, it.key).toBe('C');
+      expect(geoSweep(f.pts, right).deg % 180, it.key).toBeCloseTo(90, 6);
+      // D is on BC, between B and C
+      expect(f.pts.D[1]).toBe(0); expect(f.pts.B[0] < f.pts.D[0] && f.pts.D[0] < f.pts.C[0], it.key).toBe(true);
+      for (const g of f.angles || []) {
+        if (g.right) continue;
+        const { deg } = geoSweep(f.pts, g);
+        const m = /^(\d+)°$/.exec(g.text || '');
+        if (m) expect(Math.abs(deg - Number(m[1])), `${it.key}: ${g.text} at ${g.at}`).toBeLessThan(0.6);
+        if (g.target) expect(Math.abs(deg - it.answer), `${it.key}: ${g.text} drawn ${deg.toFixed(1)}°`).toBeLessThan(0.6);
+      }
+      // the givens of the text are the ones drawn
+      const said = [...String(it.text).matchAll(/\\sphericalangle (\w+) = (\d+)\^\\circ/g)].filter((m) => m[1] !== 'C').map((m) => `${m[2]}°`).sort();
+      expect((f.angles || []).filter((g: any) => /°$/.test(g.text || '')).map((g: any) => g.text).sort(), it.key).toEqual(said);
+      expect(renderToStaticMarkup(createElement(Figure, { fig: f }))).not.toMatch(/NaN|undefined|Infinity/);
+    }
+  });
+});
+
+// CLASSROOM-10 and -12, 200 of each kind: the bisector's rays end in dots at the letters the text names; every given angle
+// is drawn its size, the '?' the answer's size; each bisected pair (two arcs, or three for a second pair) is two equal
+// halves; and the quadrilateral's four corners are its angles: the drawn ones equal the text's, a right angle is a square
+// of 90°, the two marked equal angles are equal, and the four sum to 360°.
+const angleBetween = (P: Record<string, Pt>, v: string, a: string, b: string) => {
+  const u = [P[a][0] - P[v][0], P[a][1] - P[v][1]]; const w = [P[b][0] - P[v][0], P[b][1] - P[v][1]];
+  return (Math.acos((u[0] * w[0] + u[1] * w[1]) / (Math.hypot(u[0], u[1]) * Math.hypot(w[0], w[1]))) * 180) / Math.PI;
+};
+describe('the bisector and the quadrilateral are drawn to size', () => {
+  const kinds = [['bisWhole', () => bisItem('w')], ['bisHalf', () => bisItem('h')], ['bisTwo', () => bisItem('t')], ['bisLine', () => bisItem('l')], ['bisCheck', bisCheckItem]] as const;
+  it.each(kinds)('the bisector, %s', (_n, make) => {
+    for (let i = 0; i < 200; i += 1) {
+      const it = make(); const f = it.fig as Geo;
+      // the letters are the text's: O and the rays it names, each ending in a dot
+      const said = capitals(String(it.text).match(/\$[^$]+\$/g)?.join(' ').replace(/\\[a-zA-Z]+/g, ' ') || '');
+      expect(Object.keys(f.pts).sort(), it.key).toEqual([...said].sort());
+      expect([...(f.dots || [])].sort(), it.key).toEqual(Object.keys(f.pts).sort());
+      const pairs: Record<number, number[]> = {};
+      for (const g of f.angles || []) {
+        const { deg } = geoSweep(f.pts, g);
+        expect(deg, `${it.key}: the arc at ${g.at} spans ${deg.toFixed(1)}°`).toBeLessThanOrEqual(180.0001);
+        const m = /^(\d+)°$/.exec(g.text || '');
+        if (m) expect(Math.abs(deg - Number(m[1])), `${it.key}: ${g.text} drawn ${deg.toFixed(1)}°`).toBeLessThan(0.6);
+        if (g.target) expect(Math.abs(deg - it.answer), `${it.key}: the '?' drawn ${deg.toFixed(1)}°`).toBeLessThan(0.6);
+        if ((g.n || 1) > 1) (pairs[g.n] ||= []).push(deg);
+      }
+      Object.values(pairs).forEach((ds) => { expect(ds, it.key).toHaveLength(2); expect(Math.abs(ds[0] - ds[1]), it.key).toBeLessThan(0.01); });
+      if (it.form === 'num') expect((f.angles || []).filter((g: any) => g.target), it.key).toHaveLength(1);
+      expect(renderToStaticMarkup(createElement(Figure, { fig: f })), it.key).not.toMatch(/NaN|undefined|Infinity/);
+    }
+  });
+  it.each([0, 1, 2])('the quadrilateral, Q%s', (k) => {
+    for (let i = 0; i < 200; i += 1) {
+      const it = quadItem(k); const f = it.fig as Geo; const P = f.pts;
+      expect(Object.keys(P).sort(), it.key).toEqual(['A', 'B', 'C', 'D']);
+      // the four interior angles, measured on the corners, sum to 360° (a convex quadrilateral)
+      const inner = ['A', 'B', 'C', 'D'].map((v, j, ns) => angleBetween(P, v, ns[(j + 1) % 4], ns[(j + 3) % 4]));
+      expect(inner.reduce((a, b) => a + b, 0), it.key).toBeCloseTo(360, 6);
+      const eq: number[] = [];
+      for (const g of f.angles || []) {
+        const { deg } = geoSweep(P, g);
+        // each mark is the interior angle at its corner
+        expect(Math.abs(deg - inner['ABCD'.indexOf(g.at)]), `${it.key}: the arc at ${g.at}`).toBeLessThan(1e-6);
+        if (g.right) expect(Math.abs(deg - 90), `${it.key}: the square at ${g.at}`).toBeLessThan(0.01);
+        const m = /^(\d+)°$/.exec(g.text || '');
+        if (m) expect(Math.abs(deg - Number(m[1])), `${it.key}: ${g.text} at ${g.at} drawn ${deg.toFixed(1)}°`).toBeLessThan(0.6);
+        if (g.target) expect(Math.abs(deg - it.answer), `${it.key}: the '?' drawn ${deg.toFixed(1)}°`).toBeLessThan(0.6);
+        if (g.n === 2) eq.push(deg);
+      }
+      // the angles the text gives are the ones drawn, a right angle as its square
+      const given = [...String(it.text).matchAll(/\\sphericalangle ([A-D]) = (\d+)\^\\circ/g)];
+      given.forEach((m) => expect((f.angles || []).find((g: any) => g.at === m[1])?.text, `${it.key}: ∢${m[1]}`).toBe(`${m[2]}°`));
+      const right = /הזווית \$([A-D])\$ ישרה/.exec(String(it.text));
+      expect(!!right, it.key).toBe(k === 1);
+      if (right) expect((f.angles || []).find((g: any) => g.at === right[1])?.right, it.key).toBe(true);
+      expect(eq.length, it.key).toBe(k === 2 ? 2 : 0);
+      if (eq.length) expect(Math.abs(eq[0] - eq[1]), it.key).toBeLessThan(0.01);
+      expect(renderToStaticMarkup(createElement(Figure, { fig: f })), it.key).not.toMatch(/NaN|undefined|Infinity/);
+    }
+  });
+});
+
+// CLASSROOM-9 and -11: on the fan, the split triangle and the two names rule, every number on an arc can be read: its
+// text box, measured in the app's font (Rubik 17px, 19px for the asked angle: a digit 0.665em wide, ° 0.41em, a letter
+// 0.7em; 0.74em above the baseline, β 0.22em below it), is laid out as components/Figure.jsx lays it, and no line, no
+// other angle's arc and no other number passes through it. A whole angle split by a ray (∢AOC, ∢BAC) has its number in
+// the wider part, past its own wide arc, never on the ray. The points' letters stay inside the drawing, off the numbers.
+type Box = [number, number, number, number];
+function angleBoxes(f: Geo) {
+  const { X } = geoFit(f); const P = f.pts;
+  const lines: [Pt, Pt][] = [
+    ...(f.segs || []).map((sg: any) => { const a = P[sg.a]; const b = P[sg.b]; const len = dist(a, b) || 1; const u = [(b[0] - a[0]) / len, (b[1] - a[1]) / len]; const [e0, e1] = sg.ext || [0, 0]; return [X([a[0] - u[0] * e0, a[1] - u[1] * e0]), X([b[0] + u[0] * e1, b[1] + u[1] * e1])] as [Pt, Pt]; }),
+    ...(f.polys || []).flatMap((q: any) => q.pts.map((k: string, i: number) => [X(P[k]), X(P[q.pts[(i + 1) % q.pts.length]])] as [Pt, Pt])),
+  ];
+  const arcs: { i: number; pts: Pt[] }[] = []; const boxes: { i: number; text: string; box: Box }[] = [];
+  (f.angles || []).forEach((g: any, i: number) => {
+    const v = X(P[g.at]);
+    if (g.right) {
+      // the small square of a right angle, 13px along each arm (Figure.jsx)
+      const u = (q: Pt): Pt => { const w = X(q); const n = dist(v, w) || 1; return [(w[0] - v[0]) / n, (w[1] - v[1]) / n]; };
+      const [u1, u2] = [u(P[g.from]), u(P[g.to])]; const c: Pt = [v[0] + (u1[0] + u2[0]) * 13, v[1] + (u1[1] + u2[1]) * 13];
+      lines.push([[v[0] + u1[0] * 13, v[1] + u1[1] * 13], c], [c, [v[0] + u2[0] * 13, v[1] + u2[1] * 13]]);
+      return;
+    }
+    const { a0, a1, deg } = geoSweep(P, g); const rr = g.r ?? 24;
+    const rad = (x: number) => (x * Math.PI) / 180;
+    for (let k = 0; k < Math.max(1, g.n || 1); k += 1) {
+      const r = rr - 5 * k;
+      arcs.push({ i, pts: Array.from({ length: 61 }, (_, j) => { const t = rad(a0 + ((a1 - a0) * j) / 60); return [v[0] + r * Math.cos(t), v[1] - r * Math.sin(t)] as Pt; }) });
+    }
+    const text = String(g.text || ''); if (!text) return;
+    const em = g.target ? 19 : 17;
+    const w = [...text].reduce((t, ch) => t + (/\d/.test(ch) ? 0.665 : ch === '°' ? 0.41 : 0.7) * em, 0);
+    const lr = labelDistance(g, deg); const mid = rad(a0 + (a1 - a0) * (g.lt ?? 0.5));
+    const cx = v[0] + lr * Math.cos(mid); const base = v[1] - lr * Math.sin(mid) + 5;
+    boxes.push({ i, text, box: [cx - w / 2, base - 0.74 * em, cx + w / 2, base + (/β/.test(text) ? 0.22 * em : 1)] });
+  });
+  // the points' letters, 16px out from each point, away from the middle of the shape (Figure.jsx), about 14 by 14
+  const core = f.polys?.length ? f.polys.flatMap((q: any) => q.pts.map((k: string) => P[k])) : Object.values(P);
+  const centre = X([core.reduce((a: number, p: Pt) => a + p[0], 0) / core.length, core.reduce((a: number, p: Pt) => a + p[1], 0) / core.length]);
+  const letters = Object.keys(P).filter((k) => !k.startsWith('_') && !(f.hide || []).includes(k)).map((k) => {
+    const p = X(P[k]); const n = dist(p, centre); const [dx, dy] = (f as any).lab?.[k] || (n < 1 ? [0, -16] : [((p[0] - centre[0]) / n) * 16, ((p[1] - centre[1]) / n) * 16]);
+    const base = p[1] + dy + 6;
+    return { text: k, box: [p[0] + dx - 7, base - 13, p[0] + dx + 7, base + 1] as Box };
+  });
+  return { lines, arcs, boxes, letters };
+}
+const inBox = (p: Pt, [x0, y0, x1, y1]: Box, m = 1.5) => p[0] > x0 - m && p[0] < x1 + m && p[1] > y0 - m && p[1] < y1 + m;
+const along = ([a, b]: [Pt, Pt]) => { const n = Math.max(2, Math.ceil(dist(a, b))); return Array.from({ length: n + 1 }, (_, j) => [a[0] + ((b[0] - a[0]) * j) / n, a[1] + ((b[1] - a[1]) * j) / n] as Pt); };
+function clashes(f: Geo): string[] {
+  const { lines, arcs, boxes, letters } = angleBoxes(f); const out: string[] = [];
+  const [W, H] = (f.view as [number, number]) || [300, 200];
+  const overlap = (a: Box, b: Box) => !(a[0] > b[2] + 1 || a[2] < b[0] - 1 || a[1] > b[3] + 1 || a[3] < b[1] - 1);
+  for (const l of letters) if (l.box[0] < 0 || l.box[1] < 0 || l.box[2] > W || l.box[3] > H) out.push(`the letter ${l.text} cut by the drawing's edge`);
+  for (const b of boxes) {
+    if (b.box[0] < 0 || b.box[1] < 0 || b.box[2] > W || b.box[3] > H) out.push(`${b.text} cut by the drawing's edge`);
+    for (const ln of lines) if (along(ln).some((p) => inBox(p, b.box))) out.push(`${b.text} on a line (${ln.map((p) => p.map(Math.round).join(',')).join(' ')})`);
+    // its own arc is the label distance's business (the rule above); another angle's arc must not cross it
+    for (const a of arcs) if (a.i !== b.i && a.pts.some((p) => inBox(p, b.box))) out.push(`${b.text} on the arc of ${(f.angles as any[])[a.i].text || (f.angles as any[])[a.i].at}`);
+    for (const c of boxes) if (c.i > b.i && overlap(b.box, c.box)) out.push(`${b.text} on ${c.text}`);
+    for (const l of letters) if (overlap(b.box, l.box)) out.push(`${b.text} on the letter ${l.text}`);
+  }
+  return out;
+}
+describe('the fan, the split triangle and the two names rule: every number clear of every line, arc and number', () => {
+  it.each([['the fan', fanItem], ['the split triangle, S1', splitTriangleS1], ['the split triangle, S2', splitTriangleS2]] as const)('%s, 3,000 items', (_n, make) => {
+    const bad = new Set<string>();
+    for (let i = 0; i < 3000; i += 1) { const it = make(); for (const c of clashes(it.fig as Geo)) bad.add(`${it.key}: ${c}`); }
+    expect([...bad].slice(0, 12)).toEqual([]);
+  }, 60000);
+  // CLASSROOM-10 and -12: the bisector's fans (the four typed kinds and the choice) and the quadrilaterals
+  it.each([['bisWhole', () => bisItem('w')], ['bisHalf', () => bisItem('h')], ['bisTwo', () => bisItem('t')], ['bisLine', () => bisItem('l')], ['bisCheck', bisCheckItem]] as const)('the bisector, %s, 3,000 items', (_n, make) => {
+    const bad = new Set<string>();
+    for (let i = 0; i < 3000; i += 1) { const it = make(); for (const c of clashes(it.fig as Geo)) bad.add(`${it.key}: ${c}`); }
+    expect([...bad].slice(0, 12)).toEqual([]);
+  }, 60000);
+  it.each([0, 1, 2])('the quadrilateral, Q%s, 1,500 items', (k) => {
+    const bad = new Set<string>();
+    for (let i = 0; i < 1500; i += 1) { const it = quadItem(k); for (const c of clashes(it.fig as Geo)) bad.add(`${it.key}: ${c}`); }
+    expect([...bad].slice(0, 12)).toEqual([]);
+  }, 90000);
+  it('the teaching drawings of angles:6 and angles:7, every one', () => {
+    const figs = ['angles:6', 'angles:7'].flatMap((k) => { const c = CONTENT[k]; return [...c.discover.map(figOf), ...c.misconceptions.flatMap((m) => m.remedy.map(figOf)), ...c.examples.flatMap((ex) => [ex.fig, ...ex.steps.map((sp) => sp.fig)]), ...c.together.map((g) => g.fig)]; })
+      .filter((f) => (f as any)?.type === 'geo') as Geo[];
+    expect(figs.length).toBeGreaterThanOrEqual(20);
+    expect(figs.flatMap((f) => clashes(f).map((c) => `${(f as { label?: string }).label}: ${c}`))).toEqual([]);
+  });
+  it('the teaching drawings of angles:1 and angles:3 made with them', () => {
+    const named = /שלוש קרניים|ישר וקרניים|ישר־זווית ABC|שרטוט עזר/;
+    const figs = ['angles:1', 'angles:3'].flatMap((k) => { const c = CONTENT[k]; return [...c.discover.map(figOf), ...c.misconceptions.flatMap((m) => m.remedy.map(figOf)), ...c.examples.flatMap((ex) => [ex.fig, ...ex.steps.map((sp) => sp.fig)])]; })
+      .filter((f) => (f as any)?.type === 'geo' && named.test(String((f as any).label))) as Geo[];
+    expect(figs.length).toBeGreaterThanOrEqual(8);
+    expect(figs.flatMap((f) => clashes(f).map((c) => `${f.label}: ${c}`))).toEqual([]);
+  });
+});
+
+// curriculum stage 4: every drawn kind of the congruence questions (content/congr.gen.js), 200 draws of each: the
+// figure renders, agrees with itself and with its text; every angle written in degrees is drawn that size; two
+// triangles drawn for a congruence are congruent under the correspondence they were drawn for (fig.match: each side of
+// the first as long as its image); and an angle written as an expression, (2x + 10)°, is drawn at its value at the
+// answer
+describe('the congruence questions\' drawings (GEOM-5)', () => {
+  const drawn = Object.entries(CONGR_KINDS as Record<string, () => any>).filter(([, gen]) => gen().fig);
+  it('cover every kind that draws', () => {
+    expect(drawn.map(([k]) => k).sort()).toEqual(['angleVia', 'claims', 'findError', 'matchData', 'maxAngle', 'medArea', 'medPerim', 'rectMedian', 'samePerimeter', 'sideX', 'ticks', 'useCong', 'whatMissing', 'whichSeg', 'whichThm']);
+  });
+  const expr = /^\((\d)x ([+−]) (\d+)\)°$/;
+  for (const [kind, gen] of drawn) {
+    it(`${kind}: 200 drawings`, () => {
+      let matched = 0;
+      for (let i = 0; i < 200; i += 1) {
+        const it = gen();
+        const f = it.fig as AnyFig;
+        const html = renderToStaticMarkup(createElement(Figure, { fig: f }));
+        expect(html, `${kind} ${it.key}`).toMatch(/<svg|<table/);
+        expect(html, `${kind} ${it.key}`).not.toMatch(/NaN|undefined|Infinity/);
+        expect(selfProblems('congr:1', f), `${kind} ${it.key}`).toEqual([]);
+        const st = (it.form === 'mc'
+          ? { kind: 'predict', text: it.text, fig: f, choices: it.choices.map((c: any) => c.text ?? c.tex), answer: it.answer, why: '' }
+          : { kind: 'say', text: it.text, fig: f }) as DiscoverStep;
+        expect(textProblems(st, f), `${kind} ${it.key}: ${it.text}`).toEqual([]);
+        if (f.type !== 'geo') continue;
+        const g = f as Geo;
+        for (const a of g.angles || []) {
+          const { deg } = geoSweep(g.pts, a);
+          const m = /^(\d+)°$/.exec(a.text || '');
+          if (m) expect(Math.abs(deg - Number(m[1])), `${kind} ${it.key}: ${a.text} at ${a.at} is drawn ${deg.toFixed(1)}°`).toBeLessThan(0.6);
+          const e = expr.exec(a.text || '');
+          if (e && it.form === 'num') {
+            const v = Number(e[1]) * it.answer + (e[2] === '+' ? 1 : -1) * Number(e[3]);
+            expect(Math.abs(deg - v), `${kind} ${it.key}: ${a.text} at x = ${it.answer} is ${v}°, drawn ${deg.toFixed(1)}°`).toBeLessThan(0.6);
+          }
+          if (a.right) expect(Math.min(deg, 360 - deg), `${kind} ${it.key}: right angle at ${a.at}`).toBeCloseTo(90, 1);
+          if (!a.right) expect(deg, `${kind} ${it.key}: the arc at ${a.at}`).toBeLessThanOrEqual(180.0001);
+        }
+        if (g.match) {
+          const pairs = g.match as [string, string][];
+          const to = Object.fromEntries(pairs);
+          for (const [u, v] of [['A', 'B'], ['B', 'C'], ['C', 'A']]) {
+            expect(Math.abs(dist(g.pts[u], g.pts[v]) - dist(g.pts[to[u]], g.pts[to[v]])), `${kind} ${it.key}: ${u}${v} and ${to[u]}${to[v]}`).toBeLessThan(1e-6);
+          }
+          matched += 1;
+        }
+      }
+      if (['angleVia', 'sideX', 'ticks', 'matchData'].includes(kind)) expect(matched, `${kind}: drawn as a congruent pair`).toBe(200);
+    });
+  }
+  it('the teaching steps\' pairs of triangles are congruent under their correspondence too', () => {
+    let n = 0;
+    for (let k = 1; k <= 5; k += 1) {
+      const c = contentOf(`congr:${k}`)!;
+      const figs = [...c.discover, ...c.misconceptions.flatMap((m) => m.remedy)].map(figOf).concat(c.examples.map((e) => e.fig), c.together.map((t) => t.fig)) as AnyFig[];
+      for (const f of figs) {
+        if (!f?.match) continue;
+        const m = f.match as [string, string][];
+        for (let i = 0; i < 3; i += 1) {
+          const [u, U] = m[i]; const [v, V] = m[(i + 1) % 3];
+          expect(Math.abs(dist(f.pts[u], f.pts[v]) - dist(f.pts[U], f.pts[V])), `congr:${k} ${f.label}: ${u}${v} and ${U}${V}`).toBeLessThan(1e-6);
+        }
+        n += 1;
+      }
+    }
+    expect(n).toBeGreaterThan(15);
+  });
+});
+
+// curriculum stage 4: every drawn kind of the similarity questions (content/sim.gen.js), 200 draws of each: the figure
+// renders with no broken numbers, agrees with itself and with its text, every angle written in degrees is drawn that
+// size, every number on a side is in proportion to the drawn lengths (one scale per drawing), and a choice question's
+// figure never writes its answer
+describe('the similarity questions\' drawings (GEOM-6)', () => {
+  const drawn = Object.entries(SIM_KINDS as Record<string, () => any>).filter(([, gen]) => gen().fig);
+  it('cover every kind that draws', () => {
+    expect(drawn.map(([k]) => k).sort()).toEqual(['aaWhich', 'angleCheck', 'bowtie', 'factor', 'gridSquares', 'isSimilarMc', 'isoAlt', 'isoCount', 'isoX', 'missingSide', 'parallelCut', 'shadow']);
+  });
+  for (const [kind, gen] of drawn) {
+    it(`${kind}: 200 drawings`, () => {
+      for (let i = 0; i < 200; i += 1) {
+        const it = gen();
+        const f = it.fig as AnyFig;
+        const html = renderToStaticMarkup(createElement(Figure, { fig: f }));
+        expect(html, `${kind} ${it.key}`).toMatch(/<svg|<table/);
+        expect(html, `${kind} ${it.key}`).not.toMatch(/NaN|undefined|Infinity/);
+        expect(selfProblems('sim:1', f), `${kind} ${it.key}`).toEqual([]);
+        const st = (it.form === 'mc'
+          ? { kind: 'predict', text: it.text, fig: f, choices: it.choices.map((c: any) => c.text ?? c.tex), answer: it.answer, why: '' }
+          : { kind: 'say', text: it.text, fig: f }) as DiscoverStep;
+        expect(textProblems(st, f), `${kind} ${it.key}: ${it.text}`).toEqual([]);
+        if (f.type !== 'geo') continue;
+        const g = f as Geo;
+        for (const a of g.angles || []) {
+          const { deg } = geoSweep(g.pts, a);
+          const m = /^(\d+)°$/.exec(a.text || '');
+          if (m) expect(Math.abs(deg - Number(m[1])), `${kind} ${it.key}: ${a.text} at ${a.at} is drawn ${deg.toFixed(1)}°`).toBeLessThan(0.6);
+          if (a.right) expect(Math.min(deg, 360 - deg), `${kind} ${it.key}: right angle at ${a.at}`).toBeCloseTo(90, 1);
+          if (!a.right) expect(deg, `${kind} ${it.key}: the arc at ${a.at}`).toBeLessThanOrEqual(180.0001);
+        }
+        const ratios = (g.segs || []).map((s: any) => (num(s.label) != null ? num(s.label)! / dist(g.pts[s.a], g.pts[s.b]) : null)).filter((x): x is number => x != null);
+        ratios.forEach((r) => expect(Math.abs(r / ratios[0] - 1), `${kind} ${it.key}: sides out of proportion`).toBeLessThan(0.01));
+      }
+    });
+  }
+});
+
+// curriculum stage 4: every drawn kind of the transformations' practice questions (content/transf.gen.js), 200 draws of
+// each: the figure renders with no broken numbers, agrees with itself, writes every letter and point its text names, and
+// a choice question's figure never writes its answer
+describe('the transformations\' practice drawings (GEOM-4)', () => {
+  const drawn = Object.entries(TRANSF_KINDS as Record<string, () => any>).filter(([, gen]) => gen().fig || gen().manip);
+  it('cover every kind that draws', () => {
+    expect(drawn.map(([k]) => k).sort()).toEqual(['glue', 'halfTurnPt', 'mirrorCopy', 'quarterPt', 'rectCong', 'reflectAxis', 'reflectLine', 'rotSym', 'slideCopy', 'slidePt', 'symAxes', 'tiling', 'turnCopy', 'vectorPt', 'whichMove', 'whichShift']);
+  });
+  for (const [kind, gen] of drawn) {
+    it(`${kind}: 200 drawings`, () => {
+      for (let i = 0; i < 200; i += 1) {
+        const it = gen();
+        const f = (it.fig || (it.manip?.kind === 'transform' ? { type: 'coord', shapes: [it.manip.shape], ...(it.manip.moves.flips ? { mirror: it.manip.moves.flips[0] } : {}), ...(it.manip.moves.turns ? { centre: it.manip.moves.turns.centre } : {}) } : null)) as AnyFig;
+        const html = renderToStaticMarkup(createElement(Figure, { fig: f }));
+        expect(html, `${kind} ${it.key}`).toMatch(/<svg/);
+        expect(html, `${kind} ${it.key}`).not.toMatch(/NaN|undefined|Infinity/);
+        expect(selfProblems('transf:1', f), `${kind} ${it.key}`).toEqual([]);
+        const st = (it.form === 'mc'
+          ? { kind: 'predict', text: it.text, fig: f, choices: it.choices.map((c: any) => c.text), answer: it.answer, why: '' }
+          : { kind: 'say', text: it.text, fig: f }) as DiscoverStep;
+        expect(textProblems(st, f), `${kind} ${it.key}: ${it.text}`).toEqual([]);
+        if (f.type === 'coord') {
+          // every point and vertex on the plane the figure shows
+          const r = f.range || 6; const pts: Pt[] = [...(f.points || []).map((p: any) => [p.x, p.y]), ...(f.shapes || []).flatMap((sh: any) => sh.pts), ...(f.centre ? [f.centre] : [])];
+          for (const [x, y] of pts) expect(Math.abs(x) <= r && Math.abs(y) <= r, `${kind} ${it.key}: (${x}, ${y})`).toBe(true);
+        }
+      }
+    });
+  }
+});
+
+// curriculum stage 4's QA (shots of every stair at 390 and 320 px): in a busy little drawing two numbered angles of a
+// flat triangle sat on each other (45° on 100°), an angle written (3x − 15)° ran across the triangle's sides, and a
+// median's length sat on the neighbouring side. components/geoLayout.js now moves a label that would clash to the first
+// free place of a few. Over every geo drawing of the three topics (the practice kinds, 300 draws of each stair, and every
+// drawing of their teaching and challenge steps): no label sits on a letter or on another label, none is cut off by the
+// edge of the drawing, none has another line between it and what it names, and none is crossed by a drawn line. One
+// exception, for the crossing only: congr:4's median in a long, flat triangle (the foot of the height far past B, drawn
+// true to scale) runs in a wedge too thin for its number on either side; the number then sits on its own side with a
+// line behind its halo (canon.css), still on nothing and next to its median.
+const CROSSING_ALLOWED: Record<string, string[]> = { congr: ['medArea'] };
+describe('the geometry drawings are readable: no label on another, none crossed by a line, none cut off', () => {
+  const geoIn = (x: any, out: any[] = []): any[] => {
+    if (!x || typeof x !== 'object') return out;
+    if (x.type === 'geo' && x.pts) out.push(x);
+    for (const v of Array.isArray(x) ? x : Object.values(x)) geoIn(v, out);
+    return out;
+  };
+  for (const [topic, kinds] of Object.entries({ transf: TRANSF_KINDS, congr: CONGR_KINDS, sim: SIM_KINDS } as Record<string, Record<string, () => any>>)) {
+    it(`${topic}: every practice kind, 300 draws each`, () => {
+      const bad: string[] = [];
+      // the same draws on every run (a seeded stream in place of Math.random)
+      const spy = vi.spyOn(Math, 'random').mockImplementation(seeded(20261112));
+      try {
+      for (const [kind, gen] of Object.entries(kinds)) {
+        for (let i = 0; i < 300; i += 1) {
+          const it = gen();
+          const ok = (c: string) => (CROSSING_ALLOWED[topic] || []).includes(kind) && c.endsWith('crossed by a line');
+          for (const f of geoIn(it.fig)) { const c = geoClashes(f).filter((x: string) => !ok(x)); if (c.length) bad.push(`${kind} ${it.key}: ${c.join('; ')}`); }
+        }
+      }
+      } finally { spy.mockRestore(); }
+      expect(bad.slice(0, 10)).toEqual([]);
+    });
+    it(`${topic}: every drawing of its teaching and its challenges`, () => {
+      const bad: string[] = [];
+      const n = Object.keys(CONTENT).filter((s) => s.startsWith(`${topic}:`)).length;
+      expect(n).toBeGreaterThan(3);
+      for (let k = 1; k <= n; k += 1) {
+        for (const f of geoIn(contentOf(`${topic}:${k}`))) { const c = geoClashes(f); if (c.length) bad.push(`${topic}:${k} ${f.label}: ${c.join('; ')}`); }
+      }
+      for (const ch of CHALLENGES.filter((t: any) => t.topic === topic)) {
+        for (const f of geoIn(ch)) { const c = geoClashes(f); if (c.length) bad.push(`${ch.id} ${f.label}: ${c.join('; ')}`); }
+      }
+      expect(bad.slice(0, 10)).toEqual([]);
+    });
+  }
+});
+
+// The transform object's letters (GEOM-2.4, components/manip/tfLayout.js): curriculum stage 4's review found congr:1's
+// step 5 drawing the target's C on the centre's O (an unreadable "Ç/O"), and the shown answer's letters on the copy's
+// and on the axis numbers. Over every transform object of the three topics' teaching (their steps and their repairs)
+// and 200 draws of every practice kind that has one: at the start, with the copy on the answer, and with the answer
+// shown beside a copy left at the start, no letter sits on another, on another shape's corner, on O's dot or on a
+// number of the plane, and none is cut off.
+describe('the transform object\'s letters are readable', () => {
+  const tfIn = (x: any, out: any[] = []): any[] => {
+    if (!x || typeof x !== 'object') return out;
+    if (x.manip?.kind === 'transform') out.push({ m: x.manip, answer: x.answer });
+    for (const v of Array.isArray(x) ? x : Object.values(x)) tfIn(v, out);
+    return out;
+  };
+  const same = (a: Pt[], b: Pt[]) => a.length === b.length && a.every((p, i) => p[0] === b[i][0] && p[1] === b[i][1]);
+  const problems = (m: any, answer: any, where: string) => {
+    const g = gridGeometry(m.range || TF_RANGE);
+    const names = m.shape.names; const primed = names.map((n: string) => `${n}′`);
+    const start: Pt[] = tfStart(m);
+    const states: [string, Pt[], boolean][] = [['at the start', start, false]];
+    if (answer?.pts) { states.push(['on the answer', answer.pts, false]); if (!same(start, answer.pts)) states.push(['answer shown', start, true]); }
+    const bad: string[] = [];
+    for (const [state, cur, ghost] of states) {
+      const taken = new Set(cur.map((p) => p.join(',')));
+      const groups = [
+        ...(m.target ? [{ key: 'target', pts: m.target.pts, labels: m.target.names, hide: taken }] : []),
+        { key: 'orig', pts: m.shape.pts, labels: names, hide: taken },
+        { key: 'copy', pts: cur, labels: primed },
+        ...(ghost ? [{ key: 'ghost', pts: answer.pts, labels: answer.match === 'set' ? null : primed, hideIdx: new Set(cur.map((p, i) => (same([p], [answer.pts[i]]) ? i : -1))) }] : []),
+      ];
+      const c = tfClashes(g, groups, m.moves?.turns?.centre || null);
+      if (c.length) bad.push(`${where} ${state}: ${c.join('; ')}`);
+    }
+    return bad;
+  };
+  it('every transform object of the teaching and the repairs', () => {
+    const bad: string[] = []; let n = 0;
+    for (const skill of Object.keys(CONTENT).filter((s) => /^(transf|congr|sim):/.test(s))) {
+      for (const { m, answer } of tfIn(contentOf(skill))) { n += 1; bad.push(...problems(m, answer, skill)); }
+    }
+    expect(n).toBeGreaterThanOrEqual(10);
+    expect(bad).toEqual([]);
+  });
+  it('200 draws of every practice kind with the object', () => {
+    const bad: string[] = []; let n = 0;
+    const spy = vi.spyOn(Math, 'random').mockImplementation(seeded(20261112));
+    try {
+      for (const [kind, gen] of Object.entries(TRANSF_KINDS as Record<string, () => any>)) {
+        for (let i = 0; i < 200; i += 1) {
+          const it = gen();
+          if (it.manip?.kind !== 'transform') break;
+          n += 1; bad.push(...problems(it.manip, it.answer, `${kind} ${it.key}`));
+        }
+      }
+    } finally { spy.mockRestore(); }
+    expect(n).toBeGreaterThan(200);
+    expect(bad.slice(0, 10)).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------- SK-STUDENT-1: the drawings of stages B and C
+// A worked example's or a problem's drawing is held to the teaching steps' rules, with the problem (and its display) as
+// its text: it names only the problem's letters (and all of them, when it names points), draws every angle written in
+// degrees that size, keeps numbered sides in proportion, puts a point named by its coordinates there, and agrees with
+// itself. It never writes the answer it asks for, unless the problem itself gives that number.
+const PROBLEMS = () => Object.values(CONTENT).flatMap((c) => [
+  ...c.examples.map((e, i) => ({ skill: c.skill, where: `${c.skill} B${i + 1}`, text: e.problem, display: e.display, fig: e.fig as AnyFig | undefined, answer: e.answer })),
+  ...c.together.map((g, i) => ({ skill: c.skill, where: `${c.skill} C${i + 1}`, text: g.problem, display: g.display, fig: g.fig as AnyFig | undefined, answer: g.final.answer })),
+]).filter((p) => p.fig);
+/** The problem as a step, for the checks the teaching steps already have. */
+const asStep = (p: { text: string; display?: string; fig?: AnyFig }) => ({ kind: 'say', text: p.text, display: p.display, fig: p.fig } as unknown as DiscoverStep);
+
+describe('the drawings of worked examples and solving together agree with their problem (SK-STUDENT-1)', () => {
+  it('there are drawings to check, and every one renders with no broken numbers', () => {
+    expect(PROBLEMS().length).toBeGreaterThan(60);
+    for (const { where, fig } of PROBLEMS()) {
+      const html = renderToStaticMarkup(createElement(Figure, { fig }));
+      expect(html, where).toMatch(/<svg|<table/);
+      expect(html, where).not.toMatch(/NaN|undefined|Infinity/);
+    }
+  });
+
+  it('a geometry drawing names the problem\'s letters only, draws its degrees to size and keeps its sides in proportion', () => {
+    let degrees = 0;
+    for (const p of PROBLEMS().filter((x) => x.fig!.type === 'geo')) {
+      const f = p.fig as unknown as Geo; const st = asStep(p);
+      const has = (k: unknown) => typeof k !== 'string' || k in f.pts;
+      const used = [...(f.segs || []).flatMap((s) => [s.a, s.b]), ...(f.angles || []).flatMap((g) => [g.at, g.from, g.to]), ...(f.polys || []).flatMap((q) => q.pts), ...(f.dots || [])];
+      expect(used.filter((k) => k != null && !has(k)), p.where).toEqual([]);
+      const drawn = new Set(Object.keys(f.pts).filter((k) => !k.startsWith('_')));
+      const said = capitals(mathOf(st));
+      expect([...drawn].filter((k) => !said.has(k)), `${p.where}: letters in the drawing but not in the problem`).toEqual([]);
+      if (drawn.size) expect([...said].filter((k) => !drawn.has(k)), `${p.where}: letters in the problem but not in the drawing`).toEqual([]);
+      for (const g of f.angles || []) {
+        const { deg } = geoSweep(f.pts, g);
+        if (g.right) expect(Math.min(deg, 360 - deg), `${p.where}: right angle at ${g.at}`).toBeCloseTo(90, 1);
+        const m = /^(\d+)°$/.exec(g.text || '');
+        if (m) { expect(Math.abs(deg - Number(m[1])), `${p.where}: ${g.text} is drawn ${deg.toFixed(1)}°`).toBeLessThan(0.6); degrees += 1; }
+        if (!g.right) expect(deg, `${p.where}: the arc at ${g.at}`).toBeLessThanOrEqual(180.0001);
+      }
+      const ratios = (f.segs || []).flatMap((s) => { const n = num(s.label); return n != null ? [n / dist(f.pts[s.a], f.pts[s.b])] : []; });
+      ratios.forEach((r) => expect(Math.abs(r / ratios[0] - 1), `${p.where}: sides out of proportion`).toBeLessThan(0.01));
+    }
+    expect(degrees).toBeGreaterThanOrEqual(18);
+  });
+
+  it('every drawing agrees with itself and writes what its problem names', () => {
+    const bad = PROBLEMS().flatMap((p) => [...selfProblems(p.skill, p.fig!), ...textProblems(asStep(p), p.fig!)].map((x) => `${p.where}: ${x}`));
+    expect(bad).toEqual([]);
+  });
+
+  it('a drawing never writes the answer it asks for, unless the problem gives that number', () => {
+    const bad = PROBLEMS().flatMap((p) => {
+      const given = new Set([...`${p.text} ${p.display || ''}`.matchAll(/-?\d+(?:\.\d+)?/g)].map((m) => m[0]));
+      const a = fmt(p.answer); const labels = labelsOf(p.fig!);
+      return (labels.has(a) || labels.has(`${a}°`)) && !given.has(a) ? [`${p.where}: ${a} is written in the drawing`] : [];
+    });
+    expect(bad).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------- SK-STUDENT-1, round 3: the numbers' and algebra's drawings
+// The council (round 3) found no drawing in any worked example or problem solved together of the signed numbers, the
+// expressions, percent and systems, and two in the equations, though their stage A is drawn throughout. They now draw
+// what stage A drew: the number line with the step's jumps, the thermometer, the machine, the balance, the tiles, the
+// rectangle, the percent bar, the fraction bar, the two lines, the tables, the ray. A step of a worked example may draw
+// the figure again with what it found, and so may a step solved together, once it is solved (Together.jsx). Each one is
+// held to its numbers:
+//  - on a number line, a jump labelled with a number or a calculation (+9, −(−3), 7·(−6), (−5)², −\frac{3}{12}) moves by
+//    exactly that much, and a point labelled with a number sits on it;
+//  - a machine with a number in and a number out gives that number by its rule;
+//  - a table whose columns are expressions in its letter columns ('x', '7x − 3', '4x + 9') holds them in every row, a
+//    column 'x = 5' is each row's expression at 5, an equations table ('x', 'y', 'אגף ימין') has every row true at the
+//    solution of its first two, and a row of percents and a row of amounts are in proportion;
+//  - a fraction bar's rows labelled with amounts are of one unit, 'p% = v' shades p%, and x/k shades a k-th of the x row;
+//  - the amount a percent bar writes under its marker is that percent of its whole;
+//  - a balance is level at the answer, with no more boxes or weights than the object holds, and so are the tiles;
+//  - the ray of a worked inequality is its solutions, and two lines meet at the system's solution;
+//  - and a problem solved together never shows its last answer: not written, not where a jump lands or a point sits,
+//    not under a marker, not where two lines meet (the problem's own numbers aside).
+const DRAWN_TOPICS = new Set(['signed', 'expr', 'eq', 'pct', 'sys']);
+type Drawn = { skill: string; where: string; fig: AnyFig; given: string; answer?: number; together: boolean; vars?: Record<string, number>; ray?: { at: number; dir: number; closed: boolean } };
+/** Every drawing of stages B and C in the topics above: the problem's and each step's, with the text shown by then. */
+const BC_FIGS = (): Drawn[] => Object.values(CONTENT).filter((c) => DRAWN_TOPICS.has(c.skill.split(':')[0])).flatMap((c) => [
+  ...c.examples.flatMap((e, i) => [{ fig: e.fig, k: 0 }, ...e.steps.map((s, k) => ({ fig: s.fig, k: k + 1 }))]
+    .filter((x) => x.fig).map(({ fig, k }) => ({ skill: c.skill, where: `${c.skill} B${i + 1}${k ? ` step ${k}` : ''}`, fig: fig as AnyFig, given: `${e.problem} ${e.display || ''}`, answer: e.answer, together: false, vars: e.vars, ray: e.ray }))),
+  ...c.together.flatMap((g, i) => [{ fig: g.fig, k: 0 }, ...g.steps.map((s, k) => ({ fig: s.fig, k: k + 1 }))]
+    .filter((x) => x.fig).map(({ fig, k }) => ({ skill: c.skill, where: `${c.skill} C${i + 1}${k ? ` step ${k}` : ''}`, fig: fig as AnyFig,
+      // what the screen says by then: the problem, and the steps already solved
+      given: [g.problem, g.display || '', ...g.steps.slice(0, k).map((s) => s.done)].join(' '), answer: g.final.answer, together: true }))),
+]);
+
+/**
+ * A label's value: a number or a calculation as a drawing writes it (−9, +1.25, −(−3), 7·(−6), 18:(−6), (−5)², −5²,
+ * −\frac{3}{12}, -1\frac{1}{2}, 0.5·(−8)), with `vars` for the letters ('3n + 1' at n = 25); null when it is not one.
+ */
+export function valueOf(label: unknown, vars: Record<string, number> = {}): number | null {
+  if (typeof label === 'number') return label;
+  let t = String(label ?? '').replace(/\$/g, '').trim();
+  if (!t || /[א-ת]/.test(t)) return null;
+  t = t.replace(/[−–]/g, '-').replace(/·|×|\\cdot|\\times/g, '*').replace(/:|\\div/g, '/').replace(/\\left|\\right/g, '')
+    .replace(/(\d+)\\[dt]?frac\{(\d+)\}\{(\d+)\}/g, '($1+$2/$3)').replace(/\\[dt]?frac\{([^{}]+)\}\{([^{}]+)\}/g, '(($1)/($2))')
+    .replace(/²/g, '^2').replace(/³/g, '^3').replace(/\^\{(\d+)\}/g, '^$1').replace(/\s+/g, '');
+  // implicit multiplying: 3x, 3(x, )(, x(
+  t = t.replace(/(\d|\)|[a-z])(?=\()/g, '$1*').replace(/(\d|\))(?=[a-z])/g, '$1*');
+  for (let i = 0; i < 3; i += 1) t = t.replace(/(\d+(?:\.\d+)?|\([^()]*\)|[a-z])\^(\d+)/g, 'P($1,$2)');
+  const letters = new Set(t.replace(/P\(/g, '(').match(/[a-z]/g) || []);
+  for (const l of letters) { if (!(l in vars)) return null; }
+  t = t.replace(/[a-z]/g, (l) => (l === 'P' ? l : `(${vars[l]})`));
+  if (!/^[\d.+\-*/(),P]+$/.test(t)) return null;
+  try {
+    // eslint-disable-next-line no-new-func
+    const v = Function('P', `return (${t});`)(Math.pow) as number;
+    return Number.isFinite(v) ? v : null;
+  } catch { return null; }
+}
+const near9 = (a: number, b: number) => Math.abs(a - b) < 1e-9;
+/** The coefficient of a letter in an equations table's cell: '3x' 3, 'x' 1, '−y' −1, 0 0. */
+const coefOf = (cell: unknown, l: string): number | null => {
+  if (cell === 0 || cell === '0') return 0;
+  const m = new RegExp(`^([+-]?\\d*(?:\\.\\d+)?)${l}$`).exec(plainOf(cell).replace(/\s/g, ''));
+  return m ? (m[1] === '' || m[1] === '+' ? 1 : m[1] === '-' ? -1 : Number(m[1])) : null;
+};
+const pctOf = (cell: unknown): number | null => { const m = /^(\d+(?:\.\d+)?)%$/.exec(plainOf(cell)); return m ? Number(m[1]) : null; };
+
+/** What a drawing says about its own numbers that is not so (the checks above), for one drawing. */
+export function numberProblems(f: AnyFig): string[] {
+  const bad: string[] = [];
+  if (f.type === 'numline') {
+    for (const j of f.jumps || []) {
+      const v = valueOf(j.label);
+      if (v != null && !near9(j.to - j.from, v)) bad.push(`a jump labelled ${j.label} goes from ${fmt(j.from)} to ${fmt(j.to)}`);
+    }
+    for (const k of f.marks || []) {
+      const v = valueOf(k.label);
+      if (v != null && !near9(v, k.x)) bad.push(`a point labelled ${k.label} sits at ${fmt(k.x)}`);
+    }
+  }
+  // (a rule with □ has a number to find in it: 2x − □ is checked by its worked example)
+  if (f.type === 'machine' && typeof f.inX === 'number' && typeof f.outY === 'number' && !/□/.test(f.rule)) {
+    const letter = (String(f.rule).replace(/\\[a-zA-Z]+/g, '').match(/[a-z]/) || ['x'])[0];
+    const v = valueOf(f.rule, { [letter]: f.inX });
+    if (v == null || !near9(v, f.outY)) bad.push(`the machine ${f.rule} gives ${v} for ${f.inX}, not ${f.outY}`);
+  }
+  if (f.type === 'table') {
+    const head: string[] = f.head.map(plainOf);
+    const letterCols = head.map((h, j) => (/^[a-z]$/.test(h) ? j : -1)).filter((j) => j >= 0);
+    // columns of expressions in the letter columns
+    for (const [j, h] of head.entries()) {
+      if (letterCols.includes(j) || !/[a-z]/.test(h) || /=/.test(h)) continue;
+      for (const r of f.rows) {
+        const vars = Object.fromEntries(letterCols.map((c) => [head[c], valueOf(r[c])]).filter(([, v]) => v != null));
+        const want = valueOf(r[j]); if (want == null || Object.keys(vars).length < letterCols.length) continue;
+        const got = valueOf(h, vars as Record<string, number>);
+        if (got == null) bad.push(`the column ${h} is not an expression in ${letterCols.map((c) => head[c]).join(', ')}`);
+        else if (!near9(got, want)) bad.push(`${h} at ${JSON.stringify(vars)} is ${fmt(got)}, not ${r[j]}`);
+      }
+    }
+    // a column "x = 5": each row's expression at 5
+    for (const [j, h] of head.entries()) {
+      const m = /^([a-z]) = (-?\d+(?:\.\d+)?)$/.exec(h); if (!m) continue;
+      for (const r of f.rows) {
+        const exprs = r.filter((c: unknown, i: number) => i !== j && typeof c === 'string' && new RegExp(`(^|[^a-z])${m[1]}([^a-z]|$)`).test(plainOf(c)));
+        if (exprs.length !== 1) continue;
+        const got = valueOf(exprs[0], { [m[1]]: Number(m[2]) });
+        if (got == null || !near9(got, Number(valueOf(r[j])))) bad.push(`${exprs[0]} at ${h} is ${got}, not ${r[j]}`);
+      }
+    }
+    // an equations table: every row true at the solution of its first two
+    const xi = head.indexOf('x'); const yi = head.indexOf('y'); const ri = head.indexOf('אגף ימין');
+    if (xi >= 0 && yi >= 0 && ri >= 0) {
+      const eqs = f.rows.map((r: unknown[]) => ({ a: coefOf(r[xi], 'x'), b: coefOf(r[yi], 'y'), c: valueOf(r[ri]), row: r }));
+      const [p, q] = eqs; const det = p.a! * q.b! - q.a! * p.b!;
+      if (eqs.some((e: any) => e.a == null || e.b == null || e.c == null)) bad.push('an equations table with a cell that is not a term');
+      else if (!det) bad.push('an equations table whose first two rows have no single solution');
+      else {
+        const X = (p.c! * q.b! - q.c! * p.b!) / det; const Y = (p.a! * q.c! - q.a! * p.c!) / det;
+        for (const e of eqs) if (!near9(e.a! * X + e.b! * Y, e.c!)) bad.push(`the row ${e.row.join(' | ')} is not true at (${fmt(X)}, ${fmt(Y)})`);
+      }
+    }
+    // percents and amounts in proportion: a row (or the head) of percents, a row of amounts under them
+    const pctRows: (number | null)[][] = [head.slice(1), ...f.rows.map((r: unknown[]) => r.slice(1))].map((r: unknown[]) => r.map(pctOf));
+    for (const ps of pctRows.filter((r) => r.length && r.every((v: number | null) => v != null))) {
+      for (const r of f.rows) {
+        const k = r.slice(1).map((c: unknown, i: number) => (pctOf(c) == null && valueOf(c) != null ? valueOf(c)! / ps[i]! : null)).filter((v: number | null) => v != null) as number[];
+        if (k.length > 1 && k.some((v) => !near9(v, k[0]))) bad.push(`the amounts ${r.join(' | ')} are not in proportion to ${ps.join('%, ')}%`);
+      }
+    }
+  }
+  if (f.type === 'fbar') {
+    const rows = f.rows?.length ? f.rows : [{ den: f.den, shaded: f.shaded, label: f.label }];
+    for (const r of rows) if (!(r.den >= 1 && r.den <= FBAR_MAX_DEN && r.shaded >= 0 && r.shaded <= r.den)) bad.push(`a fraction bar of ${r.shaded} of ${r.den}`);
+    if ((f.cross || 0) > (rows[0].shaded || 0)) bad.push(`a fraction bar crosses out ${f.cross} of ${rows[0].shaded}`);
+    const units = rows.map((r: any) => valueOf(r.label)).map((v: number | null, i: number) => (v == null || !rows[i].shaded ? null : v / (rows[i].shaded / rows[i].den))).filter((v: number | null) => v != null) as number[];
+    if (units.some((v) => !near9(v, units[0]))) bad.push(`fraction bars of different wholes: ${rows.map((r: any) => r.label).join(', ')}`);
+    for (const r of rows) {
+      const p = /^(\d+(?:\.\d+)?)% = /.exec(plainOf(r.label));
+      if (p && !near9(r.shaded / r.den, Number(p[1]) / 100)) bad.push(`a bar labelled ${r.label} shades ${r.shaded} of ${r.den}`);
+      const share = /^\\frac\{x\}\{(\d+)\}$/.exec(String(r.label)) ? 1 / Number(/\{(\d+)\}$/.exec(String(r.label))![1])
+        : /^(\d*\.?\d*)x$/.test(plainOf(r.label)) ? Number(plainOf(r.label).slice(0, -1) || 1) : null;
+      if (share != null && !near9(r.shaded / r.den, share)) bad.push(`a bar labelled ${r.label} shades ${r.shaded} of ${r.den}`);
+    }
+  }
+  if (f.type === 'dline') {
+    const whole = (l: any) => l.step > 0 && near9(l.max / l.step, Math.round(l.max / l.step));
+    if (!whole(f.top) || !whole(f.bottom)) bad.push('a percent bar whose line is not whole steps');
+    if (f.at != null && !(f.at >= 0 && f.at <= f.top.max)) bad.push(`a percent bar's marker at ${f.at} off its line`);
+    const label = valueOf(f.label);
+    if (f.at != null && label != null && !near9(label, dlineAt({ top: f.top, bottom: f.bottom, move: 't' }, f.at).under)) bad.push(`a percent bar writes ${f.label} under ${f.at}`);
+  }
+  if (f.type === 'scale') {
+    for (const pan of [f.left, f.right]) if (pan.x > BALANCE_MAX.boxes || pan.n > BALANCE_MAX.weights) bad.push(`a pan of ${pan.x} boxes and ${pan.n} weights`);
+  }
+  if (f.type === 'tiles' && (f.px + f.nx > TILES_MAX.x || f.p1 + f.n1 > TILES_MAX.unit)) bad.push(`more tiles than a row holds: ${JSON.stringify(f)}`);
+  if (f.type === 'ray' && !(f.at >= (f.min ?? -10) && f.at <= (f.max ?? 10))) bad.push(`a ray from ${f.at} off its line`);
+  return bad;
+}
+
+/** Every number a drawing shows, plainly or by where something stands: what a student reads off it. */
+function shownOf(f: AnyFig): Set<string> {
+  const out = new Set([...labelsOf(f)]);
+  const add = (v: unknown) => { if (typeof v === 'number' && Number.isFinite(v)) out.add(fmt(v)); };
+  if (f.type === 'numline') { for (const j of f.jumps || []) { add(j.from); add(j.to); } for (const k of f.marks || []) add(k.x); }
+  if (f.type === 'machine') { add(f.inX); add(f.outY); }
+  if (f.type === 'dline' && f.at != null) {
+    if (f.show !== 'bottom') add(f.at);
+    if (f.label != null) add(valueOf(f.label)); else if (f.show !== 'top') add(dlineAt({ top: f.top, bottom: f.bottom, move: 't' }, f.at).under);
+  }
+  if (f.type === 'coord' && f.meet && f.lines?.length > 1) { const p = meetOf(f.lines[0], f.lines[1]); if (p) { add(p[0]); add(p[1]); } }
+  if (f.type === 'sgraph' && f.meet && f.series?.length > 1) { const p = seriesMeet(f.series[0].pts, f.series[1].pts); if (p) { add(p[0]); add(p[1]); } }
+  if (f.type === 'ray') add(f.at);
+  if (f.type === 'table') for (const c of [...f.head, ...f.rows.flat()]) add(valueOf(c));
+  return out;
+}
+
+describe('the drawings of the numbers\' and algebra\'s worked examples and solving together are right for their numbers (SK-STUDENT-1, round 3)', () => {
+  const figs = BC_FIGS();
+
+  it('there are drawings in every topic and on every signed-number stair', () => {
+    expect(figs.length).toBeGreaterThan(150);
+    for (const t of DRAWN_TOPICS) expect(figs.some((d) => d.skill.startsWith(`${t}:`)), t).toBe(true);
+    for (let L = 1; L <= 7; L += 1) {
+      const c = CONTENT[`signed:${L}`];
+      expect(c.examples.filter((e) => !e.fig && !e.steps.some((s) => s.fig)).length, `signed:${L}: a worked example with no drawing`).toBe(0);
+    }
+  });
+
+  it('every one renders with no broken number, and agrees with itself', () => {
+    const bad: string[] = [];
+    for (const d of figs) {
+      const html = renderToStaticMarkup(createElement(Figure, { fig: d.fig }));
+      if (!/<svg|<table/.test(html)) bad.push(`${d.where}: draws nothing`);
+      if (/NaN|undefined|Infinity/.test(html)) bad.push(`${d.where}: a broken number`);
+      bad.push(...selfProblems(d.skill, d.fig).map((p) => `${d.where}: ${p}`));
+    }
+    expect(bad).toEqual([]);
+  });
+
+  it('every one is right for its numbers: jumps, points, machines, tables, bars, the percent bar, the balance and the tiles', () => {
+    const bad = figs.flatMap((d) => numberProblems(d.fig).map((p) => `${d.where}: ${p}`));
+    expect(bad).toEqual([]);
+  });
+
+  it('a balance is level at the answer, a ray is the inequality\'s solutions, and two lines meet at the system\'s solution', () => {
+    const bad: string[] = [];
+    let n = 0;
+    for (const d of figs) {
+      if (d.fig.type === 'scale' && d.answer != null) {
+        n += 1;
+        const u = { lx: d.fig.left.x, l1: d.fig.left.n, rx: d.fig.right.x, r1: d.fig.right.n };
+        if (balanceTilt(u, d.answer) !== (d.fig.tilt || 0)) bad.push(`${d.where}: the balance leans at x = ${d.answer}`);
+      }
+      if (d.fig.type === 'ray' && d.ray) {
+        n += 1;
+        if (d.fig.at !== d.ray.at || d.fig.dir !== d.ray.dir || !!d.fig.closed !== d.ray.closed) bad.push(`${d.where}: the ray is not the solutions`);
+      }
+      if (d.fig.type === 'coord' && d.fig.meet && d.vars) {
+        n += 1;
+        const p = meetOf(d.fig.lines[0], d.fig.lines[1]);
+        if (!p || !near9(p[0], d.vars.x) || !near9(p[1], d.vars.y)) bad.push(`${d.where}: the lines meet at ${p}, not at (${d.vars.x}, ${d.vars.y})`);
+      }
+    }
+    expect(n).toBeGreaterThanOrEqual(8);
+    expect(bad).toEqual([]);
+  });
+
+  it('a problem solved together never shows its last answer, and a worked example\'s first drawing never shows its answer', () => {
+    const bad: string[] = [];
+    for (const d of figs) {
+      if (!d.together && / step \d/.test(d.where)) continue; // a worked example's step may show what it found
+      const given = new Set([...d.given.replace(/[−–]/g, '-').matchAll(/-?\d+(?:\.\d+)?/g)].map((m) => m[0]));
+      const a = fmt(d.answer!);
+      if (shownOf(d.fig).has(a) && !given.has(a)) bad.push(`${d.where}: shows its answer ${a}`);
+    }
+    expect(bad).toEqual([]);
+  });
+
+  it('the checks catch a drawing that is wrong for its numbers', () => {
+    expect(valueOf('−(−3)')).toBe(3);
+    expect(valueOf('7·(−6)')).toBe(-42);
+    expect(valueOf('18:(−6)')).toBe(-3);
+    expect(valueOf('−5²')).toBe(-25);
+    expect(valueOf('(−5)²')).toBe(25);
+    expect(valueOf('-1\\frac{1}{2}')).toBe(-1.5);
+    expect(valueOf('-\\frac{3}{12}')).toBe(-0.25);
+    expect(valueOf('4 + 3(n − 1)', { n: 25 })).toBe(76);
+    expect(valueOf('x')).toBe(null);
+    expect(valueOf('2x − □', { x: 4 })).toBe(null);
+    expect(numberProblems({ type: 'numline', from: -10, to: 6, jumps: [{ from: -6, to: 3, label: '+8' }] })).toHaveLength(1);
+    expect(numberProblems({ type: 'numline', from: -10, to: 6, marks: [{ x: -5, label: '−6' }] })).toHaveLength(1);
+    expect(numberProblems({ type: 'machine', inX: 5, rule: '4 + 3x', outY: 18 })).toHaveLength(1);
+    expect(numberProblems({ type: 'table', head: ['x', '7x − 3', '4x + 9'], rows: [[4, 25, 24]] })).toHaveLength(1);
+    expect(numberProblems({ type: 'table', head: ['מי', 'כמה', 'x = 5'], rows: [['יובל', '2x', 11]] })).toHaveLength(1);
+    expect(numberProblems({ type: 'table', ltr: true, head: ['x', 'y', 'אגף ימין', 'משוואה'], rows: [['3x', 'y', 11, 'א'], ['x', '−y', 1, 'ב'], ['4x', 0, 13, 'יחד']] })).toHaveLength(1);
+    expect(numberProblems({ type: 'table', head: ['', '0.5%', '1%', '100%'], rows: [['שקלים', 40, 80, 800]] })).toHaveLength(1);
+    expect(numberProblems({ type: 'fbar', rows: [{ den: 5, shaded: 4, label: '40' }, { den: 5, shaded: 5, label: '60' }] })).toHaveLength(1);
+    expect(numberProblems({ type: 'fbar', den: 10, shaded: 4, label: '30% = 45' })).toHaveLength(1);
+    expect(numberProblems({ type: 'fbar', rows: [{ den: 12, shaded: 4, label: '\\frac{x}{4}' }] })).toHaveLength(1);
+    expect(numberProblems({ type: 'dline', top: { max: 100, step: 10, unit: '%' }, bottom: { max: 35, step: 3.5 }, at: 40, label: '15' })).toHaveLength(1);
+    expect(numberProblems({ type: 'tiles', px: 4, nx: 1, p1: 7, n1: 2 })).toHaveLength(1);
+    expect(numberProblems({ type: 'scale', left: { x: 7, n: 0 }, right: { x: 0, n: 3 } })).toHaveLength(1);
+    expect(shownOf({ type: 'numline', from: -5, to: 8, jumps: [{ from: -3, to: 5, label: '+8' }] }).has('5')).toBe(true);
+    expect(shownOf({ type: 'coord', lines: [{ m: 0.5, b: -0.5 }, { m: 0.75, b: -1.75 }], meet: true }).has('5')).toBe(true);
+  });
+});

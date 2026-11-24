@@ -1,0 +1,530 @@
+// The two merges (DURABLE-2): mergeDevices, the monotonic merge of two devices' copies (property tests on 300 seeded
+// random pairs, and the named cases of the spec), and mergeTabs, the three-way merge of two tabs (a property test with
+// the store's own actions, and the named cases). The grep that keeps every XP write in addXp is in xp.test.js.
+import { describe, it, expect } from 'vitest';
+import { createStore } from 'zustand/vanilla';
+import { mergeDevices, mergeTabs, noteMerge, dataOf, DEVICE_ONLY } from './merge.js';
+import { snapshotForBackup } from './payload.js';
+import { seeded, deepFreeze } from './testing.js';
+import { sumXp } from './xp.js';
+import { validateState } from './validate.js';
+import { appState, today, isActiveDay } from '../store.js';
+import { emptyLearn } from '@/learn/storeGlue.ts';
+
+// ------------------------------------------------------------------ a small generator of valid v5 states
+const TAGS = ['a1b2c3d4', 'b2c3d4e5', 'c3d4e5f6', 'd4e5f6a7'];
+const DAYS = ['2026-10-28', '2026-10-29', '2026-10-30', '2026-11-01', '2026-11-02', '2026-11-03', '2026-11-04', '2026-11-05'];
+const TOPICS = ['signed', 'coord', 'eq'];
+const at = (n) => new Date(Date.UTC(2026, 9, 1) + n * 3_600_000).toISOString();
+// one pool of attempts and events: the same moment is the same attempt on every copy, as it is for real
+const ATTEMPTS = Array.from({ length: 30 }, (_, i) => ({ at: at(i), ok: i % 3 !== 0, independent: i % 2 === 0, purpose: i % 7 === 0 ? 'mastery' : 'practice' }));
+const EVENTS = Array.from({ length: 50 }, (_, i) => ({ t: at(i), e: i % 4 === 0 ? 'lesson-done' : 'answer', s: `${TOPICS[i % 3]}:${1 + (i % 4)}`, ok: i % 3 !== 0 }));
+
+function randomState(rnd, { resetAt = null } = {}) {
+  const int = (n) => Math.floor(rnd() * n);
+  const some = (list, p = 0.5) => list.filter(() => rnd() < p);
+  const xpBy = Object.fromEntries(some(TAGS).map((t) => [t, 1 + int(200)]));
+  const days = Object.fromEntries(some(DAYS, 0.6).map((d) => [d, {
+    q: int(40), ok: int(30), secs: int(2000), lessons: int(4), stages: int(3), xp: int(60), combo: int(9), perfect: int(2),
+    reviews: int(2), planLessons: int(2), tsecs: int(3000), ...(rnd() < 0.2 ? { frozen: true } : {}), ...(rnd() < 0.3 ? { questsRewarded: true } : {}),
+  }]));
+  const path = {}; const progress = {}; const skills = {};
+  // each stair as it can really be: not started, practised, mastered (with its mastery record), kept from before
+  // mastery checks (no record of a pass), or a kept stair reopened by a failed check (its newest mastery event)
+  const record = (extra = {}) => ({ attempts: some(ATTEMPTS, 0.3), ...(rnd() < 0.5 ? { taught: { A: at(int(30)), ...(rnd() < 0.5 ? { B: at(int(30)) } : {}) } } : {}), failedChecks: 0, ...extra });
+  for (const t of some(TOPICS, 0.8)) {
+    const done = {}; let jumped = int(2);
+    for (let L = 1; L <= 4; L += 1) {
+      const s = `${t}:${L}`; const r = rnd();
+      if (r < 0.25) {
+        const m = int(30);
+        done[L] = 'mastered';
+        skills[s] = record({ failedChecks: int(2), mastered: { at: at(m), box: int(4), due: at(m + 48), ...(rnd() < 0.5 ? { lastReview: { at: at(m + int(20)), ok: rnd() < 0.6 } } : {}) } });
+      } else if (r < 0.45) {
+        done[L] = 'kept';
+        if (rnd() < 0.5) skills[s] = record();
+      } else if (r < 0.6) {
+        jumped = Math.max(jumped, L);
+        const check = { at: at(40 + int(20)), ok: false, independent: true, purpose: 'mastery' };
+        skills[s] = record({ failedChecks: 1 + int(2) });
+        skills[s].attempts = [...skills[s].attempts, check];
+      } else if (r < 0.8) skills[s] = record();
+    }
+    path[t] = { parts: { 1: int(3), 2: int(3), 3: int(3) }, reviews: int(2), jumped, done };
+    const level = 1 + int(5); progress[t] = { level, max: level + int(2) };
+  }
+  const mistakes = Object.fromEntries(some(['signed:sign', 'coord:swap', 'eq:move']).map((k) => [k, 1 + int(10)]));
+  return {
+    profile: { role: 'student', name: 'נועה', grade: '7' }, progress, days, xp: sumXp(xpBy), xpBy, resetAt, path,
+    freezes: int(3), goalXp: 20, sound: rnd() < 0.5, mistakes, lastTopic: TOPICS[int(3)], outbox: [],
+    ai: { mode: 'server', apiUrl: '', key: '', device: 'x'.repeat(8) }, durable: { tag: TAGS[int(4)] }, backup: { on: false },
+    helpSent: 0, solveMode: 'answer', exams: [], practiceExams: [], gaps: {}, placement: null,
+    learn: { ...emptyLearn(), skills, events: some(EVENTS, 0.4) },
+  };
+}
+
+const failedOf = (st, t, L) => st.learn.skills[`${t}:${L}`]?.failedChecks || 0;
+const attemptKey = (a) => `${a.at}|${a.purpose}|${a.ok}|${a.independent}`;
+const eventKey = (e) => `${e.t}|${e.e}|${e.s}`;
+
+/** merged ≥ a, field by field (a 'kept' stair the other side reopened excepted, as the rule says). */
+function expectAtLeast(merged, a, b) {
+  for (const [tag, n] of Object.entries(a.xpBy)) expect(merged.xpBy[tag]).toBeGreaterThanOrEqual(n);
+  expect(merged.xp).toBeGreaterThanOrEqual(a.xp);
+  for (const [d, day] of Object.entries(a.days)) {
+    for (const [f, v] of Object.entries(day)) {
+      if (typeof v === 'number') expect(merged.days[d][f], `days.${d}.${f}`).toBeGreaterThanOrEqual(v);
+      else if (v === true) expect(merged.days[d][f]).toBe(true);
+    }
+  }
+  for (const [t, u] of Object.entries(a.path)) {
+    for (const [L, n] of Object.entries(u.parts)) expect(merged.path[t].parts[L]).toBeGreaterThanOrEqual(n);
+    expect(merged.path[t].reviews).toBeGreaterThanOrEqual(u.reviews);
+    expect(merged.path[t].jumped).toBeGreaterThanOrEqual(u.jumped);
+    for (const [L, mark] of Object.entries(u.done)) {
+      const got = merged.path[t].done[L];
+      if (mark === 'mastered') expect(got, `path.${t}.done.${L}`).toBe('mastered');
+      else if (!b.path[t]?.done?.[L] && failedOf(merged, t, L) > 0) expect(got).toBeUndefined(); // reopened on the other side
+      else expect(['mastered', 'kept']).toContain(got);
+    }
+  }
+  for (const [t, p] of Object.entries(a.progress)) {
+    expect(merged.progress[t].level).toBeGreaterThanOrEqual(p.level);
+    expect(merged.progress[t].max).toBeGreaterThanOrEqual(p.max);
+  }
+  for (const [k, n] of Object.entries(a.mistakes)) expect(merged.mistakes[k]).toBeGreaterThanOrEqual(n);
+  for (const [s, rec] of Object.entries(a.learn.skills)) {
+    if (rec.mastered) expect(merged.learn.skills[s].mastered, `${s} stays mastered`).toBeTruthy();
+    const have = new Set(merged.learn.skills[s].attempts.map(attemptKey));
+    for (const x of rec.attempts) expect(have.has(attemptKey(x)), `${s} keeps the attempt at ${x.at}`).toBe(true);
+  }
+  const events = new Set(merged.learn.events.map(eventKey));
+  for (const e of a.learn.events) expect(events.has(eventKey(e))).toBe(true);
+}
+
+const progressOf = (st) => ({ xp: st.xp, xpBy: st.xpBy, days: st.days, path: st.path, progress: st.progress, mistakes: st.mistakes, skills: st.learn.skills, events: st.learn.events });
+
+describe('mergeDevices: 300 seeded random pairs', () => {
+  const rnd = seeded(2026);
+  const pairs = Array.from({ length: 300 }, () => [deepFreeze(randomState(rnd)), deepFreeze(randomState(rnd))]);
+  const A = '2026-11-04T10:00:00.000Z'; const B = '2026-11-05T10:00:00.000Z';
+  // 2 s alone; the machines that run the suites are shared, so each gets room (the merges are pure and synchronous)
+  const ROOM = 30_000;
+
+  it('never lowers a counter, a stair, a level, a mastery, an attempt or an event of either side', () => {
+    for (const [a, b] of pairs) {
+      const m = mergeDevices(a, b, { localAt: A, remoteAt: B });
+      expectAtLeast(m, a, b);
+      expectAtLeast(m, b, a);
+      expect(m.xp).toBe(sumXp(m.xpBy));
+      expect(validateState(m)).toEqual([]);
+    }
+  }, ROOM);
+
+  it('is idempotent: a copy merged with itself is itself', () => {
+    for (const [a] of pairs) expect(mergeDevices(a, a, { localAt: A, remoteAt: A })).toEqual(a);
+  }, ROOM);
+
+  it('is symmetric in the progress: the same result whichever side is local', () => {
+    for (const [a, b] of pairs) {
+      expect(progressOf(mergeDevices(a, b, { localAt: A, remoteAt: B }))).toEqual(progressOf(mergeDevices(b, a, { localAt: B, remoteAt: A })));
+    }
+  }, ROOM);
+
+  it('a merge of merges changes nothing more (merging the result with either side again)', () => {
+    for (const [a, b] of pairs.slice(0, 50)) {
+      const m = mergeDevices(a, b, { localAt: A, remoteAt: B });
+      expect(progressOf(mergeDevices(m, b, { localAt: B, remoteAt: B }))).toEqual(progressOf(m));
+    }
+  }, ROOM);
+});
+
+describe('mergeDevices: the named cases', () => {
+  const base = (extra = {}) => ({ ...randomState(seeded(5)), xpBy: { a1b2c3d4: 100 }, xp: 100, resetAt: null, ...extra });
+
+  it('two devices each earn XP: 100 → 110 on one and 100 → 105 on the other gives 115', () => {
+    const a = base({ xpBy: { a1b2c3d4: 100, b2c3d4e5: 10 }, xp: 110 });
+    const b = base({ xpBy: { a1b2c3d4: 100, c3d4e5f6: 5 }, xp: 105 });
+    expect(mergeDevices(a, b)).toMatchObject({ xp: 115, xpBy: { a1b2c3d4: 100, b2c3d4e5: 10, c3d4e5f6: 5 } });
+  });
+
+  it('a reset on device B after a lesson on A: B\'s reset wins every progress field, A keeps its own settings', () => {
+    const a = base({ xpBy: { a1b2c3d4: 130 }, xp: 130, sound: false, days: { '2026-11-05': { lessons: 1, xp: 30 } } });
+    const b = base({ xpBy: {}, xp: 0, days: {}, path: {}, resetAt: '2026-11-05T12:00:00.000Z', learn: emptyLearn() });
+    for (const m of [mergeDevices(a, b), mergeDevices(b, a)]) {
+      expect(m).toMatchObject({ xp: 0, xpBy: {}, days: {}, path: {}, resetAt: '2026-11-05T12:00:00.000Z' });
+      expect(m.learn).toEqual(emptyLearn());
+    }
+    expect(mergeDevices(a, b).sound).toBe(false);
+  });
+
+  it('the tutor, the class outbox, the save settings and the backup never come from the other side', () => {
+    const a = base({ ai: { device: 'mine' }, outbox: [{ id: 'm1' }], durable: { tag: 'a1b2c3d4' }, backup: { on: false, code: null } });
+    const b = base({ ai: { device: 'theirs', familyDevice: { token: 'x' } }, outbox: [{ id: 't1' }], durable: { tag: 'b2c3d4e5' }, backup: { on: true, code: 'secret' } });
+    const m = mergeDevices(a, b, { localAt: A0, remoteAt: B0 });
+    for (const k of DEVICE_ONLY) expect(m[k]).toEqual(a[k]);
+  });
+
+  it('the daily reminder (STUDENT-11) is this browser\'s: a restore never brings another device\'s push id and secret, and a backup leaves it out', () => {
+    const mine = { on: false, slot: 17, id: null, secret: null, state: null, seenDay: null, doneDay: null };
+    const theirs = { on: true, slot: 19, id: 'a'.repeat(16), secret: 'b'.repeat(32), state: 'on', seenDay: '2026-11-04', doneDay: '2026-11-04' };
+    const a = base({ reminder: mine });
+    const b = base({ reminder: theirs });
+    for (const [x, y] of [[a, b], [b, a]]) expect(mergeDevices(x, y, { localAt: A0, remoteAt: B0 }).reminder).toEqual(x.reminder);
+    expect(DEVICE_ONLY).toContain('reminder');
+    expect(snapshotForBackup(b)).not.toHaveProperty('reminder');
+  });
+
+  it('a restore never marks the parents\' summary notice as seen, nor brings what another device sent (PARENTS-4)', () => {
+    const seen = { token: 'fd-other', label: 'הטאבלט', sharingSeen: '2026-11-01T09:00:00.000Z', lastSent: { at: '2026-11-04T19:00:00.000Z', days: [{ v: 1, d: '2026-11-04' }] } };
+    const notYet = { token: 'fd-mine', label: 'הטלפון', sharingSeen: null, lastSent: null };
+    const a = base({ ai: { device: 'mine', familyDevice: notYet } });
+    const b = base({ ai: { device: 'theirs', familyDevice: seen } });
+    for (const m of [mergeDevices(a, b, { localAt: A0, remoteAt: B0 }), mergeDevices(a, b, { localAt: B0, remoteAt: A0 })]) expect(m.ai.familyDevice).toEqual(notYet);
+    // a device that is not linked stays unlinked, whatever the other side had
+    expect(mergeDevices(base({ ai: { device: 'mine', familyDevice: null } }), b).ai.familyDevice).toBeNull();
+  });
+
+  it('settings stay local; the profile is local with only missing fields added, never a token, student id or class key', () => {
+    const a = base({ sound: false, goalXp: 30, solveMode: 'notebook', profile: { role: 'teacher', name: 'רונית', classes: [{ code: 'K7Q2MD', key: 'local-key' }] } });
+    const b = base({ sound: true, goalXp: 10, solveMode: 'answer', profile: { role: 'teacher', name: 'אחרת', school: 'בית ספר', token: 't', studentId: 's', classes: [{ code: 'ZZZZZZ', key: 'their-key' }] } });
+    const m = mergeDevices(a, b, { localAt: A0, remoteAt: B0 });
+    expect(m).toMatchObject({ sound: false, goalXp: 30, solveMode: 'notebook' });
+    // the look and the vibration chosen on this device (STUDENT-2/7) are this device's too
+    const looks = mergeDevices(base({ haptics: false, prefs: { theme: 'dark', soundSet: true } }), base({ haptics: true, prefs: { theme: 'light', soundSet: false } }), { localAt: A0, remoteAt: B0 });
+    expect(looks).toMatchObject({ haptics: false, prefs: { theme: 'dark', soundSet: true } });
+    expect(m.profile).toEqual({ role: 'teacher', name: 'רונית', school: 'בית ספר', classes: [{ code: 'K7Q2MD', key: 'local-key' }] });
+    // a device with no profile takes the other's, still without the token, the id or any class key
+    const fresh = mergeDevices({ ...a, profile: null }, b);
+    expect(fresh.profile).toEqual({ role: 'teacher', name: 'אחרת', school: 'בית ספר', classes: [{ code: 'ZZZZZZ' }] });
+  });
+
+  it('a kept stair reopened on one device (failedChecks 1) stays open after merging with a device that still has it kept', () => {
+    const skills = (failed) => ({ 'signed:2': { attempts: [], failedChecks: failed } });
+    const reopened = base({ path: { signed: { parts: { 2: 2 }, reviews: 0, jumped: 2, done: { 1: 'mastered' } } }, learn: { ...emptyLearn(), skills: skills(1) } });
+    const stale = base({ path: { signed: { parts: { 2: 2 }, reviews: 0, jumped: 0, done: { 1: 'mastered', 2: 'kept' } } }, learn: { ...emptyLearn(), skills: skills(0) } });
+    for (const m of [mergeDevices(reopened, stale), mergeDevices(stale, reopened)]) {
+      expect(m.path.signed.done).toEqual({ 1: 'mastered' });
+      expect(m.path.signed.jumped).toBe(2);
+    }
+    // a stair both devices still have as kept stays kept, whatever old failed checks it has
+    const both = base({ path: { signed: { parts: {}, reviews: 0, jumped: 0, done: { 2: 'kept' } } }, learn: { ...emptyLearn(), skills: skills(2) } });
+    expect(mergeDevices(both, both).path.signed.done).toEqual({ 2: 'kept' });
+    // mastered on either side stays mastered
+    const mastered = base({ path: { signed: { parts: {}, reviews: 0, jumped: 0, done: { 2: 'mastered' } } }, learn: { ...emptyLearn(), skills: skills(0) } });
+    expect(mergeDevices(reopened, mastered).path.signed.done[2]).toBe('mastered');
+  });
+
+  it('a failed review on B (later) beats an older passed review on A, and its failed checks come with it', () => {
+    const rec = (lastReview, failedChecks) => ({ attempts: [], failedChecks, mastered: { at: '2026-10-01T10:00:00.000Z', box: 2, due: '2026-10-20T10:00:00.000Z', lastReview } });
+    const a = base({ learn: { ...emptyLearn(), skills: { 'eq:1': rec({ at: '2026-10-10T10:00:00.000Z', ok: true }, 0) } } });
+    const b = base({ learn: { ...emptyLearn(), skills: { 'eq:1': rec({ at: '2026-10-15T10:00:00.000Z', ok: false }, 1) } } });
+    for (const m of [mergeDevices(a, b, { localAt: B0, remoteAt: A0 }), mergeDevices(b, a)]) {
+      expect(m.learn.skills['eq:1'].mastered.lastReview).toEqual({ at: '2026-10-15T10:00:00.000Z', ok: false });
+      expect(m.learn.skills['eq:1'].failedChecks).toBe(1);
+    }
+  });
+
+  it('an unknown numeric day field (tsecs) takes the larger value across devices; an unknown other field the newer side', () => {
+    const a = base({ days: { '2026-11-05': { lessons: 1, tsecs: 300, note: 'a' } } });
+    const b = base({ days: { '2026-11-05': { lessons: 1, tsecs: 200, note: 'b' } } });
+    expect(mergeDevices(a, b, { localAt: A0, remoteAt: B0 }).days['2026-11-05']).toEqual({ lessons: 1, tsecs: 300, note: 'b' });
+    expect(mergeDevices(a, b, { localAt: B0, remoteAt: A0 }).days['2026-11-05'].note).toBe('a');
+  });
+
+  it('a lesson on each device on the same day counts once in that day (the honest limit); XP and the stairs are exact', () => {
+    const a = base({ xpBy: { a1b2c3d4: 100, b2c3d4e5: 20 }, xp: 120, days: { '2026-11-05': { lessons: 1, xp: 20 } } });
+    const b = base({ xpBy: { a1b2c3d4: 100, c3d4e5f6: 15 }, xp: 115, days: { '2026-11-05': { lessons: 1, xp: 15 } } });
+    const m = mergeDevices(a, b);
+    expect(m.xp).toBe(135);
+    expect(m.days['2026-11-05']).toEqual({ lessons: 1, xp: 20 });
+  });
+
+  it('logs and lists: events and attempts are joined in time order, exams by id newest first and capped', () => {
+    const exams = (ids) => ids.map((n) => ({ id: `e${n}`, at: at(n), title: `${n}` }));
+    const a = base({ exams: exams([1, 3]).reverse() });
+    const b = base({ exams: exams([2, 3]).reverse() });
+    expect(mergeDevices(a, b).exams.map((e) => e.id)).toEqual(['e3', 'e2', 'e1']);
+    const many = base({ exams: exams(Array.from({ length: 30 }, (_, i) => i)).reverse() });
+    const more = base({ exams: exams(Array.from({ length: 30 }, (_, i) => i + 20)).reverse() });
+    expect(mergeDevices(many, more).exams).toHaveLength(30);
+  });
+  it('a teacher\'s class exams (TEACHER-3): joined by id across devices and tabs, newest first, at most 8', () => {
+    const tx = (ids) => ids.map((n) => ({ id: `t${n}`, at: at(n), title: `${n}`, classCode: 'K7Q2MD' })).reverse();
+    expect(mergeDevices(base({ teacherExams: tx([1, 3]) }), base({ teacherExams: tx([2, 3]) })).teacherExams.map((e) => e.id)).toEqual(['t3', 't2', 't1']);
+    expect(mergeDevices(base({ teacherExams: tx([1, 2, 3, 4, 5]) }), base({ teacherExams: tx([6, 7, 8, 9, 10]) })).teacherExams.map((e) => e.id))
+      .toEqual(['t10', 't9', 't8', 't7', 't6', 't5', 't4', 't3']);
+    const t0 = deepFreeze({ teacherExams: tx([1]) });
+    expect(mergeTabs(t0, { teacherExams: tx([1, 2]) }, { teacherExams: tx([1, 3]) }).teacherExams.map((e) => e.id)).toEqual(['t3', 't2', 't1']);
+  });
+});
+const A0 = '2026-11-04T10:00:00.000Z'; const B0 = '2026-11-05T10:00:00.000Z';
+
+// ------------------------------------------------------------------ mergeTabs
+/** Apply the store's own actions to a copy of `state`, stamping keyAt as the write path does (one clock for both tabs). */
+function tab(state, clock) {
+  const s = createStore(appState);
+  s.setState(structuredClone(state));
+  const keyAt = {};
+  return {
+    s, keyAt,
+    run(fn) {
+      const before = s.getState(); fn(s.getState()); const after = s.getState();
+      const t = new Date(Date.parse('2026-11-05T08:00:00.000Z') + (clock.n += 1) * 1000).toISOString();
+      for (const k of Object.keys(after)) if (typeof after[k] !== 'function' && after[k] !== before[k]) keyAt[k] = t;
+    },
+    data: () => dataOf(s.getState()),
+  };
+}
+
+// The curriculum lane's learn fields (CURRICULUM-3, CURRICULUM-6; its spec's DURABLE-2 rules): a challenge task per id,
+// the finished record first; the floor check by its date.
+describe('learn.challenges and learn.floor across devices and tabs', () => {
+  const learnWith = (extra) => ({ ...emptyLearn(), ...extra });
+  const started = (at) => ({ startedAt: at, firstTry: 0, parts: 0 });
+  const finished = (at, done, firstTry) => ({ startedAt: at, doneAt: done, firstTry, parts: 3 });
+
+  it('devices: each task keeps the finished record (the earlier finish of two), else the newer start; tasks of either side stay', () => {
+    const a = { learn: learnWith({ challenges: { 'pct:c1': finished('2026-11-04T10:00:00.000Z', '2026-11-04T10:05:00.000Z', 2), 'eq:c1': started('2026-11-03T09:00:00.000Z'), 'line:c2': finished('2026-11-02T09:00:00.000Z', '2026-11-02T09:10:00.000Z', 3) } }) };
+    const b = { learn: learnWith({ challenges: { 'pct:c1': started('2026-11-05T08:00:00.000Z'), 'eq:c1': started('2026-11-05T08:00:00.000Z'), 'line:c2': finished('2026-11-01T09:00:00.000Z', '2026-11-01T09:10:00.000Z', 1), 'sys:c1': started('2026-11-05T08:30:00.000Z') } }) };
+    for (const [l, r] of [[a, b], [b, a]]) {
+      const ch = mergeDevices(l, r, { localAt: A0, remoteAt: B0 }).learn.challenges;
+      expect(ch['pct:c1']).toEqual(a.learn.challenges['pct:c1']);
+      expect(ch['eq:c1']).toEqual(b.learn.challenges['eq:c1']);
+      expect(ch['line:c2']).toEqual(b.learn.challenges['line:c2']);
+      expect(ch['sys:c1']).toEqual(b.learn.challenges['sys:c1']);
+    }
+  });
+
+  it('devices: the floor check with the later date wins, whichever device has it', () => {
+    const old = { at: '2026-11-01T10:00:00.000Z', on: true, results: { 'frac:3': { asked: 1, right: 0 } } };
+    const later = { at: '2026-11-04T10:00:00.000Z', on: false, results: { 'frac:3': { asked: 1, right: 1 } } };
+    expect(mergeDevices({ learn: learnWith({ floor: old }) }, { learn: learnWith({ floor: later }) }, { localAt: B0, remoteAt: A0 }).learn.floor).toEqual(later);
+    expect(mergeDevices({ learn: learnWith({ floor: later }) }, { learn: learnWith({ floor: old }) }, { localAt: A0, remoteAt: B0 }).learn.floor).toEqual(later);
+    expect(mergeDevices({ learn: learnWith({ floor: null }) }, { learn: learnWith({ floor: later }) }).learn.floor).toEqual(later);
+  });
+
+  it('tabs: a challenge finished in one tab and another started in the other tab are both kept', () => {
+    const base = deepFreeze({ learn: learnWith({ challenges: { 'pct:c1': started('2026-11-05T08:00:00.000Z') } }) });
+    const mine = { learn: learnWith({ challenges: { 'pct:c1': finished('2026-11-05T08:00:00.000Z', '2026-11-05T08:06:00.000Z', 2) } }) };
+    const theirs = { learn: learnWith({ challenges: { 'pct:c1': started('2026-11-05T08:00:00.000Z'), 'eq:c1': started('2026-11-05T08:07:00.000Z') } }) };
+    const ch = mergeTabs(base, mine, theirs).learn.challenges;
+    expect(ch).toEqual({ 'pct:c1': mine.learn.challenges['pct:c1'], 'eq:c1': theirs.learn.challenges['eq:c1'] });
+  });
+});
+
+describe('mergeTabs', () => {
+  it('property: two tabs from one base add their XP and their day counters, and a setting both changed is the last one set', () => {
+    const rnd = seeded(77);
+    const int = (n) => Math.floor(rnd() * n);
+    for (let run = 0; run < 60; run += 1) {
+      const start = { ...dataOf(createStore(appState).getState()), ...randomState(rnd), durable: { tag: 'a1b2c3d4' } };
+      start.xpBy = { a1b2c3d4: 50, ...start.xpBy }; start.xp = sumXp(start.xpBy);
+      const base = deepFreeze(structuredClone(start));
+      const clock = { n: 0 };
+      const A = tab(base, clock); const B = tab(base, clock);
+      const lastSet = {};
+      const actions = [
+        (T, name) => T.run((st) => st.recordAnswer({ topic: 'signed', level: 1 + int(3), ok: rnd() < 0.7, first: true, cat: 'sign', secs: 5 + int(30), at: new Date(Date.UTC(2026, 10, 5, 9, 0, clock.n, int(1000))).toISOString() }, 1 + int(3))),
+        (T) => T.run((st) => st.completeLesson({ topic: TOPICS[int(3)], level: 1 + int(3), xp: 5 + int(10), kind: 'practice', bestCombo: int(6), perfect: rnd() < 0.3 })),
+        (T) => T.run((st) => st.completeStage(`${TOPICS[int(3)]}:${1 + int(4)}`, ['A', 'B', 'C'][int(3)])),
+        (T, name) => { const v = rnd() < 0.5; T.run((st) => st.setSound(v)); lastSet.sound = { v, n: clock.n, name }; },
+        (T, name) => { const v = { role: 'student', name: `שם ${clock.n}`, grade: '7', n: clock.n }; T.run((st) => st.setProfile(v)); lastSet.profile = { v, n: clock.n, name }; },
+      ];
+      // the two tabs take turns at random
+      for (let i = 0, n = int(10); i < n; i += 1) { const [T, name] = rnd() < 0.5 ? [A, 'A'] : [B, 'B']; actions[int(actions.length)](T, name); }
+      const a = A.data(); const b = B.data();
+      const m = mergeTabs(base, a, b, { mineAt: A.keyAt, theirsAt: B.keyAt });
+      expect(m.xp).toBe(base.xp + (a.xp - base.xp) + (b.xp - base.xp));
+      expect(m.xp).toBe(sumXp(m.xpBy));
+      const d = today();
+      for (const f of ['q', 'ok', 'secs', 'lessons', 'stages', 'xp', 'perfect', 'reviews', 'planLessons']) {
+        const v = (x) => x.days[d]?.[f] || 0;
+        expect(m.days[d]?.[f] || 0, `days[today].${f}`).toBe(v(base) + (v(a) - v(base)) + (v(b) - v(base)));
+      }
+      // a setting changed on one side only is that side's; changed on both, the one set last (set back to the base's
+      // value, a setting looks unchanged: the other side's change is kept)
+      const same = (x, y) => JSON.stringify(x) === JSON.stringify(y);
+      for (const [k, { v }] of Object.entries(lastSet)) expect(m[k], k).toEqual(same(a[k], base[k]) ? b[k] : same(b[k], base[k]) ? a[k] : v);
+      // every attempt each tab recorded is kept
+      for (const side of [a, b]) for (const [s, rec] of Object.entries(side.learn.skills)) for (const x of rec.attempts) expect(m.learn.skills[s].attempts).toContainEqual(x);
+      expect(validateState(m)).toEqual([]);
+    }
+  }, 30_000); // 60 runs with the store's own actions: room on a shared machine
+
+  it('a slice unchanged on one side is the other side\'s; the sound turned off in A survives a lesson in stale B', () => {
+    const base = deepFreeze({ sound: true, xp: 10, xpBy: { a1b2c3d4: 10 }, days: {}, solveMode: 'answer' });
+    const a = { ...base, sound: false };
+    const b = { ...base, xp: 20, xpBy: { a1b2c3d4: 20 }, days: { '2026-11-05': { lessons: 1, xp: 10 } } };
+    expect(mergeTabs(base, b, a, { mineAt: { xp: '2', xpBy: '2', days: '2' }, theirsAt: { sound: '1' } })).toEqual({ sound: false, xp: 20, xpBy: { a1b2c3d4: 20 }, days: { '2026-11-05': { lessons: 1, xp: 10 } }, solveMode: 'answer' });
+  });
+
+  it('a lesson in each tab: both lessons and the summed XP; the best combo is the larger', () => {
+    const base = deepFreeze({ xp: 100, xpBy: { a1b2c3d4: 100 }, days: { '2026-11-05': { lessons: 1, xp: 10, combo: 3 } } });
+    const a = { xp: 110, xpBy: { a1b2c3d4: 110 }, days: { '2026-11-05': { lessons: 2, xp: 20, combo: 5 } } };
+    const b = { xp: 105, xpBy: { a1b2c3d4: 105 }, days: { '2026-11-05': { lessons: 2, xp: 15, combo: 4 } } };
+    expect(mergeTabs(base, a, b)).toEqual({ xp: 115, xpBy: { a1b2c3d4: 115 }, days: { '2026-11-05': { lessons: 3, xp: 25, combo: 5 } } });
+  });
+
+  it('Madi\'s quest chest (PRODUCT2-36): a piece chosen on either device stays chosen, and stays earned', () => {
+    const look = (earned, picks) => ({ color: 'sky', head: null, face: null, neck: null, body: null, earned, seen: earned, earnedAt: {}, picks });
+    const a = { look: look(['medal'], { '2026-11-02': 'medal' }) };
+    const b = { look: look(['beanie'], { '2026-11-03': 'beanie' }) };
+    for (const m of [mergeDevices(a, b), mergeDevices(b, a)]) {
+      expect(m.look.picks).toEqual({ '2026-11-02': 'medal', '2026-11-03': 'beanie' });
+      expect([...m.look.earned].sort()).toEqual(['beanie', 'medal']);
+    }
+    // a look saved before the chest gave pieces has no picks, and gets none
+    expect(mergeDevices({ look: look([], undefined) }, { look: look([], undefined) }).look.picks).toBeUndefined();
+  });
+
+  it('an unknown numeric day field (tsecs) adds across tabs', () => {
+    const base = { days: { d: { tsecs: 100 } } };
+    expect(mergeTabs(base, { days: { d: { tsecs: 160 } } }, { days: { d: { tsecs: 130 } } }).days.d.tsecs).toBe(190);
+  });
+
+  it('a setting changed in both tabs goes to the tab that changed it last', () => {
+    const base = { sound: true, goalXp: 20 };
+    expect(mergeTabs(base, { sound: false, goalXp: 30 }, { sound: true, goalXp: 10 }, { mineAt: { goalXp: '2026-11-05T10:00:01Z' }, theirsAt: { goalXp: '2026-11-05T10:00:02Z' } })).toEqual({ sound: false, goalXp: 10 });
+  });
+
+  it('a reset in one tab wins every progress field, whatever the other tab did meanwhile', () => {
+    const base = deepFreeze({ xp: 100, xpBy: { a1b2c3d4: 100 }, days: { d: { lessons: 1 } }, resetAt: null, sound: true });
+    const reset = { xp: 0, xpBy: {}, days: {}, resetAt: '2026-11-05T10:00:00.000Z', sound: true };
+    const lesson = { xp: 110, xpBy: { a1b2c3d4: 110 }, days: { d: { lessons: 2 } }, resetAt: null, sound: false };
+    expect(mergeTabs(base, lesson, reset)).toEqual({ xp: 0, xpBy: {}, days: {}, resetAt: '2026-11-05T10:00:00.000Z', sound: false });
+  });
+
+  it('a kept stair reopened in one tab stays open; one mastered in the other tab is mastered', () => {
+    const skill = (failedChecks) => ({ learn: { ...emptyLearn(), skills: { 'signed:2': { attempts: [], failedChecks } } } });
+    const base = deepFreeze({ path: { signed: { parts: {}, done: { 2: 'kept', 3: 'kept' } } }, ...skill(0) });
+    const a = { path: { signed: { parts: {}, done: { 3: 'kept' } } }, ...skill(1) }; // A failed the check of stair 2
+    const b = { path: { signed: { parts: { 1: 1 }, done: { 2: 'kept', 3: 'mastered' } } }, ...skill(0) }; // B passed stair 3
+    expect(mergeTabs(base, a, b).path.signed).toEqual({ parts: { 1: 1 }, done: { 3: 'mastered' } });
+  });
+
+  it('a class joined in tab A survives a write from a stale tab B that changed the solve mode', () => {
+    const base = deepFreeze({ profile: { role: 'student', name: 'נועה' }, solveMode: 'answer' });
+    const a = { profile: { role: 'student', name: 'נועה', classCode: 'K7Q2MD', token: 'tok' }, solveMode: 'answer' };
+    const b = { profile: { role: 'student', name: 'נועה' }, solveMode: 'notebook' };
+    expect(mergeTabs(base, b, a, { mineAt: { solveMode: '2' }, theirsAt: { profile: '1' } })).toEqual({ profile: a.profile, solveMode: 'notebook' });
+  });
+
+  it('logs: events and the class outbox keep both tabs\' new items, and an item one tab removed stays removed', () => {
+    const e = (n) => ({ t: at(n), e: 'answer', s: 'signed:1' });
+    const base = deepFreeze({ learn: { ...emptyLearn(), events: [e(1), e(2)] }, outbox: [{ id: 'o1', at: at(1) }, { id: 'o2', at: at(2) }] });
+    const a = { learn: { ...emptyLearn(), events: [e(1), e(2), e(3)] }, outbox: [{ id: 'o3', at: at(3) }] }; // A's server took o1, o2
+    const b = { learn: { ...emptyLearn(), events: [e(1), e(2), e(4)] }, outbox: [{ id: 'o1', at: at(1) }, { id: 'o2', at: at(2) }, { id: 'o4', at: at(4) }] };
+    const m = mergeTabs(base, a, b);
+    expect(m.learn.events).toEqual([e(1), e(2), e(3), e(4)]);
+    expect(m.outbox.map((x) => x.id)).toEqual(['o3', 'o4']);
+  });
+
+  // FOLLOWUP-2: the teacher's work waiting for the server (workOutbox) is merged per assignment with
+  // learn/assignments.ts mergeWork, the server's own monotonic rules, not taken whole from the tab that wrote last
+  it('the class work outbox: two tabs from one base report different assignments, and both reports are kept', () => {
+    const base = deepFreeze({ workOutbox: { a0: { state: 'started', stage: 1 } } });
+    const a = { workOutbox: { a0: { state: 'started', stage: 1 }, a1: { state: 'started', stage: 2 } } };
+    const b = { workOutbox: { a0: { state: 'started', stage: 1 }, a2: { state: 'done', passed: true, right: 5, asked: 5, doneAt: at(5) } } };
+    for (const [mineAt, theirsAt] of [[{ workOutbox: '2' }, { workOutbox: '1' }], [{ workOutbox: '1' }, { workOutbox: '2' }]]) {
+      expect(mergeTabs(base, a, b, { mineAt, theirsAt }).workOutbox).toEqual({ a0: { state: 'started', stage: 1 }, a1: a.workOutbox.a1, a2: b.workOutbox.a2 });
+    }
+    // a report one tab sent (the server took it, so it left that tab's outbox) stays gone
+    expect(mergeTabs(base, { workOutbox: {} }, b).workOutbox).toEqual({ a2: b.workOutbox.a2 });
+  });
+
+  it('the class work outbox: one assignment at different stages in two tabs merges as the server does (stage goes up, done wins, the first finished result is kept)', () => {
+    const base = deepFreeze({ workOutbox: { a1: { state: 'started', stage: 1 } } });
+    const ahead = { workOutbox: { a1: { state: 'started', stage: 4 } } }; // this tab went on to stage 4
+    const done = { workOutbox: { a1: { state: 'done', stage: 3, passed: true, right: 4, asked: 5, doneAt: at(7) } } };
+    const want = { state: 'done', stage: 4, passed: true, right: 4, asked: 5, doneAt: at(7) };
+    // whichever tab wrote last, nothing goes down
+    for (const [mineAt, theirsAt] of [[{ workOutbox: '2' }, { workOutbox: '1' }], [{ workOutbox: '1' }, { workOutbox: '2' }]]) {
+      expect(mergeTabs(base, ahead, done, { mineAt, theirsAt }).workOutbox).toEqual({ a1: want });
+      expect(mergeTabs(base, done, ahead, { mineAt, theirsAt }).workOutbox).toEqual({ a1: want });
+    }
+    // both finished: the result finished first stays, whichever tab wrote last
+    const late = { workOutbox: { a1: { state: 'done', stage: 5, passed: false, right: 2, asked: 5, doneAt: at(9) } } };
+    for (const [m, t] of [[done, late], [late, done]]) {
+      expect(mergeTabs(base, m, t, { mineAt: { workOutbox: '1' }, theirsAt: { workOutbox: '2' } }).workOutbox.a1).toEqual({ state: 'done', stage: 5, passed: true, right: 4, asked: 5, doneAt: at(7) });
+    }
+  });
+
+  it('the class work outbox stays this device\'s across devices, and a reset leaves it alone', () => {
+    expect(DEVICE_ONLY).toContain('workOutbox');
+    const mine = { workOutbox: { a1: { state: 'started', stage: 2 } } };
+    expect(mergeDevices(mine, { workOutbox: { a9: { state: 'done' } } }).workOutbox).toEqual(mine.workOutbox);
+    const base = deepFreeze({ xp: 10, xpBy: { a1b2c3d4: 10 }, resetAt: null, workOutbox: {} });
+    const reset = { xp: 0, xpBy: {}, resetAt: '2026-11-05T10:00:00.000Z', workOutbox: {} };
+    const work = { xp: 10, xpBy: { a1b2c3d4: 10 }, resetAt: null, workOutbox: { a1: { state: 'started', stage: 2 } } };
+    expect(mergeTabs(base, work, reset).workOutbox).toEqual(work.workOutbox);
+  });
+
+  it('is pure: it never changes its inputs', () => {
+    const rnd = seeded(3);
+    const [b, m, t] = [randomState(rnd), randomState(rnd), randomState(rnd)].map(deepFreeze);
+    expect(() => mergeTabs(b, m, t)).not.toThrow();
+    expect(() => mergeDevices(m, t)).not.toThrow();
+  });
+});
+
+describe('the merge log', () => {
+  it('a merge is one event with no content, ignored by the learning numbers', () => {
+    const st = noteMerge({ learn: emptyLearn() }, 'tab', '2026-11-05T10:00:00.000Z');
+    expect(st.learn.events).toEqual([{ t: '2026-11-05T10:00:00.000Z', e: 'merge', m: 'tab' }]);
+    expect(noteMerge({ sound: true }, 'tab', 'x')).toEqual({ sound: true }); // a state with no log is left alone
+  });
+});
+
+describe('the learning clock\'s time (days[d].tsecs, PARENTS-1)', () => {
+  /** A store whose day `d` got `secs` from the clock through the store's own action. */
+  const withClock = (from, secs, d = '2026-11-05') => {
+    const s = createStore(appState);
+    s.setState(from);
+    s.getState().addLearnTime(d, secs);
+    return dataOf(s.getState());
+  };
+
+  it('two tabs that each ran the clock add their time; two devices take the larger; the day stays inactive', () => {
+    const start = { days: { '2026-11-05': { q: 4, ok: 3, secs: 50, lessons: 0 } } };
+    const a = withClock(start, 120);
+    const b = withClock(start, 90);
+    const tabs = mergeTabs(start, a, b);
+    expect(tabs.days['2026-11-05']).toEqual({ q: 4, ok: 3, secs: 50, lessons: 0, tsecs: 210 });
+    const devices = mergeDevices(a, b, { localAt: '2026-11-05T10:00:00.000Z', remoteAt: '2026-11-05T11:00:00.000Z' });
+    expect(devices.days['2026-11-05'].tsecs).toBe(120);
+    expect(isActiveDay(tabs.days['2026-11-05'])).toBe(false);
+    // a day the other side has only as time comes in as time, and still does not count for the streak
+    const only = mergeDevices(start, withClock({ days: {} }, 300, '2026-11-04'), { localAt: A0, remoteAt: B0 });
+    expect(only.days['2026-11-04']).toEqual({ tsecs: 300 });
+    expect(isActiveDay(only.days['2026-11-04'])).toBe(false);
+  });
+});
+
+// The v7 migration (COUNCIL2-23) dropped the retired improvement plan's fields. An older tab or device that still has
+// them must not bring them back through a merge: both merges leave them out, and keep everything else.
+describe('retired fields (planBase, wins)', () => {
+  const old = { planBase: { signed: { level: 3, wins: 2, at: '2026-10-01T08:00:00.000Z' } }, wins: { 'signed:3': 4 } };
+  it('mergeDevices drops them from either side', () => {
+    const rnd = seeded(77);
+    for (let i = 0; i < 50; i += 1) {
+      const a = deepFreeze({ ...randomState(rnd), ...old }); const b = deepFreeze(randomState(rnd));
+      for (const m of [mergeDevices(a, b), mergeDevices(b, a)]) {
+        expect(m).not.toHaveProperty('planBase');
+        expect(m).not.toHaveProperty('wins');
+        expect(validateState(m)).toEqual([]);
+      }
+      expect(mergeDevices(b, a).xpBy).toEqual(mergeDevices(b, { ...a, planBase: undefined, wins: undefined }).xpBy);
+    }
+  });
+  it('mergeTabs drops them, whichever tab has them (an older build in the other tab)', () => {
+    const base = deepFreeze(randomState(seeded(78)));
+    const mine = deepFreeze({ ...base, xp: base.xp + 5, xpBy: { ...base.xpBy, a1b2c3d4: (base.xpBy.a1b2c3d4 || 0) + 5 } });
+    const theirs = deepFreeze({ ...base, ...old });
+    for (const m of [mergeTabs(base, mine, theirs), mergeTabs(base, theirs, mine), mergeTabs({ ...base, ...old }, theirs, { ...theirs, sound: !theirs.sound })]) {
+      expect(m).not.toHaveProperty('planBase');
+      expect(m).not.toHaveProperty('wins');
+    }
+    expect(mergeTabs(base, mine, theirs).xp).toBe(mine.xp);
+  });
+});

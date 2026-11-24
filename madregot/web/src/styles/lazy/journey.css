@@ -1,0 +1,59 @@
+/* Journey.jsx's own rules (STUDENT-15): moved out of the first-load stylesheets into this screen's chunk, in their
+   original order. Only Journey.jsx uses these classes. */
+
+/* ---- out of the first-load stylesheets (COUNCIL2-20), in their order: they style only what the screens that load this file draw */
+.mastery-chip.ms-mastered { background: var(--good-tint); color: var(--good-ink); }
+.mastery-chip.ms-practicing, .mastery-chip.ms-learning { background: var(--brand-tint); color: var(--brand-d); }
+.mastery-chip.ms-needs-review { background: var(--gold-tint); color: var(--gold-ink); }
+.mastery-chip.ms-needs-support { background: var(--bad-tint); color: var(--bad-ink); }
+.jstage.disabled { opacity: 0.6; }
+.journey-stages::before { content: ""; position: absolute; inset-block: 30px; inset-inline-start: 22px; width: 4px; border-radius: 4px; background: var(--line); }
+.jstage.current .jstage-title { color: var(--c-ink); }
+.journey-head .emblem svg { width: 36px; height: 36px; }
+@media (max-width: 360px) {
+  .journey-head .emblem svg { width: 30px; height: 30px; }
+}
+.jchallenge.locked .jchallenge-icon { background: var(--ground); color: var(--ink-2); }
+.jchallenge.solved .jchallenge-icon { background: var(--good); color: var(--on-good); }
+.jchallenge-text { flex: 1; min-width: 0; }
+.jchallenge-sub { margin: 2px 0 0; font-size: 0.9375rem; line-height: 1.4667; color: var(--ink-2); overflow-wrap: anywhere; }
+.journey-challenges { list-style: none; margin: 0; padding: 0; }
+
+.journey-head { display: flex; align-items: center; gap: var(--s3); padding: var(--s4); border-radius: 24px; background: linear-gradient(160deg, var(--c-tint), var(--surface) 80%); border: 2px solid color-mix(in srgb, var(--c) 22%, var(--rule)); }
+.journey-topic { margin: 0; }
+.journey-title { margin: 2px 0 6px; font-size: var(--t-xl); line-height: var(--lh-xl); }
+.mastery-chip { display: inline-flex; margin: 0; padding: 2px 10px; border-radius: 999px; font-size: var(--t-xs); font-weight: 700; background: var(--ground); color: var(--ink-2); }
+.journey-miscon .mc-row { display: flex; align-items: center; justify-content: space-between; gap: var(--s2); }
+.journey-miscon .mc-row p { margin: 0; }
+.journey-rules { padding: var(--s3) var(--s4); border-radius: 16px; background: var(--ground); }
+.journey-rules summary { min-height: 44px; display: flex; align-items: center; font-weight: 700; cursor: pointer; }
+.journey-wip { display: flex; align-items: center; gap: var(--s3); padding: var(--s3); border-radius: 16px; background: var(--gold-tint); color: var(--gold-ink); }
+.journey-wip p { margin: 0; }
+.journey-head { border-radius: var(--r-xl); box-shadow: none; border: 2px solid var(--line); }
+.jclimb { display: flex; flex-direction: column; gap: var(--s3); padding: var(--s4); }
+.jclimb-next { display: flex; flex-direction: column; gap: var(--s2); }
+.jclimb-label { margin: 0; font-weight: 700; color: var(--ink-2); font-size: var(--fs-sm); }
+.journey-head { background: var(--surface); border: 2px solid var(--rule); border-top: 6px solid var(--c, var(--rule)); }
+.journey-head-text { flex: 1; min-width: 0; }
+@media (max-width: 360px) {
+  .journey-head { gap: var(--s2); }
+}
+/* the stair page's stage list and challenge cards: moved here with the product2 lane's journey rules (FOLLOWUP-23's way) */
+.jchallenge { display: flex; align-items: center; gap: var(--s3); margin-top: var(--s2); padding: var(--s3); border: 2px dashed var(--rule-strong); border-radius: 16px; background: var(--surface); }
+.jchallenge + .jchallenge { margin-top: var(--s2); }
+.jchallenge-title { margin: 0; font-weight: 700; color: var(--ink); }
+.jchallenge .btn { flex: none; min-height: 44px; }
+.jstage-title { margin: 0; font-weight: 700; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.jstage-sub { margin: 2px 0 0; font-size: var(--t-sm); line-height: var(--lh-sm); color: var(--ink-2); }
+.jstage .level-badge { color: var(--c-ink); }
+.journey-stages { position: relative; list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0; }
+.jstage { position: relative; display: flex; align-items: center; gap: var(--s3); padding: var(--s3) 0; background: none; border: 0; border-radius: 0; box-shadow: none; }
+.jstage-icon { position: relative; z-index: 1; flex: none; display: grid; place-items: center; width: 48px; height: 48px; border-radius: 999px; background: var(--surface); border: 3px solid var(--line-2); color: var(--ink-2); }
+.jstage.done .jstage-icon { background: var(--good); border-color: var(--good); color: var(--on-good); }
+.jstage.going .jstage-icon { border-color: var(--good); color: var(--good-ink); }
+.jstage.current .jstage-icon { background: var(--c); border-color: var(--c); color: var(--on-brand); box-shadow: 0 0 0 6px color-mix(in srgb, var(--c) 22%, var(--paper)); }
+.jstage.current { background: none; border: 0; box-shadow: none; }
+.jstage-text { flex: 1; min-width: 0; }
+/* it leans toward a hovering mouse or pen, up to 8° (lib/tilt.js; ux-motion 10) */
+.journey-head { transition: transform var(--duration-quick) var(--ease-out); }
+.journey-head.is-tilting { transform: perspective(1000px) rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg)); }

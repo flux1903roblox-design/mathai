@@ -1,0 +1,1488 @@
+/* ======================================================================= Round 17: the category standard
+   The owner's call (10 November 2026): the level of Brilliant and Duolingo, light and calm, one brand blue, big
+   readable Hebrew, and one grammar on every screen. Loaded last, it is the source of truth for:
+   - type: Rubik only; titles 26–32px/800, section headings 20px/700, body 17px, nothing under 14px;
+   - surfaces: white screens (--paper); one card (--surface, 2px --rule, radius 16, no soft shadow); grey --ground only
+     as the panel the maths sits on. In dark mode (dark.css, following the phone or the student's choice) the same
+     tokens take dark values; no rule here names a colour;
+   - controls: pressable things have a 4px lip that collapses on press; the primary is the brand blue;
+   - colour: brand blue for action, selection, progress and "where I am"; green, red, gold and orange only for their
+     one meaning. Each unit has its own colour (tokens.css, units) for its banner, emblem and stops on the path; buttons
+     stay brand blue. No scenery behind content. Each unit may show its emblem on its banner and two small drawings
+     from its own topic beside the path (council, Nov 2026). No eyebrows over headings. */
+
+/* ------------------------------------------------------------------ from v4.css, the layout layer canon.css refines
+   (merged here by COUNCIL2-20, in its order: what canon.css overrides was dropped; its tokens are in tokens.css) */
+/* ---------------------------------------------------------------- buttons: solid, on a lip */
+.btn:focus-visible, .choice:focus-visible, .chip:focus-visible, .mm-tile:focus-visible, .exam-cta:focus-visible { outline: 3px solid var(--brand-d); outline-offset: 2px; }
+
+/* ---------------------------------------------------------------- segmented bars (two-class selectors: older bar rules such as .sp-progress i must not win) */
+.segs { display: flex; align-items: stretch; gap: 4px; }
+.segs.segs-thin { height: 8px; }
+.segs.segs-thick { height: 16px; gap: 3px; }
+.segs .seg-step { flex: 1; min-width: 4px; height: 100%; border-radius: 999px; background: var(--line); transition: background-color var(--duration-slow) var(--ease-smooth-out); }
+.segs.segs-thick .seg-step { border-radius: 4px; }
+.segs.segs-thick .seg-step:first-child { border-start-start-radius: 999px; border-end-start-radius: 999px; }
+.segs.segs-thick .seg-step:last-child { border-start-end-radius: 999px; border-end-end-radius: 999px; }
+.rs-mastered, .segs .rs-mastered { background: var(--good); }
+.rs-ready, .segs .rs-ready { background: var(--good-mid); }
+.rs-shaky, .segs .rs-shaky { background: var(--gold); }
+.rs-gap, .segs .rs-gap { background: var(--bad-mid); }
+.rs-untested, .segs .rs-untested { background: var(--line-2); }
+.teach .segs .rs-done { background: var(--c-d, var(--p-500)); }
+.teach .segs .rs-current { background: color-mix(in srgb, var(--c, var(--p-500)) 40%, var(--surface)); }
+
+/* ---------------------------------------------------------------- the thick bar with its count inside (quests) */
+.qbar { position: relative; height: 22px; border-radius: 999px; background: var(--line); overflow: hidden; }
+.qbar > i { position: absolute; inset-block: 0; inset-inline-start: 0; border-radius: 999px; background: var(--good-mid); transition: width var(--duration-slow) var(--ease-smooth-out); }
+.qbar > i::after { content: ""; position: absolute; inset: 4px 8px auto; height: 4px; border-radius: 999px; background: color-mix(in srgb, var(--on-brand) 50%, transparent); }
+.qbar-brand > i { background: var(--bar-fill); }
+.qbar-text { position: relative; display: block; text-align: center; font-size: 0.78125rem; line-height: 1.76; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+
+/* ---------------------------------------------------------------- badges */
+.badge { display: inline-flex; align-items: center; gap: 4px; min-height: 24px; padding: 0 10px; border-radius: 999px; font-size: var(--fs-xs); line-height: var(--lh-xs2); white-space: nowrap; }
+.badge-mastered { background: var(--good); color: var(--on-good); }
+.badge-ready { background: var(--good-tint); color: var(--good-ink); }
+.badge-practicing, .badge-learning, .badge-brand { background: var(--p-100); color: var(--p-700); }
+.badge-review { background: var(--gold-tint); color: var(--gold-ink); }
+.badge-support { background: var(--select-tint); color: var(--select-ink); }
+.badge-neutral, .badge-new { background: var(--surface); color: var(--ink-2); box-shadow: inset 0 0 0 2px var(--line); }
+
+/* ---------------------------------------------------------------- stat tiles (as on a Duolingo profile) */
+.kpi { display: flex; align-items: center; gap: 10px; padding: 12px 14px; min-width: 0; }
+.kpi-icon { flex: none; }
+.kpi-text { display: flex; flex-direction: column; min-width: 0; }
+.kpi-num { font-family: var(--font-display); font-weight: 700; font-size: 1.375rem; line-height: 1.1819; color: var(--ink); }
+.kpi-cap { font-size: var(--fs-xs); line-height: var(--lh-xs2); color: var(--ink-2); font-weight: 600; }
+
+/* ---------------------------------------------------------------- empty, error, celebration */
+.state-card { display: flex; flex-direction: column; align-items: center; text-align: center; gap: var(--s3); }
+.state-title { margin: 0; font-family: var(--font-display); font-size: var(--fs-h1); line-height: var(--lh-h1); }
+.state-body { color: var(--ink-2); max-width: 46ch; }
+.state-body p { margin: 0; }
+.state-error { border-color: var(--bad-line); }
+
+/* =============================================================== the lessons: Brilliant's layout */
+.teach { background: var(--surface); }
+.lm { display: flex; flex-direction: column; gap: var(--s5); width: 100%; max-width: 640px; margin-inline: auto; }
+.remedy { display: flex; flex-direction: column; gap: var(--s4); }
+.lm-progress { display: flex; align-items: center; gap: var(--s3); }
+.lm-count { flex: none; font-size: var(--fs-xs); font-weight: 700; color: var(--ink-2); font-variant-numeric: tabular-nums; direction: ltr; }
+/* no card: the lesson is the page */
+.lm-card { display: flex; flex-direction: column; gap: var(--s5); padding: 0; background: none; border: 0; box-shadow: none; outline: none; }
+.lm-card > .ls-explore { display: flex; flex-direction: column; gap: var(--s5); }
+.lm-prompt { align-items: flex-start; gap: var(--s3); }
+.lm-say { flex: 1; min-width: 0; }
+.lm-say p { margin: 0; }
+.lm-say p + p { margin-top: 8px; }
+.lm-rule-text { font-size: 1.3125rem; line-height: 1.5; }
+/* the maths on a light panel in the middle */
+.lm-canvas { display: flex; flex-direction: column; align-items: center; gap: var(--s3); padding: var(--s5) var(--s4); border: 0; }
+.lm-canvas.big { min-height: 120px; justify-content: center; }
+.lm-expr { width: 100%; max-width: 100%; overflow-x: auto; direction: ltr; font-size: 1.7rem; padding: 2px 6px; }
+.lm-fig { width: 100%; display: flex; justify-content: center; }
+.lm-fig .figure { width: 100%; max-width: 360px; height: auto; }
+.lm-canvas .manip { width: 100%; }
+.lm-response { display: flex; flex-direction: column; gap: var(--s3); outline: none; }
+/* answer cards across the width: select one, then check */
+.lm .ls-choice { justify-content: center; text-align: center; min-height: 58px; border-radius: 16px; border: 2px solid var(--rule-strong); background: var(--surface); box-shadow: 0 4px 0 var(--rule-press); font-size: 1.125rem; }
+.lm .ls-choice.good { border-color: var(--good-d); background: var(--good-tint); box-shadow: 0 3px 0 var(--good-line); color: var(--ink); }
+.lm .ls-choice.bad { color: var(--ink); }
+/* the explanation, in the text, after the check */
+.lm .ls-why { margin: 0; padding: var(--s3) var(--s4); color: var(--ink); line-height: 1.6; }
+.lm .ls-why p { margin: 0; }
+.lm .ls-why p + p { margin-top: 6px; }
+.lm-why { padding: var(--s3) var(--s4); border-radius: 14px; background: var(--p-50); line-height: 1.6; }
+.lm-why p { margin: 0; }
+.lm-why-title { display: flex; align-items: center; gap: 6px; font-weight: 700; color: var(--p-700); margin-bottom: 4px !important; }
+/* the bottom: one button, and the result strip once there is a result */
+.lm-actions {
+  position: sticky; bottom: 0; z-index: 6; display: flex; flex-direction: column; align-items: stretch; justify-content: flex-end; gap: var(--s3);
+  margin: auto calc(-1 * var(--gutter)) 0; padding: var(--s3) var(--gutter) calc(var(--s3) + env(safe-area-inset-bottom));
+  background: var(--surface); border-top: 2px solid var(--line);
+}
+.lm-actions.has-good { background: var(--good-tint); border-top-color: transparent; }
+.lm-banner { margin: 0; display: flex; align-items: center; gap: var(--s2); font-family: var(--font-display); font-weight: 700; font-size: 1.25rem; line-height: 1.3; }
+.has-good .lm-banner { color: var(--good-ink); }
+.lm-banner-icon { flex: none; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 999px; background: var(--good); color: var(--on-good); }
+.lm-actions-row { display: flex; align-items: center; gap: var(--s3); }
+.lm-actions-row .btn-lg { flex: 1; max-width: none; margin-inline: 0; }
+.lm-actions-row .btn-ghost { flex: none; }
+.sp-nav .btn-lg { max-width: none; }
+.sheet .lm-actions { position: static; margin: 0; padding: var(--s3) 0 0; }
+.sheet .teach-main > .lm, .sheet .lm { min-height: 0; }
+
+/* =============================================================== practice: Duolingo's layout */
+.lesson .lesson-foot { background: var(--paper); border-radius: 0; box-shadow: none; }
+
+/* =============================================================== home: Duolingo's daily quests card, then the path */
+.continue.today { gap: var(--s3); padding: 0; border-radius: 0; background: none; border: 0; box-shadow: none; }
+.quest-card { position: relative; display: flex; flex-direction: column; gap: var(--s3); }
+.quest-head { display: flex; flex-direction: column; gap: 4px; }
+.quest-head-row { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s2); flex-wrap: wrap; }
+.quest-card .continue-title { margin: 0; }
+.quest-time { font-size: var(--fs-xs); font-weight: 700; color: var(--ink-2); }
+.quest-card .continue-sub { margin: 0; }
+.quest-rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.today .quest-rows li { display: flex; align-items: center; gap: var(--s3); padding: var(--s3) 0; background: none; border: 0; border-radius: 0; border-top: 2px solid var(--line); }
+.today .quest-rows li.done { color: var(--ink); }
+.today .quest-rows li.done .today-item-title { text-decoration: none; }
+.quest-icon { flex: none; display: grid; place-items: center; width: 46px; height: 46px; border-radius: 14px; }
+.quest-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.quest-mascot { position: absolute; inset-block-start: -18px; inset-inline-end: 8px; }
+.exam-cta {
+  display: flex; align-items: center; gap: var(--s3); width: 100%; text-align: start; padding: var(--s3) var(--s4); border-radius: var(--r-m); cursor: pointer;
+  background: var(--surface); border: 2px solid var(--line); box-shadow: 0 4px 0 var(--line); color: var(--ink);
+  transition: transform var(--duration-press) var(--ease-out), box-shadow var(--duration-press) var(--ease-out);
+}
+.exam-cta:active { transform: translateY(4px); box-shadow: 0 0 0 var(--line); }
+.exam-cta-icon { flex: none; display: grid; place-items: center; width: 46px; height: 46px; border-radius: 14px; }
+.exam-cta-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.exam-cta-title { font-family: var(--font-display); font-weight: 700; font-size: 1.0625rem; line-height: 1.2942; }
+.exam-cta-sub { font-size: var(--fs-xs); line-height: var(--lh-xs2); color: var(--ink-2); }
+.exam-cta-go { flex: none; color: var(--ink-2); }
+.today .continue-links { justify-content: center; }
+/* the unit's banner on the path */
+.unit-head { gap: var(--s3); }
+.unit-label { margin: 0; color: var(--on-brand); }
+.unit-guide { min-height: 48px; padding: 0 0 0 0; padding-inline-start: var(--s3); border: 0; border-radius: 0; }
+@media (max-width: 400px) { .unit-guide { padding-inline-start: var(--s2); } }
+
+/* =============================================================== the stair page: Brilliant's course outline */
+
+/* =============================================================== Exam Rescue (flat cards, an orange banner) */
+.readiness-legend li { display: inline-flex; align-items: center; gap: 6px; }
+.readiness-legend i { width: 12px; height: 12px; border-radius: 4px; display: inline-block; }
+.stair-chips { display: flex; flex-wrap: wrap; gap: var(--s2); }
+
+/* =============================================================== missions (Duolingo's quests) and the profile */
+
+/* =============================================================== results: Duolingo's lesson-complete screen */
+.check-done { min-height: calc(100dvh - 80px); padding: var(--s6) var(--gutter) var(--s4); gap: var(--s4); max-width: 520px; margin: 0 auto; }
+.check-done .lead { max-width: 36ch; }
+.check-stats .stat { flex: 1 1 120px; max-width: 180px; }
+.check-done .form-actions .btn, .ps-next .btn { white-space: normal; text-wrap: balance; }
+.check-done .form-actions .btn-lg { height: auto; padding-block: 10px; }
+
+/* =============================================================== wide screens */
+@media (min-width: 900px) {
+  .lm-actions { margin-inline: 0; border-radius: var(--r-m) var(--r-m) 0 0; }
+}
+
+/* =============================================================== short phones: keep the one action in reach */
+@media (max-height: 640px) {
+  .lm-card, .lm-card > .ls-explore { gap: var(--s3); }
+  .lm { gap: var(--s3); }
+  .lm-canvas { padding: var(--s3); }
+}
+
+/* =============================================================== v6: structural layouts (see LAYOUT_SPEC.md) */
+/* ---- a lesson's one header row (Brilliant): close, the progress bar, help */
+.bl-head { position: sticky; top: 0; z-index: 7; display: flex; align-items: center; gap: var(--s3); margin: 0 calc(-1 * var(--gutter)); padding: calc(var(--s2) + env(safe-area-inset-top, 0px)) var(--gutter) var(--s2); background: var(--surface); }
+.bl-head .icon-btn { flex: none; color: var(--ink-2); }
+.bl-bar { flex: 1; min-width: 0; }
+.bl-intro { display: flex; flex-direction: column; gap: 2px; }
+.bl-kicker { margin: 0; }
+.bl-title { margin: 0; font-family: var(--font-display); font-size: 1.625rem; line-height: 1.2308; font-weight: 700; }
+.lm-prompt { display: block; }
+/* ---- the result sheet: opens at the bottom over the button, the visual stays in view */
+.bl-result { display: flex; flex-direction: column; gap: var(--s2); }
+.bl-why { display: flex; align-items: flex-start; gap: var(--s3); max-height: 34dvh; overflow-y: auto; background: color-mix(in srgb, var(--surface) 70%, transparent) !important; border-inline-start: 0 !important; }
+.bl-why-madi { flex: none; }
+.bl-why-text { flex: 1; min-width: 0; }
+.bl-why-text p { margin: 0; }
+.bl-why-text p + p { margin-top: 6px; }
+@media (max-height: 640px) { .bl-title { font-size: 1.375rem; line-height: 1.2728; } }
+
+/* ---- full-screen question flows (the exam's details): no tab bar, as in an onboarding */
+.shell:has(.ob-flow) .tabbar { display: none; }
+.shell:has(.ob-flow) .shell-main { padding-bottom: 0; }
+
+/* ---- welcome (Duolingo): the character in the middle, the two ways in pinned to the bottom */
+.hello-duo { justify-content: space-between; gap: 0; padding: 0; max-width: none; }
+.hello-center { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: var(--s3); padding: var(--s6) var(--gutter); }
+.hello-center .hello-title { max-width: 22ch; margin: 0; }
+.hello-center .hello-fact { margin: 0; }
+.hello-foot { display: flex; flex-direction: column; gap: var(--s3); padding: var(--s3) var(--gutter) calc(var(--s5) + env(safe-area-inset-bottom, 0px)); width: 100%; max-width: 520px; margin: 0 auto; }
+.hello-foot .btn { margin-inline: 0; }
+
+/* ---- a screen's own bar (settings, topics): back, the title in the middle */
+.screen-bar { display: grid; grid-template-columns: 44px 1fr 44px; align-items: center; margin: calc(-1 * var(--s2)) 0 0; }
+.screen-bar-title { margin: 0; text-align: center; }
+
+/* ---- settings (Duolingo): small headings over bordered groups */
+.set-group { display: flex; flex-direction: column; gap: var(--s2); }
+.set-group > :not(.set-head) { border-radius: var(--r-m); }
+.set-group > .set-box { display: flex; flex-direction: column; gap: var(--s3); }
+.set-rows { display: flex; flex-direction: column; }
+.set-row { display: flex; align-items: center; background: none; border: 0; text-align: start; font-weight: 700; font-size: 1rem; color: var(--ink); cursor: pointer; }
+.set-row.danger { color: var(--bad-ink); }
+
+/* ---- profile (Duolingo): a wide header with the avatar, the name, a 2×2 statistics grid */
+
+/* ---- topics (Duolingo's sections overview): one large card per unit in its colour */
+.section-card { display: flex; align-items: stretch; gap: var(--s3); } /* colour-ok: a shade (black at low alpha), the same in both themes */
+.btn-on-color { flex: 1; } /* colour-ok: a shade (black at low alpha), the same in both themes */
+
+/* ---- the top bar's mission count (Duolingo-style stat) */
+.top-stat.mission { color: var(--p-700); }
+.top-stat.mission svg { color: var(--brand-ink); }
+.top-stat.mission.on { color: var(--good-ink); }
+.top-stat.mission.on svg { color: var(--good); }
+/* ---- practice (Duolingo): the bold instruction line, help in the top bar, one full-width check button */
+.lesson .dock-row .check-btn { width: 100%; margin-inline: 0; }
+/* the tab bar: icons only, as on Duolingo (the names stay for screen readers) */
+/* ---- the exam plan's days as a path (Duolingo): stops on a winding road, today's open, a trophy at the end */
+.day-path > li { position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px; transform: translateX(calc(var(--x) * -1)); border: 0; background: none; padding: 0; width: auto; max-width: 100%; }
+/* ---- end screens (Duolingo): the content in the middle, the one button pinned to the bottom */
+.done-screen { min-height: 100dvh; }
+/* ---- the exit sheet (Duolingo): stay is the big button, leaving is a quiet red text button */
+.exit-quit { color: var(--bad-ink); border: 0; box-shadow: none; }
+/* ---- a remedy's first screen: the button pinned like the lesson's */
+.remedy > .lm-actions { margin-top: auto; }
+/* ---- the assistant as a conversation: מדי's messages, the input bar at the bottom */
+/* ---- the guidebook (Duolingo): the unit's banner, then one card per key idea */
+.guide-banner { position: static; }
+/* ---- Brilliant's lesson details: start-aligned text, answer cards in a grid of two, "למה?" beside "המשך" */
+.bl-why-btn { flex: none; min-width: 96px; }
+.lm-actions-row .bl-why-btn { margin-inline: 0; }
+/* ---- practice refinements from the measured Duolingo captures (research/ref/duolingo/layout-notes.md) */
+/* text answers sit low, near the button, with room between them and the question */
+.lesson .lesson-main:has(.q-stage > .choices) > .q-stage, .lesson .lesson-main:has(.q-stage > .choices) > * > .q-stage { margin-block: 0; min-height: 100%; }
+/* ---- settings (Duolingo): small section labels over plain rows, no cards; one hairline between sections */
+.set-group > :not(.set-head) { border: 0; padding: 0; background: none; }
+.set-group + .set-group { padding-top: var(--s4); border-top: 2px solid var(--line); }
+.set-rows { margin: 0; }
+.set-row { padding: 0; min-height: 56px; }
+.set-row + .set-row { border-top: 0; }
+/* ---- Brilliant's measured vertical rhythm (research/ref/brilliant/layout-notes.md §1a, §2a): the text at the top, a gap,
+   the visual with its controls in the middle band of the screen, space, then the button. Answer tiles form a centred
+   grid about three quarters of the width. */
+.lm-card > .lm-canvas, .lm-card > .ls-explore > .lm-canvas { margin-top: auto; }
+.lm-card > :last-child { margin-bottom: auto; }
+.lm .ls-choices { width: 100%; max-width: 380px; margin-inline: auto; }
+@media (max-height: 640px) { .lm-card > .lm-canvas, .lm-card > .ls-explore > .lm-canvas { margin-top: 0; } }
+/* the lesson's header row is now inside the module, so the module fills the whole screen and the button sits at the
+   bottom, where Brilliant's sits (88-94 % of the height on a phone with a home indicator) */
+.teach-main > .lm, .teach-main > .remedy > .lm { min-height: 100dvh; }
+
+/* ======================================================================================================
+   v7: the screen skeletons (LAYOUT_SPEC part E) for the routes finished in round 13.
+   A pushed screen: the bar with the way back, the content, ONE primary pinned at the bottom (ScreenFoot).
+   Every pushed screen (a bar with the way back) hides the tab bar on a phone, as Duolingo's pushed screens do; where
+   it has a primary, the primary is pinned in the tab bar's place. The tabs' own screens keep the tab bar.
+   ====================================================================================================== */
+@media (max-width: 959px) {
+  .shell:has(.pushed) .tabbar { display: none; }
+  .shell:has(.pushed) .shell-main { padding-bottom: 0; }
+}
+.pushed { min-height: 100dvh; padding-bottom: 0; }
+.screen-foot {
+  position: sticky; bottom: 0; z-index: 6; margin: auto calc(-1 * max(var(--s4), env(safe-area-inset-left, 0px))) 0;
+  display: flex; flex-direction: column; align-items: stretch; gap: var(--s2);
+  padding: var(--s3) max(var(--s4), env(safe-area-inset-right, 0px)) calc(var(--s3) + env(safe-area-inset-bottom, 0px)) max(var(--s4), env(safe-area-inset-left, 0px));
+}
+.screen-foot .btn { width: 100%; margin-inline: 0; }
+.foot-link { align-self: center; display: inline-flex; align-items: center; min-height: 44px; padding: 0 var(--s3); text-decoration: none; }
+.foot-link:hover { text-decoration: underline; }
+.icon-btn-spacer { width: 44px; }
+.screen-bar .icon-btn { color: var(--ink); }
+
+/* nothing here yet / this needs something first: מדי in the middle, a title, a line */
+.empty-state { padding: var(--s6) var(--s2) var(--s4); gap: var(--s3); }
+.empty-madi { margin-bottom: var(--s1); }
+.empty-title { margin: 0; font-family: var(--font-display); color: var(--ink); text-wrap: balance; }
+.empty-text { max-width: 36ch; display: flex; flex-direction: column; gap: var(--s2); }
+.empty-text p { margin: 0; }
+.pushed > .empty-state { flex: 1; justify-content: center; }
+
+/* ---- the exams tab (Duolingo's practice hub): one featured card with its button, then plain rows */
+.hub-card { display: flex; flex-direction: column; }
+.hub-card-head { display: flex; align-items: flex-start; gap: var(--s3); }
+.hub-card-icon { flex: none; display: grid; place-items: center; width: 56px; height: 56px; border-radius: 16px; }
+.hub-plan .hub-card-icon { background: color-mix(in srgb, var(--ch-petrol) 14%, var(--surface)); color: var(--ch-petrol-ink); }
+.hub-card-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.hub-card-title { margin: 0; }
+.hub-card-desc { margin: 0; }
+.hub-card .btn { margin-inline: 0; }
+.hub-rows { list-style: none; margin: 0; padding: 0; overflow: hidden; }
+.hub-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: var(--s3); text-decoration: none; }
+.hub-row-icon { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 12px; }
+.hub-row-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.hub-row-title { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); }
+.hub-row .score-chip { min-width: 60px; height: 40px; }
+.hub-empty { margin: 0; }
+.exams-page .section { gap: var(--s2); }
+
+/* ---- exam check: מדי asks for the pages */
+.check-ask .ob-bubble { font-size: 1.0625rem; line-height: 1.4706; margin-bottom: var(--s3); }
+.check-status .thinking { justify-content: center; }
+
+/* ---- the results layout (exam result): מדי and the title in the middle, tiles, then the review */
+.result-next { margin: 0; }
+.set-rows-wrap .set-rows { margin: 0; }
+.set-row svg { margin-inline-end: var(--s2); }
+
+/* ---- today's mission rows (the old mission page lives here now) */
+.today-row { position: relative; display: grid !important; grid-template-columns: auto minmax(0, 1fr) auto; align-items: start; gap: var(--s3); }
+.today-row .chev { align-self: center; }
+.today-link { color: var(--ink); text-decoration: none; font-weight: 700; }
+.today-link::after { content: ""; position: absolute; inset: 0; border-radius: var(--r-s); }
+.today-link:focus-visible { outline: none; }
+.today-row:has(.today-link:focus-visible) { outline: 3px solid var(--p-500); outline-offset: 2px; border-radius: var(--r-s); }
+.today-why { color: var(--ink-2); }
+.today-row .qbar { margin-top: 4px; }
+.today-row.done .today-link { color: var(--ink-2); }
+
+/* ---- conversations (assistant, tutor, chat sheets): one layout */
+.msg-row .msg.tutor-a { background: var(--paper); }
+.chat-chips { display: flex; flex-wrap: wrap; gap: var(--s2); }
+.assistant-chat .chat { flex: 1; display: flex; flex-direction: column; gap: var(--s2); }
+.sheet-cta .btn { margin-inline: 0; }
+.flow-sheet .lm-actions { position: sticky; bottom: calc(-1 * var(--s4)); z-index: 2; background: var(--paper); }
+.sheet-ask .ob-bubble { font-size: 1.0625rem; line-height: 1.4706; margin-bottom: var(--s3); }
+
+/* ---- results: streak card, a quiet second way */
+.streak-card { width: 100%; display: flex; flex-direction: column; gap: var(--s3); padding: var(--s4); border: 2px solid var(--line); border-radius: var(--r-m); background: var(--surface); }
+.done-quiet { color: var(--p-700); }
+
+/* ---- the teacher's start and sign-in: the onboarding flow */
+.ob-top-title { flex: 1; text-align: center; margin-inline-end: 44px; font-family: var(--font-display); font-weight: 700; font-size: 1.125rem; }
+.ob-bubble-title { margin: 0; font: inherit; }
+
+/* ---- guided solving: the typed last step fills the row, the check is the bottom button */
+.together .tg-input { width: 100%; max-width: none; min-height: 58px; font-size: 1.6rem; }
+/* a last step with π (□π): the slot, then π after it in the same row (the number before π is typed) */
+.together .tg-final.has-after { display: flex; align-items: center; gap: var(--s2); direction: ltr; }
+.together .tg-final.has-after .tg-input { flex: 1; min-width: 0; }
+.together .tg-final.has-after .answer-after { font-size: 1.6rem; flex: none; }
+.sheet-body:focus-visible, .table-wrap:focus-visible { outline: 3px solid var(--p-500); outline-offset: -3px; }
+
+/* ---- one confirmation sheet (the quit sheet's build), loading and error screens */
+.confirm-sheet { padding-bottom: var(--s2); }
+.confirm-text p { margin: 0; }
+.loading-state { min-height: 60dvh; align-items: center; justify-content: center; text-align: center; gap: var(--s3); }
+.loading-text { margin: 0; color: var(--ink-2); font-weight: 600; }
+/* past 400ms of waiting, a bar runs under the words (ux-motion 16: a wait never looks stuck); still under reduced motion */
+.loading-bar { display: block; width: 160px; height: 6px; border-radius: 999px; background: var(--track); overflow: hidden; opacity: 0; animation: loading-show var(--duration-fast) var(--ease-out) var(--duration-slow) forwards; }
+.loading-bar i { display: block; width: 40%; height: 100%; border-radius: inherit; background: var(--brand); animation: loading-run var(--think-shimmer) linear infinite; }
+@keyframes loading-show { to { opacity: 1; } }
+@keyframes loading-run { from { translate: -100% 0; } to { translate: 250% 0; } }
+@media (prefers-reduced-motion: reduce) { .loading-bar { animation: none; opacity: 1; } .loading-bar i { animation: none; margin-inline: auto; } }
+.error-screen { justify-content: space-between; }
+/* On a tablet or a computer a short pushed screen does not stretch to the bottom: its one button follows the content
+   (still sticky when the content is long), so there is no empty field between the question and the button. */
+@media (min-width: 600px) {
+  .pushed { min-height: 0; }
+  .pushed > .screen-foot { margin-top: var(--s4); border-top: 0; padding-top: var(--s2); }
+  .pushed > .empty-state { flex: none; padding-top: var(--s8); }
+}
+
+/* ---- the welcome copy (Electric Premium) */
+.hello-center .wordmark { font-size: 3rem; line-height: 1.0834; letter-spacing: -0.01em; }
+.hello-center .hello-title { font-size: 1.75rem; line-height: 1.2143; }
+.hello-center .hello-fact { font-size: 1.0625rem; color: var(--ink-2); }
+
+/* ------------------------------------------------------------------ base */
+html, body { background: var(--paper); }
+body { color: var(--ink); font-size: var(--t-base); line-height: 1.625rem; }
+.muted, .lead { color: var(--ink-2); }
+.lead { font-size: var(--t-md); line-height: var(--lh-md); }
+::selection { background: var(--marker-strong); color: var(--ink); }
+:focus-visible { outline: 3px solid var(--brand-d); outline-offset: 2px; } /* 7.8:1 on white, 8.8:1 on the dark page */
+a { color: var(--brand-d); }
+
+/* ------------------------------------------------------------------ buttons */
+.btn { --lip: 5px; min-height: 52px; border-radius: 18px; font-family: var(--font-display); font-weight: 700; font-size: 1.0625rem; letter-spacing: 0; }
+.btn-lg { min-height: 56px; font-size: 1.125rem; }
+.btn-sm { min-height: 44px; font-size: 1rem; border-radius: 14px; }
+.btn-primary { --btn-bg: var(--brand); --btn-ink: var(--on-brand); --btn-lip: var(--brand-lip); --btn-line: var(--brand); }
+.btn-secondary { --btn-bg: var(--surface); --btn-ink: var(--brand-d); --btn-line: var(--rule-strong); --btn-lip: var(--rule-press); }
+.btn-ghost { --btn-bg: transparent; --btn-line: transparent; --btn-lip: transparent; color: var(--brand-d); }
+.btn:disabled { --btn-bg: var(--disabled-bg); --btn-ink: var(--disabled-ink); --btn-lip: var(--disabled-lip); --btn-line: var(--disabled-bg); }
+.btn:focus-visible { outline: 3px solid var(--brand-d); outline-offset: 2px; }
+/* a button doing its job (STUDENT-15 A1): a spinner while busy, a check drawn when done; it keeps its colours and its
+   focus. One turn of the spinner takes --duration-slow; under reduced motion neither moves (the words change instead). */
+.btn.is-busy, .btn.is-done { cursor: default; }
+.btn.is-busy:active, .btn.is-done:active { transform: none; box-shadow: 0 var(--lip) 0 var(--btn-lip); }
+.btn-spin { flex: none; width: 18px; height: 18px; border-radius: 50%; border: 2.5px solid currentColor; border-inline-start-color: transparent; animation: btn-spin var(--duration-slow) linear infinite; }
+@keyframes btn-spin { to { transform: rotate(1turn); } }
+.btn-check { flex: none; }
+.btn-check path { stroke-dasharray: 24; stroke-dashoffset: 24; animation: t-check-draw var(--duration-slow) var(--check-ease-path, ease-out) forwards; }
+@media (prefers-reduced-motion: reduce) {
+  .btn-spin { animation: none; }
+  .btn-check path { animation: none; stroke-dashoffset: 0; }
+}
+.icon-btn { color: var(--ink-2); }
+
+/* ------------------------------------------------------------------ the tab bar: icon and name, the active tab in brand */
+.tabbar { background: var(--surface); border-top: 2px solid var(--rule); box-shadow: none; }
+.tab { flex-direction: column; gap: 2px; min-height: 56px; padding: 6px 4px 4px; border: 0; border-radius: 14px; color: var(--ink-3); background: transparent; font-size: 0.75rem; font-weight: 700; line-height: 1.3334; }
+.tab span { display: block; }
+.tab svg { width: 24px; height: 24px; }
+.tab.active { color: var(--brand-ink); background: transparent; border-color: transparent; }
+.tab.active svg { transform: none; stroke-width: 2.4; }
+@media (min-width: 960px) {
+  .tab { flex-direction: row; gap: 12px; font-size: 1rem; padding: 10px 14px; justify-content: flex-start; }
+  .tab.active { background: var(--select-tint); }
+  .tabbar-brand { color: var(--brand-ink); font-weight: 800; font-size: 1.625rem; }
+}
+
+/* section headings inside a screen: 20px, ink, with room above */
+.set-head, .h-section, .section > h2 { font-family: var(--font-display); font-size: 1.25rem; line-height: 1.3; font-weight: 700; color: var(--ink); letter-spacing: -0.01em; margin: 0 0 var(--s3); text-transform: none; }
+.section { margin-top: var(--s6); }
+
+/* pushed screens: the bar with the way back and the title */
+.screen-bar { background: var(--surface); border-bottom: 2px solid var(--rule); min-height: 56px; }
+.screen-bar-title { font-family: var(--font-display); font-size: 1.125rem; line-height: 1.3334; font-weight: 700; color: var(--ink); }
+.screen-foot { background: var(--surface); border-top: 1px solid var(--rule); }
+.foot-link { color: var(--brand-d); font-weight: 600; }
+
+/* ------------------------------------------------------------------ one card */
+.card, .hub-card, .hub-rows, .side-card, .quest-card, .me-stat, .kpi, .state-card, .stair-step, .guide-card, .mastery-map, .jclimb, .section-card {
+  background: var(--surface); border: 2px solid var(--rule-strong); border-radius: var(--r-card); box-shadow: 0 var(--card-lip) 0 var(--rule-press); color: var(--ink);
+}
+.card, .hub-card, .quest-card, .state-card { padding: var(--s5) var(--s5) var(--s4); }
+.hub-card { gap: var(--s4); }
+.hub-card-title, .card-title, .quest-card .continue-title { font-family: var(--font-display); font-size: 1.25rem; line-height: 1.3; font-weight: 700; color: var(--ink); }
+.hub-card-desc, .quest-card .continue-sub { font-size: var(--t-base); line-height: var(--lh-base); color: var(--ink-2); }
+.hub-card-icon, .hub-row-icon, .exam-cta-icon, .quest-icon, .qk-repair, .qk-review, .qk-mastery, .qk-new, .qk-continue, .qk-prereq, .qk-exam {
+  --tile: var(--brand); --tile-d: var(--brand-lip);
+  background: var(--tile); color: var(--on-brand); border: 0; border-radius: 14px; box-shadow: 0 3px 0 var(--tile-d);
+}
+.qk-repair { --tile: var(--streak-d); --tile-d: var(--streak-ink); } .qk-review { --tile: var(--ch-sky); --tile-d: var(--ch-sky-d); }
+.qk-mastery { --tile: var(--gold-d); --tile-d: var(--gold-ink); } .qk-continue { --tile: var(--good-d); --tile-d: var(--good-ink); }
+.qk-prereq { --tile: var(--ch-violet); --tile-d: var(--ch-violet-d); } .qk-exam { --tile: var(--ch-fuchsia); --tile-d: var(--ch-fuchsia-d); }
+.hub-rows > li + li { border-top: 2px solid var(--rule); }
+.hub-row { min-height: 72px; padding: var(--s3) var(--s4); color: var(--ink); }
+.hub-row-title { font-size: 1.0625rem; line-height: 1.4118; font-weight: 700; color: var(--ink); }
+.hub-row-desc { font-size: 0.9375rem; line-height: 1.4667; color: var(--ink-2); }
+.hub-row .chev { color: var(--ink-3); }
+.hub-empty { border: 2px dashed var(--rule-strong); border-radius: 16px; padding: var(--s4); color: var(--ink-2); font-size: 1rem; line-height: 1.5; background: var(--surface); }
+.empty-state { border: 0; background: transparent; }
+.empty-title { font-size: 1.375rem; line-height: 1.2728; font-weight: 800; }
+.empty-text { color: var(--ink-2); font-size: 1.0625rem; line-height: 1.5295; }
+
+/* ------------------------------------------------------------------ home: the path */
+.learn { background: var(--paper); }
+.learn-top { background: var(--paper); border-bottom: 2px solid var(--rule); box-shadow: none; min-height: 60px; gap: var(--s4); }
+.grade-switch { min-height: 44px; padding: 0 var(--s3); border: 2px solid var(--rule); border-radius: 14px; background: var(--surface); color: var(--ink); font-weight: 700; font-size: 1rem; box-shadow: 0 3px 0 var(--rule-press); }
+.top-stat { font-family: var(--font-display); font-weight: 700; font-size: 1.25rem; color: var(--ink-2); gap: 6px; padding: 4px 6px; background: none; box-shadow: none; }
+.top-stat.streak.on { color: var(--streak-ink); } .top-stat.xp { color: var(--gold-ink); }
+.top-stat svg { width: 26px; height: 26px; }
+.top-stat.streak svg { color: var(--ink-3); fill: none; }
+.top-stat.streak.on svg { color: var(--streak); fill: var(--streak); }
+.top-stat.xp svg { color: var(--gold); fill: var(--gold); }
+.top-stat-of { color: var(--ink-2); font-weight: 600; font-size: 0.9375rem; }
+/* the daily goal reached (lib/quests.js goalProgress): the pill stops at the goal and wears a gold check */
+.top-stat-check { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--gold); }
+.top-stat.xp .top-stat-check svg { color: var(--on-gold-ink); fill: none; }
+/* the streak while a missed school day can still be repaired (PRODUCT2-40): the kept number, the flame outlined in the
+   streak colour, and a calm "מחכה" pill, as the repair card says it; no red */
+.top-stat.streak.at-risk svg { color: var(--streak); fill: none; }
+.top-stat-risk { padding: 1px 8px; border-radius: 999px; background: var(--streak-tint); color: var(--streak-ink); font-size: 0.875rem; line-height: 1.4286; font-weight: 700; }
+.side-streak svg.at-risk { color: var(--streak); fill: none; }
+.streak-flame.at-risk { color: var(--streak); }
+
+.unit-head { margin: var(--s4) var(--gutter) 0; padding: var(--s4) var(--s5); border-radius: var(--r-card); color: var(--on-brand); border: 0;
+  background: var(--c, var(--brand)); box-shadow: inset 0 3px 0 color-mix(in srgb, var(--on-brand) 20%, transparent), 0 var(--card-lip) 0 var(--c-d, var(--brand-lip)); }
+.unit-head-text { gap: 2px; }
+/* the practice surface is the same in every unit: the lesson and teaching screens keep the brand blue, whatever the
+   unit's colour (council, Nov 2026) */
+.lesson, .teach { --c: var(--brand); --c-d: var(--brand-lip); --c-tint: var(--brand-tint); --c-ink: var(--brand-d); }
+/* small phones: the banner takes the full width and a tighter padding, so the unit's name stays on one line beside
+   its emblem and the sticky banner stays short */
+@media (max-width: 360px) {
+  .unit-head { margin-inline: 0; padding: var(--s3) var(--s4); }
+  .unit-head .unit-title { font-size: 1.25rem; line-height: 1.3; }
+}
+.unit-title { font-family: var(--font-display); font-size: 1.5rem; line-height: 1.25; font-weight: 800; color: var(--on-brand); }
+.unit-label { font-size: 0.9375rem; line-height: 1.4667; font-weight: 500; color: color-mix(in srgb, var(--on-brand) 92%, transparent); }
+.unit-guide { color: var(--on-brand); border-inline-start: 2px solid color-mix(in srgb, var(--on-brand) 35%, transparent); font-weight: 700; font-size: 0.9375rem; }
+.unit-world { overflow: visible; }
+.unit .path { padding-top: 36px; padding-bottom: 20px; gap: 18px; }
+.path-end { color: var(--ink-2); font-size: 1rem; text-align: center; padding: var(--s4) var(--gutter) var(--s8); }
+
+/* the stops: round, in the unit's colour when done or current, light grey when locked, gold when mastered */
+.node-slot { width: 96px; height: 96px; margin-block: -10px -6px; }
+.node-slot.is-review { width: 104px; height: 104px; }
+.node { --face: 70px; --lip: 8px; width: var(--face); height: var(--face); border-radius: 50%; border: 0;
+  background: var(--face-c); color: var(--on-brand); box-shadow: 0 var(--lip) 0 var(--edge); }
+.node:active { transform: translateY(var(--lip)); scale: var(--squash); box-shadow: 0 0 0 var(--edge); }
+.node-glyph { width: 30px; height: 30px; filter: none; }
+.node-current { --face: 76px; --face-c: var(--c, var(--brand)); --edge: var(--c-d, var(--brand-lip)); color: var(--on-brand); }
+.node-done { --face-c: var(--c, var(--brand)); --edge: var(--c-d, var(--brand-lip)); color: var(--on-brand); }
+/* in dark, a stop in a dark unit colour (cobalt is 1.8:1 on the page) gets a ring in its light -ink: --stop-ring is 0 in
+   light and 2px in dark (dark.css), so a stop reaches 3:1 against the page in both */
+.node-current, .node-done { box-shadow: 0 0 0 var(--stop-ring) var(--c-ink, var(--brand-d)), 0 var(--lip) 0 var(--edge); }
+.node-current:active, .node-done:active { box-shadow: 0 0 0 var(--stop-ring) var(--c-ink, var(--brand-d)), 0 0 0 var(--edge); }
+.node-mastered { --face-c: var(--gold); --edge: var(--gold-d); color: var(--on-gold-ink); }
+/* gold is 1.6:1 on a white page, so a mastered stop has a 2px ring in the darker gold (5.6:1), in both themes */
+.node-mastered { box-shadow: 0 0 0 2px var(--gold-ink), 0 var(--lip) 0 var(--edge); }
+.node-mastered:active { box-shadow: 0 0 0 2px var(--gold-ink), 0 0 0 var(--edge); }
+.node-mastered::after { content: none; }
+.node-locked { --face-c: var(--track); --edge: var(--track-edge); color: var(--ink-3); }
+/* passed over by a placement or jump test: open, not done, its mastery check waiting */
+.node-open { --open-line: color-mix(in srgb, var(--c, var(--brand)) 45%, var(--surface)); --face-c: var(--surface); --edge: var(--rule-press); color: var(--c-ink, var(--brand)); box-shadow: inset 0 0 0 3px var(--open-line), 0 var(--lip) 0 var(--edge); }
+.node-open:active { box-shadow: inset 0 0 0 3px var(--open-line), 0 0 0 var(--edge); }
+.node:focus-visible { outline: 3px solid var(--brand-d); outline-offset: 6px; }
+.node-anchor.is-current { animation: none; }
+.node-halo { display: none; }
+.node-start { background: var(--hl); color: var(--on-hl); border: 2px solid var(--hl); border-radius: 14px; font-family: var(--font-display); font-weight: 800; font-size: 0.9375rem; padding: 6px 14px; box-shadow: none; animation: none; }
+.node-start::after { border-top-color: var(--hl); }
+.node-card { background: var(--surface); color: var(--ink); border: 2px solid var(--rule-strong); border-radius: var(--r-card); box-shadow: 0 12px 32px rgba(20, 22, 26, 0.12); } /* colour-ok: shadow */
+.node-card::before { border-bottom-color: var(--rule); }
+.node-card-title { color: var(--ink); font-family: var(--font-display); font-size: 1.25rem; line-height: 1.3; font-weight: 800; }
+.node-card-sub { color: var(--ink-2); font-size: 1rem; line-height: 1.5; }
+.node-card .btn-primary { --btn-bg: var(--brand); --btn-ink: var(--on-brand); --btn-line: var(--brand); --btn-lip: var(--brand-lip); background: var(--brand); color: var(--on-brand); }
+.node-card .btn-secondary { --btn-bg: var(--surface); --btn-ink: var(--brand-d); --btn-line: var(--rule); --btn-lip: var(--rule-press); background: var(--surface); color: var(--brand-d); }
+.node-card .btn-ghost { color: var(--brand-d); }
+
+.chest { display: grid; place-items: center; width: 64px; height: 64px; border-radius: 22px; border: 0; background: var(--track); color: var(--ink-3); box-shadow: 0 6px 0 var(--track-edge); margin-bottom: 6px;
+  transform-origin: 50% 100%; transition: translate var(--duration-squash) var(--ease-out), scale var(--duration-squash) var(--ease-out), box-shadow var(--duration-squash) var(--ease-out); }
+.chest.is-open { background: var(--gold); color: var(--on-gold-ink); box-shadow: 0 6px 0 var(--gold-d); }
+/* translate, not transform: motion holds the chest's transform (its opening, Chest.jsx) */
+.chest:active { translate: 0 6px; scale: var(--squash); box-shadow: 0 0 0 transparent; }
+.chest:focus-visible { outline: 3px solid var(--brand-d); outline-offset: 6px; }
+.jump-current { background: var(--surface); color: var(--brand-ink); border: 2px solid var(--rule); box-shadow: 0 4px 0 var(--rule-press); }
+.jump-current { inset-inline-start: auto; inset-inline-end: max(var(--s4), env(safe-area-inset-left, 0px)); }
+.jump-current[data-over] { visibility: hidden; }
+@media (min-width: 960px) { .jump-current { inset-inline-start: calc(240px + var(--s6)); inset-inline-end: auto; } }
+/* the Home Screen guide that waits under the path: inside the path's column, so no second gutter */
+.learn-body > .install-card { margin: 0; }
+
+/* wide screens: the side cards */
+.side-card { padding: var(--s4) var(--s5); }
+.side-streak svg.on { color: var(--streak); fill: var(--streak); }
+
+/* ------------------------------------------------------------------ topics */
+.section-card { padding: var(--s5); color: var(--ink); }
+.section-card.is-current { border-color: var(--brand); box-shadow: 0 4px 0 var(--brand-lip); }
+.btn-on-color { --btn-bg: var(--brand); --btn-ink: var(--on-brand); --btn-line: var(--brand); --btn-lip: var(--brand-lip); background: var(--brand); color: var(--on-brand); }
+
+/* segmented choices (grade, settings) */
+.seg { border: 2px solid var(--control-line); background: var(--surface); color: var(--ink); box-shadow: 0 3px 0 var(--rule-press); font-weight: 700; }
+.seg.on, .seg[aria-pressed="true"], .seg[aria-checked="true"] { border-color: var(--select); background: var(--select-tint); color: var(--select-ink); box-shadow: 0 3px 0 var(--select); }
+
+/* ------------------------------------------------------------------ the lesson: the question owns the screen */
+.lesson { background: var(--paper); }
+.lesson-bar i { background: var(--brand); box-shadow: none; }
+.lesson .q-title { font-family: var(--font-display); font-size: 1.375rem; line-height: 1.3637; font-weight: 800; color: var(--ink); }
+.qdisplay { padding: var(--s5) var(--s3); border-radius: 16px; background: var(--ground); }
+.lesson .slot { border: 2px solid var(--rule-strong); border-bottom-width: 4px; border-radius: 14px; background: var(--surface); font-weight: 700; color: var(--ink); }
+.lesson .slot.active { border-color: var(--select); box-shadow: 0 0 0 3px var(--select-tint); }
+.keypad .key { border: 2px solid var(--rule); border-radius: 12px; background: var(--surface); box-shadow: 0 3px 0 var(--rule-press); font-weight: 700; color: var(--ink); }
+.lesson .choice, .ls-choice { border: 2px solid var(--rule); border-radius: 16px; background: var(--surface); box-shadow: 0 4px 0 var(--rule-press); color: var(--ink); font-size: 1.125rem; }
+.lesson .choice.on, .ls-choice.on, .ls-choice[aria-checked="true"] { border-color: var(--select); background: var(--select-tint); box-shadow: 0 4px 0 var(--select); color: var(--select-ink); }
+.choice-key { border: 2px solid var(--rule); border-radius: 10px; color: var(--ink-2); background: var(--surface); }
+
+/* feedback: the panel that rises from the bottom */
+.fb-title { font-family: var(--font-display); font-weight: 800; font-size: 1.375rem; line-height: 1.2728; }
+.fb-text, .fb p { font-size: 1.0625rem; line-height: 1.5295; color: var(--ink); }
+
+/* the teaching stages (Brilliant): clean text, the maths on a light panel */
+.lm .ls-why { border-inline-start: 0; border: 2px solid var(--rule); background: var(--surface); border-radius: 16px; }
+.lm-say, .lm-prompt { font-size: 1.1875rem; line-height: 1.5264; color: var(--ink); }
+.ob-bar { background: var(--track); }
+.ob-bar > i { background: var(--brand); }
+
+/* ------------------------------------------------------------------ results */
+.done-screen { background: var(--paper); }
+.done-title { font-family: var(--font-display); font-size: 2rem; line-height: 1.1875; font-weight: 800; color: var(--ink); }
+/* after practice: the stair counts once its mastery check is passed */
+@media (max-height: 600px) { .done-screen .done-hero { min-height: 128px; } }
+.stat { border-radius: 16px; }
+.stat-label { font-family: var(--font-ui); letter-spacing: 0; }
+.stat-value { font-family: var(--font-display); font-weight: 800; font-size: 1.375rem; }
+.badge { font-weight: 700; }
+
+/* ------------------------------------------------------------------ profile */
+.me-stat dd, .me-stat-value { font-family: var(--font-display); font-weight: 800; font-size: 1.375rem; color: var(--ink); }
+.me-stat dt, .me-stat-label { color: var(--ink-2); font-size: 0.9375rem; }
+
+/* ------------------------------------------------------------------ sheets */
+.sheet { border-radius: 20px 20px 0 0; background: var(--surface); }
+
+/* ------------------------------------------------------------------ chips and bars */
+.chip { border: 2px solid var(--rule); background: var(--surface); color: var(--ink); font-weight: 600; box-shadow: 0 2px 0 var(--rule-press); }
+.bar { background: var(--track); }
+.bar i { background: var(--gold); box-shadow: none; }
+.segs .rs-done, .segs .rs-mastered { background: var(--brand); }
+.segs .rs-current { background: var(--brand-line); }
+.score-chip.high { color: var(--good-ink); background: var(--good-tint); }
+.score-chip.mid { color: var(--gold-ink); background: var(--gold-tint); }
+.score-chip.low { color: var(--bad-ink); background: var(--bad-tint); }
+
+/* ------------------------------------------------------------------ fixes after the first look */
+/* the page title and line stay ink on the white header (an older rule painted them white on a colour block) */
+/* the tab names are shown, under the icons */
+@media (max-width: 899px) {
+  .tabbar .tab > span { position: static; width: auto; height: auto; overflow: visible; clip-path: none; white-space: nowrap; }
+  .tabbar .tab { min-height: 58px; }
+  .tabbar .tab svg { width: 24px; height: 24px; }
+}
+/* the path sits on plain white: no tinted world behind it */
+.node-marks { display: none; }
+/* the maths sits on its light panel */
+.lesson .qdisplay { background: var(--ground); border: 2px solid var(--rule); border-radius: var(--r-card); padding: var(--s5) var(--s3); font-size: clamp(1.875rem, 5dvh, 2.75rem); }
+.lesson.is-manip .qdisplay { background: none; padding: 0; }
+/* a region focused by the app (the lesson's main area after each question) shows no ring; keyboard focus on controls does */
+[tabindex="-1"]:focus, [tabindex="-1"]:focus-visible { outline: none; }
+/* the teaching stages: the words at 19px */
+.lm-say { font-size: 1.1875rem; line-height: 1.6; }
+.lm-rule-text { font-family: var(--font-ui); font-weight: 700; }
+@media (max-height: 640px) { .lm-say { font-size: 1.0625rem; } }
+
+/* the mission rows: the title first, then what kind and how long, then why */
+.quest-body .today-item-title { font-size: 1.0625rem; line-height: 1.4118; font-weight: 700; color: var(--ink); }
+.today-kind { font-size: 0.875rem; line-height: 1.4286; font-weight: 600; color: var(--ink-2); }
+.today-why { font-size: 0.9375rem; line-height: 1.4667; }
+/* the stair page's header: a plain card */
+/* the unit's emblem beside the stair's name, smaller than on the banner so the name keeps its room */
+.journey-head .emblem { width: 48px; height: 48px; border-radius: 14px; box-shadow: inset 0 0 0 2px var(--c-tint); }
+@media (max-width: 360px) { .journey-head .emblem { width: 40px; height: 40px; border-radius: 12px; } }
+/* a unit finished: the trophy sits in a ring of the unit's colour */
+.done-screen .done-trophy { border-radius: 50%; background: var(--c-tint, var(--gold-tint)); box-shadow: 0 0 0 6px var(--c, var(--gold)); }
+/* the header sits in the page's own padding, aligned with the cards under it */
+/* on a computer, a tab's screen keeps a readable column */
+@media (min-width: 1024px) { .page.wide { max-width: 880px; } }
+/* short phones (320×568 and the like): the drawing keeps its room */
+@media (max-height: 640px) {
+  .lesson .q-title { font-size: 1.125rem; line-height: 1.3889; }
+  .lesson .qdisplay { padding: var(--s3) var(--s2); }
+}
+
+/* ======================================================================= after the finish review */
+/* a question is said plainly, as a heading: no speech bubble, no character beside it */
+.ob-ask { display: block; }
+.ob-bubble { position: static; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; max-width: none;
+  font-family: var(--font-ui); font-size: 1.375rem; line-height: 1.3637; font-weight: 800; color: var(--ink); }
+.ob-bubble { letter-spacing: 0; } /* a question is the screen's h1 (PKG-1); it keeps the spacing it had as a paragraph */
+.ob-bubble::before, .ob-bubble::after { content: none; display: none; }
+@media (max-height: 640px) { .ob-bubble { font-size: 1.1875rem; line-height: 1.3685; } }
+/* the first visit's questions: מדי stands beside each one, small, and the question is next to him (PRODUCT2-41) */
+.ob-ask.ob-ask-madi { display: flex; align-items: center; gap: var(--s3); }
+.ob-madi { flex: none; }
+@media (max-height: 640px) { .ob-madi { width: 48px; height: auto; } }
+/* a label that names what a heading belongs to sits under it, quietly */
+.bl-kicker, .journey-topic, .ps-next-label { font-size: 0.9375rem; line-height: 1.4667; font-weight: 500; color: var(--ink-2); }
+
+/* "not yet" is red, its one meaning; gold stays for XP */
+.btn-bad { --btn-bg: var(--bad); --btn-ink: var(--on-brand); --btn-lip: var(--bad-d); --btn-line: var(--bad); }
+
+/* the result tiles: neutral cards; the meaning colour is on the icon and the number only */
+.stat { border: 2px solid var(--rule); background: var(--surface); }
+.stat-label { background: none; color: var(--ink-2); padding: 10px 0 0; font-size: 0.875rem; font-weight: 700; }
+.stat-value { color: var(--tone-ink); padding: 4px var(--s2) var(--s3); }
+/* the numbers on the profile and the teacher's board: one icon colour, the brand */
+.profile-stats svg, .me-stat svg, .t-kpis svg, .kpi-icon, .kpi-good .kpi-icon, .kpi-bad .kpi-icon { color: var(--brand-ink); fill: none; }
+
+/* the profile: the student's own מדי (STUDENT-3) */
+
+/* the current stop: its ring in the unit's colour on its tint track, with room for the bubble above */
+.node-slot.has-ring { width: 104px; height: 104px; }
+.node-ring-seg { fill: var(--c-tint, var(--brand-tint)); stroke: var(--c-tint, var(--brand-tint)); }
+.node-ring-seg.on { fill: var(--c, var(--brand)); stroke: var(--c, var(--brand)); }
+.path-step:has(.node-start) { margin-top: 26px; }
+.node-start { top: -40px; }
+/* the gift: an icon the size of the lock, inside its disk */
+.chest svg { width: 30px; height: 30px; }
+
+/* the typed answer: a big field, big digits */
+.lesson .slot { width: clamp(104px, 36vw, 200px); height: clamp(48px, 7dvh, 64px); font-size: clamp(1.375rem, 3.8dvh, 1.875rem); }
+@media (max-height: 640px) { .lesson .slot { height: 46px; font-size: 1.375rem; width: clamp(84px, 28vw, 140px); } }
+
+/* tab names at 14px */
+@media (max-width: 959px) { .tabbar .tab { font-size: 0.875rem; line-height: 1.2858; } }
+
+/* on a computer the lesson is one column: the question, the maths, then the answer, the check and the keypad under it */
+@media (min-width: 900px) and (min-height: 560px) {
+  .lesson { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto; grid-template-areas: "head" "main" "foot"; }
+}
+/* the result: מדי, one title, what was earned as quiet labels, three tiles, one button */
+.done-earned svg { color: var(--brand-ink); }
+.done-earned.tone-gold svg { color: var(--gold-d); }
+.done-earned.tone-good svg { color: var(--good-d); }
+.done-earned.tone-streak svg { color: var(--streak); }
+/* the teacher's board on white; its groups in cards */
+.teacher { background: var(--surface); }
+/* the current stop's ring: how much of its lessons are done, in the unit's colour on its tint track, around the button */
+.node-current { position: relative; overflow: visible; }
+.node-slot.has-ring .node-current::before { content: ""; position: absolute; inset: -11px; border-radius: 50%; pointer-events: none;
+  background: conic-gradient(var(--c, var(--brand)) var(--pct, 0%), var(--c-tint, var(--brand-tint)) 0);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 7px), #000 calc(100% - 6px)); /* colour-ok: mask, not a colour */
+          mask: radial-gradient(farthest-side, transparent calc(100% - 7px), #000 calc(100% - 6px)); } /* colour-ok: mask, not a colour */
+.node-current:active::before { transform: translateY(calc(-1 * var(--lip))); }
+/* right in another form (the whole value in a □π step, Together.jsx): a calm note in the brand blue, never the miss colours */
+.lm-actions.has-note { background: var(--brand-tint); }
+.has-note .lm-banner { color: var(--brand-ink); }
+.has-note .lm-banner-icon { background: var(--brand); color: var(--on-brand); }
+.ls-why.note, .lm .ls-why.note { background: var(--surface); color: var(--ink); border: 2px solid var(--brand-line); }
+/* the teaching stages say "not yet" in the same red as the lessons */
+/* the narrowest phones: the teaching-stage maths fits its panel without a scroll box */
+/* the profile: מדי sits at the top, with no band behind it */
+.profile-avatar .mascot { display: block; }
+/* the teacher's numbers: one icon colour */
+.kpi-icon, .kpi-good .kpi-icon, .kpi-brand .kpi-icon, .kpi-gold .kpi-icon, .kpi-bad .kpi-icon, .kpi-sky .kpi-icon { color: var(--brand-ink); }
+/* one typed answer: a wide field */
+
+/* the calm sheet: Madi, two lines, the way on; the parents' link small under it */
+.limit-sheet .confirm-text p + p { margin-top: var(--s2); }
+.limit-parents { align-self: center; font-size: var(--t-sm); }
+
+/* a tool the device does not have today: what it does, and what is open instead */
+.tool-locked-text p { margin: 0; }
+.tool-locked .btn { width: 100%; }
+
+/* the chat when the tutor is done for today: the draft waits, one calm card says when it is back */
+.chat-rest-actions .btn { flex: 1 1 0; min-width: 0; white-space: normal; line-height: 1.2; padding-inline: var(--s2); }
+
+/* the parents' area: its own bar, no tab bar, cards and rows, the footer with the cancel link on every view */
+.parents { min-height: 100dvh; padding-top: 0; gap: var(--s4); }
+.parents-disclosure p { margin: 0; }
+.parents-check input { margin-top: 3px; }
+/* a teacher's "over 18, a teacher or a tutor" (COUNCIL2-5): the box and, under it, what happens without it */
+.adult-teacher .field-hint { margin: 0; padding-inline-start: 30px; }
+
+/* the front page: the parents' and legal links, small, under the two ways in */
+.hello-top { display: flex; justify-content: center; padding: var(--s3) var(--gutter) 0; }
+.lang-pick { width: min(240px, 100%); }
+.lang-pick .seg { min-height: 44px; padding: 0 var(--s3); }
+/* the other language's name on a Hebrew screen in the phone's own Arabic font, so a Hebrew device never downloads
+   Rubik's Arabic part (fonts.css) for one word */
+html:not([lang="ar"]) .lang-pick [lang="ar"] { font-family: system-ui, sans-serif; }
+.hello-legal { display: flex; flex-wrap: wrap; justify-content: center; gap: 0 var(--s4); font-size: var(--t-sm); line-height: var(--lh-sm); color: var(--ink-2); text-align: center; }
+.hello-legal a { color: var(--ink-2); font-weight: 600; padding: 6px 0; min-height: 32px; }
+.hello-legal a { position: relative; }
+.hello-legal a::after { content: ''; position: absolute; inset: -5px -6px; } /* a 44px tall tap on a 34px link (ux-motion 12) */
+/* how to cancel, beside the cancel link (Consumer Protection Law s.14ט(ה)(2)) */
+.hello-legal-note { margin: calc(-1 * var(--s1)) 0 0; font-size: var(--t-sm); line-height: var(--lh-sm); color: var(--ink-2); text-align: center; }
+/* after "delete all" (trust spec TRUST-6 §4): one calm line on the front page, a check and the words, read out once */
+.hello-wiped { display: flex; align-items: flex-start; gap: var(--s2); margin: 0; max-width: 34ch; padding: var(--s3) var(--s4); border-radius: 14px;
+  background: var(--ok-tint); color: var(--ink); font-size: var(--t-base); line-height: var(--lh-base); text-align: start; text-wrap: pretty; }
+.hello-wiped svg { flex: none; margin-top: 3px; color: var(--ok); }
+/* a sheet that asks before deleting: a second paragraph keeps a little room */
+.confirm-sheet .confirm-text p + p { margin-top: var(--s2); }
+/* "delete all" says more than the other sheets: on a short phone the character steps aside, so both answers fit */
+@media (max-height: 640px) { .wipe-sheet .mascot { display: none; } }
+/* the profile's last row: the legal pages, quiet, each a full-size target */
+.me-foot { margin-top: var(--s5); padding-top: var(--s3); border-top: 2px solid var(--rule); }
+.me-foot-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 0 var(--s4); }
+.me-foot-links a { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; min-width: 44px; padding-inline: var(--s1); color: var(--ink-2); font-size: var(--t-sm); font-weight: 600; }
+/* a short phone: the character and the gaps give up a little room, so every way in (start, teacher, the backup file,
+   and the links when there is a server) stays in view */
+@media (max-height: 700px) {
+  .hello-duo .hello-center { padding-block: var(--s3); gap: var(--s2); }
+  .hello-duo .hello-madi { width: 112px; height: auto; }
+  .hello-duo .hello-foot { gap: var(--s2); padding-bottom: calc(var(--s2) + env(safe-area-inset-bottom, 0px)); }
+}
+
+/* the weekly class goal's block (STUDENT-4; TEACHER-9's settings page takes it over) and its chip in the header */
+
+/* sign-in by code */
+.email-code .footnote { margin: 0; }
+
+/* a row that opens another screen: its name, then a chevron at the far end */
+a.set-row, .set-row.go { justify-content: space-between; gap: var(--s3); color: var(--ink); text-decoration: none; }
+a.set-row svg, .set-row.go svg { margin-inline-end: 0; color: var(--ink-2); flex: none; }
+/* ------------------------------------------------------------------ a teaching stage done (lighter than a lesson's end) */
+/* מדי, the stage, the stair's five stages with this one filled, what it earned as quiet pills, what comes next */
+.stage-done .done-hero { min-height: 128px; }
+.stage-done-head { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.stage-done-title { font-size: 1.875rem; line-height: 1.2; }
+.stage-done-label { margin: 0; font-size: 0.9375rem; line-height: 1.4667; font-weight: 500; color: var(--ink-2); text-wrap: balance; }
+.stage-done-climb { width: min(100%, 300px); display: flex; flex-direction: column; align-items: stretch; gap: var(--s2); }
+.stage-done-next { margin: 0; display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 4px var(--s3); padding: var(--s3) var(--s4); border: 2px solid var(--rule); border-radius: 16px; background: var(--surface); color: var(--ink); font-size: 1.0625rem; line-height: 1.4118; }
+.stage-done-next b { font-weight: 700; }
+.stage-done-min { display: inline-flex; align-items: center; gap: 4px; color: var(--ink-2); font-size: 0.9375rem; }
+.stage-done-min svg { color: var(--ink-2); }
+@media (max-height: 640px) { .stage-done .done-hero { min-height: 96px; } .stage-done-title { font-size: 1.625rem; line-height: 1.2308; } }
+.goal-ring > svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+/* the daily goal reached (STUDENT-7): a gold ring closes around מדי; calm, no confetti */
+/* the ring and the words sit in the middle of the room above the button (it keeps margin-top: auto) */
+/* the install offer (STUDENT-10): a home screen with the app's icon in the middle, then one sentence and two answers */
+.install-app i { display: block; width: 56px; height: 56px; border-radius: 16px; background: var(--track); }
+.install-app.ours b { width: auto; height: auto; margin: 0; background: none; color: var(--ink); font-size: 0.875rem; line-height: 1.4286; font-weight: 700; white-space: nowrap; }
+/* the daily reminder's offer (STUDENT-11): a notification as it would arrive, then one sentence, the hour and two answers */
+.remind-note img { display: block; width: 40px; height: 40px; border-radius: 10px; }
+.remind-note-text b { color: var(--ink); font-size: 0.9375rem; line-height: 1.3334; font-weight: 700; }
+.remind-note-text span { color: var(--ink-2); font-size: 0.875rem; line-height: 1.4286; }
+.remind-slots .segmented { gap: 6px; }
+.remind-slots .seg { min-width: 0; padding-inline: 0; font-size: 0.9375rem; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
+@media (max-width: 360px) { .remind-slots .seg { font-size: 0.875rem; } }
+/* the pinned button's band is the page's own colour (in dark, --surface would show as a lighter box) */
+
+/* the unit header's thin bar: every stage of every stair in the unit, so it moves from the first stage */
+.unit-bar { flex: none; position: relative; height: 6px; margin-top: 8px; border-radius: 999px; background: color-mix(in srgb, var(--on-brand) 32%, transparent); overflow: hidden; }
+.unit-bar > i { position: absolute; inset-block: 0; inset-inline-start: 0; border-radius: 999px; background: var(--surface); transition: width var(--duration-slow, 0.4s) ease-out; }
+@media (prefers-reduced-motion: reduce) { .unit-bar > i { transition: none; } }
+
+/* the topics screen: the stair a unit is on now, under its bar; one board under the units (tiles, words, gaps) */
+.board .mastery-map { border-radius: 16px; }
+
+/* teaching drawings (Figure type "geo"): the brand for what the text points at, quiet ink for the rest; type a step
+   larger than the old figures so labels stay readable on a small phone */
+.figure.geo { max-width: 340px; }
+.geo .fg-pt-label { font-size: 19px; }
+/* a number keeps a halo, as a letter does, so a line that must run behind it (a thin wedge) does not cut it */
+.geo .fg-side, .geo .fg-angle { paint-order: stroke; stroke: var(--paper); stroke-width: 4px; stroke-linejoin: round; }
+@media (max-height: 700px) { .lm-fig .figure.geo { max-height: 34dvh; } }
+/* solving together on a short screen (curriculum stage 4's review): the plane under the problem leaves room for the step's
+   question and its first choice above the bar (transf:1-3 put all three choices under it at 320 × 568); a worked
+   example's or a problem's drawing (SK-STUDENT-1) shrinks the same way on a short phone, so the way on (the first
+   button, the first choice) stays in view under it */
+@media (max-height: 700px) {
+  :is(.worked, .together) .lm-fig .figure { max-height: 34dvh; }
+  .together .lm-fig .figure.coord { max-height: 30dvh; }
+}
+@media (max-height: 600px) {
+  :is(.worked, .together) .lm-canvas.big { gap: var(--s2); padding: var(--s3); }
+  :is(.worked, .together) .lm-fig .figure, .together .lm-fig .figure.coord { max-height: 26dvh; }
+}
+
+/* ------------------------------------------------------------------ saving the progress (DURABLE-1)
+   The storage banner: one calm line at the top of Learn when nothing could be saved, with the way to Settings.
+   Settings › שמירת ההתקדמות: a row per place the progress is kept, its state at the far end. */
+/* no connection (DURABLE-10): one calm line, the same quiet ground as the storage banner */
+.offline-chip { min-height: 44px; }
+.offline-chip.offline-need { margin: 0; }
+.page > .offline-chip { margin-inline: 0; }
+.storage-banner { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0 var(--s3); margin: var(--s3) var(--gutter) 0; padding: var(--s2) var(--s4); border-radius: 16px; background: var(--ground); color: var(--ink); }
+.storage-banner p { margin: 0; flex: 1 1 14em; padding: var(--s2) 0; font-size: 1rem; line-height: 1.5; }
+.storage-banner-link { flex: none; display: inline-flex; align-items: center; min-height: 44px; font-weight: 700; color: var(--brand-d); text-decoration: underline; text-underline-offset: 3px; }
+.persist-info, .install-sheet { display: flex; flex-direction: column; gap: var(--s3); }
+.persist-info p, .install-note { margin: 0; font-size: 1.0625rem; line-height: 1.5295; color: var(--ink); }
+.persist-info .btn, .install-actions .btn { margin-inline: 0; }
+.install-steps { list-style: none; counter-reset: step; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s4); }
+.install-steps li { counter-increment: step; position: relative; padding-inline-start: 44px; display: flex; flex-direction: column; gap: var(--s2); }
+.install-steps li::before { content: counter(step); position: absolute; inset-inline-start: 0; top: 0; width: 30px; height: 30px; border-radius: 50%;
+  display: grid; place-items: center; background: var(--brand-tint); color: var(--brand-d); font-weight: 800; font-size: 1rem; }
+.install-steps p { margin: 0; font-size: 1.0625rem; line-height: 1.5295; color: var(--ink); }
+.install-steps .btn { margin-inline: 0; }
+.install-saved { font-weight: 700; color: var(--good-ink) !important; }
+.install-note { padding: var(--s3) var(--s4); border-radius: 14px; background: var(--ground); font-size: 1rem; line-height: 1.5; }
+.install-actions { display: flex; flex-direction: column; gap: var(--s2); }
+/* Learn's quiet card: under the header, white with the one card border, never inside a lesson */
+.install-card { position: relative; display: flex; align-items: flex-start; gap: var(--s3); margin: var(--s3) var(--gutter) 0; padding: var(--s4);
+  background: var(--surface); border: 2px solid var(--rule); border-radius: 16px; }
+.install-card-icon { flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: var(--brand-tint); color: var(--brand); }
+.install-card-text { display: flex; flex-direction: column; gap: var(--s2); min-width: 0; }
+.install-card-title { margin: 0; padding-inline-end: 36px; font-family: var(--font-ui); font-size: 1.0625rem; line-height: 1.4118; font-weight: 700; color: var(--ink); }
+.install-card-text p { margin: 0; font-size: 1rem; line-height: 1.5; color: var(--ink-2); }
+.install-card-go { align-self: flex-start; margin: 0; padding-inline: var(--s4); }
+.install-card-close { position: absolute; top: 4px; inset-inline-end: 4px; width: 44px; height: 44px; }
+
+.file-restore { position: relative; display: flex; flex-direction: column; gap: var(--s2); }
+.file-pick { cursor: pointer; min-height: 52px; white-space: normal; text-align: center; }
+.file-pick.is-busy { opacity: 0.6; }
+.file-restore:has(.file-input:focus-visible) .file-pick { outline: 3px solid var(--brand-line); outline-offset: 2px; }
+.file-error { margin: 0; }
+:is(.save-switch, .report-email) input[role="switch"] { appearance: none; -webkit-appearance: none; position: relative; flex: none; width: 52px; height: 32px; margin: 0; border-radius: 999px; background: var(--rule); border: 2px solid var(--ink-2); cursor: pointer; transition: background-color var(--duration-quick) var(--ease-out), border-color var(--duration-quick) var(--ease-out); }
+:is(.save-switch, .report-email) input[role="switch"]::after { content: ''; position: absolute; top: 2px; inset-inline-start: 2px; width: 24px; height: 24px; border-radius: 50%; background: var(--surface); box-shadow: 0 1px 3px rgba(0, 0, 0, .25); transition: inset-inline-start var(--duration-quick) var(--ease-in-out); } /* colour-ok: a shade (black at low alpha), the same in both themes */
+:is(.save-switch, .report-email) input[role="switch"]:checked { background: var(--brand); border-color: var(--brand); }
+:is(.save-switch, .report-email) input[role="switch"]:checked::after { inset-inline-start: 22px; }
+:is(.save-switch, .report-email) input[role="switch"]:focus-visible { outline: 3px solid var(--brand-line); outline-offset: 2px; }
+:is(.save-switch, .report-email) input[role="switch"]:disabled { opacity: .6; cursor: progress; }
+@media (prefers-reduced-motion: reduce) { :is(.save-switch, .report-email) input[role="switch"], :is(.save-switch, .report-email) input[role="switch"]::after { transition: none; } }
+
+/* "מצאנו גיבוי": one line of what the copy holds, what restoring does, then the buttons */
+.restore-preview { display: flex; flex-direction: column; gap: var(--s3); }
+.restore-title { margin: 0; font-family: var(--font-display); font-size: 1.375rem; line-height: 1.2728; font-weight: 800; color: var(--ink); }
+.restore-title:focus { outline: none; }
+.restore-title:focus-visible { outline: 3px solid var(--brand-line); outline-offset: 2px; }
+.restore-summary { margin: 0; font-size: 1.125rem; line-height: 1.5; font-weight: 700; color: var(--ink); }
+.restore-mastered { margin: 0; font-size: 1rem; line-height: 1.5; color: var(--ink-2); }
+.restore-note, .restore-warn { margin: 0; padding: var(--s3) var(--s4); border-radius: 14px; font-size: 1rem; line-height: 1.5; }
+.restore-note { background: var(--good-tint); color: var(--good-ink); }
+.restore-warn { background: var(--gold-tint); color: var(--gold-ink); }
+.restore-actions { display: flex; flex-direction: column; gap: var(--s2); padding-top: var(--s2); }
+.restore-actions .btn { margin-inline: 0; }
+
+/* the front page's third way in, quieter than the two buttons; the restore screen on a new device */
+.hello-foot .hello-restore { min-height: 44px; font-size: 1rem; text-decoration: underline; text-underline-offset: 3px; }
+.restore-start .ob-main { gap: var(--s4); }
+.restore-hint { margin: 0; color: var(--ink-2); font-size: 1rem; line-height: 1.5; }
+
+/* ------------------------------------------------------------------ people to talk to (trust spec TRUST-3 §3.5)
+   One calm card: Madi still beside the words, a trusted adult first, then each free service with one tap per way in
+   (every tap target at least 44px). No red, no urgency colour, no motion. */
+.support-card { display: flex; flex-direction: column; gap: var(--s3); padding: var(--s4); border: 2px solid var(--rule); border-radius: 16px; background: var(--surface); color: var(--ink); text-align: start; }
+.support-card.bare { padding: 0; border: 0; border-radius: 0; }
+.support-card p { margin: 0; }
+.support-head { display: flex; align-items: flex-start; gap: var(--s3); }
+.support-madi { flex: none; }
+.support-head-text { display: flex; flex-direction: column; gap: var(--s1); min-width: 0; }
+.support-title { font-size: var(--t-md); line-height: var(--lh-md); font-weight: 700; }
+.support-opening, .support-adult { font-size: var(--t-base); line-height: var(--lh-base); }
+.support-now { font-weight: 600; }
+.support-services { display: flex; flex-direction: column; gap: var(--s3); margin: 0; padding: 0; list-style: none; }
+.support-service { display: flex; flex-direction: column; gap: var(--s2); padding-top: var(--s3); border-top: 2px solid var(--rule); }
+.support-name { font-weight: 700; }
+.support-detail { font-weight: 400; color: var(--ink-2); }
+.support-links { display: flex; flex-wrap: wrap; gap: var(--s2); margin: 0; padding: 0; list-style: none; }
+.support-link { display: inline-flex; align-items: center; gap: var(--s2); min-height: 44px; padding: var(--s2) var(--s3); border: 2px solid var(--rule); border-bottom-width: 4px; border-bottom-color: var(--rule-press); border-radius: 14px; background: var(--surface); color: var(--brand-d); font-weight: 700; font-size: 1rem; line-height: 1.375; text-decoration: none; }
+.support-link:active { border-bottom-width: 2px; transform: translateY(2px); }
+.support-link { transition: transform var(--duration-press) var(--ease-out), border-bottom-width var(--duration-press) var(--ease-out); }
+/* the first number in the card's head (under a message): on a 320 phone it is on the screen without scrolling */
+.support-quick { align-self: flex-start; margin-block: var(--s1); }
+.support-link svg { flex: none; color: var(--brand); }
+.support-hours { font-size: var(--t-sm); line-height: var(--lh-sm); color: var(--ink-2); }
+.support-talk { display: flex; flex-direction: column; gap: var(--s2); padding-top: var(--s3); border-top: 2px solid var(--rule); }
+.support-talk-btn { white-space: normal; line-height: 1.25; }
+.support-talk-sent { padding: var(--s3) var(--s4); border-radius: 14px; background: var(--brand-tint); color: var(--ink); font-weight: 600; }
+.support-note { font-size: var(--t-sm); line-height: var(--lh-sm); color: var(--ink-2); }
+.support-foot { font-size: var(--t-sm); line-height: var(--lh-sm); color: var(--ink-2); }
+@media (prefers-reduced-motion: reduce) { .support-link:active { transform: none; } }
+
+/* the quiet way in: a small underlined link, a full 44px tall, wherever the child might need it */
+.support-open { font-size: var(--t-sm); font-weight: 600; color: var(--ink-2); text-decoration-color: var(--rule-strong); }
+.support-open:hover { color: var(--brand-d); }
+.chat-support-link { align-self: center; min-height: 44px; margin-top: calc(-1 * var(--s1)); }
+.chat-rest-support { align-self: center; }
+.limit-support { align-self: center; }
+/* the quiet link with ער״ן's number to call beside it, in every place the tutor says "not now" (COUNCIL2-4) */
+.help-line { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: var(--s1) var(--s2); }
+.help-line-call { padding-inline: var(--s2); }
+.help-line .support-open { padding-inline: 0; }
+.chat-off { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s1); }
+.chat-support { display: flex; flex-direction: column; gap: var(--s3); }
+/* why words that read as distress did not go: plain body text, so the support card below is what stands out */
+.help-sent-line.is-quiet { font-weight: 400; font-size: var(--t-base); line-height: var(--lh-base); }
+.exam-support { margin-top: var(--s4); }
+/* under a child's message: what the tutor did not receive (personal details are masked before it is sent) */
+.msg-pii { margin: calc(-1 * var(--s1)) 0 0; max-width: min(86%, 560px); align-self: flex-end; text-align: end; font-size: var(--t-sm); line-height: var(--lh-sm); color: var(--ink-2); }
+button.set-row svg { margin-inline-end: 0; color: var(--ink-2); flex: none; }
+
+/* ------------------------------------------------------------------ the tutor's introduction and "report this answer"
+   (trust spec TRUST-4 §4.5, §4.6). The introduction is a calm sheet read once: Madi still, five short lines, one
+   button. The report flag is quiet: an ink-2 icon with a full 44px target under each answer, never a colour. */
+.ai-intro { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s3); }
+.ai-intro-madi { flex: none; }
+.ai-intro-list { display: flex; flex-direction: column; gap: var(--s3); margin: 0; padding: 0; list-style: none; }
+.ai-intro-list li { position: relative; padding-inline-start: var(--s4); font-size: var(--t-base); line-height: var(--lh-base); color: var(--ink); }
+.ai-intro-more { display: inline-flex; align-items: center; min-height: 44px; color: var(--brand-d); font-weight: 700; font-size: var(--t-base); }
+.ai-intro-list li::before { content: ''; position: absolute; inset-inline-start: 0; top: 0.62em; width: 7px; height: 7px; border-radius: 50%; background: var(--brand); }
+.msg-tools { display: flex; margin-top: calc(-1 * var(--s2)); padding-inline-start: calc(34px + var(--s2)); }
+/* one quiet line under the first tutor reply on an open exercise (ai spec AI-3): under the bubble, never a box */
+.msg-note { margin: calc(-1 * var(--s1)) 0 0; padding-inline-start: calc(34px + var(--s2)); max-width: min(92%, 600px); }
+.gen-note p { margin: 0; }
+/* new exercises (ai spec AI-4): what the AI wrote and what the app checked, said once above the list; an exercise from
+   the app's own bank carries a quiet neutral label; the mistake the app names sits under "עוד לא." in ink */
+.gen-src { display: inline-flex; align-items: center; min-height: 26px; padding: 2px 10px; border-radius: 999px; background: var(--ground); color: var(--ink-2); font-size: 0.875rem; line-height: 1.4286; font-weight: 600; }
+.gen-q-result p { margin: 0; }
+/* who graded an exam question (ai spec AI-8): the app against its key, or the AI; the same neutral chip for both, only
+   the words and the icon differ, so neither reads as a verdict. The line under an answer code re-graded, and the notes. */
+.grade-chip svg { flex: none; }
+.exam-notes .footnote { margin: 0; }
+.exam-ai-note .grade-chip { vertical-align: middle; margin-inline-end: 2px; }
+.q-actions .q-report { margin-inline-start: auto; }
+.report-reason input { width: 22px; height: 22px; margin: 0; accent-color: var(--brand); flex: none; }
+a.btn { text-decoration: none; }
+
+/* ------------------------------------------------------------------ the teacher's student view (TEACHER-2) */
+/* a thin bar above the student screens: what this is, and the way back to the board. It sits in the flow, so the
+   full-height screens below give up its height (data-preview on <html>, set by PreviewFrame) and a lesson's keypad
+   stays inside a 320×568 screen. The button's 44px target overhangs the 40px bar by 2px each side, transparently. */
+:root[data-preview="1"] { --preview-h: 40px; }
+:root[data-preview="1"] :is(.lesson, .practice, .teach, .pushed, .done-screen, .ob) { min-height: calc(100dvh - var(--preview-h)); }
+:root[data-preview="1"] .lesson { height: calc(100dvh - var(--preview-h)); }
+:root[data-preview="1"] :is(.teach-main > .lm, .teach-main > .remedy > .lm, .teach-main > .remedy) { min-height: calc(100dvh - var(--preview-h)); }
+
+/* ------------------------------------------------------------------ class work, the student's side (TEACHER-5 §5-6)
+   The teacher's work sits first inside today's mission card, on a quiet tint with its own small heading; its rows are
+   the mission rows. Calm everywhere: no red, no "late". */
+.cw { display: flex; flex-direction: column; gap: var(--s2); margin: 0 calc(-1 * var(--s2)); padding: var(--s3) var(--s3) var(--s2); border-radius: 16px; background: var(--brand-tint); }
+.cw-head { margin: 0; display: flex; align-items: center; gap: var(--s2); font-size: 1rem; line-height: 1.375; font-weight: 700; color: var(--brand-d); }
+.today .cw .quest-rows li { border-top-color: var(--brand-line); }
+.today .cw .quest-rows li:first-child { border-top: 0; }
+.qk-class { background: var(--surface); color: var(--brand-d); }
+.today-row.done .qk-class { background: var(--good-tint); color: var(--good-d); }
+.cw-note { font-style: normal; overflow-wrap: anywhere; }
+.cw-done-mark { display: inline-flex; align-items: center; gap: 3px; color: var(--good-d); }
+.cw-all { margin: 0; font-size: 0.9375rem; line-height: 1.4; color: var(--ink); font-weight: 600; }
+.cw-fold { align-self: flex-start; display: inline-flex; align-items: center; gap: var(--s2); min-height: 44px; padding: 0; border: 0; background: none; color: var(--brand-d); font: inherit; font-weight: 700; cursor: pointer; }
+.cw-fold svg { transition: transform var(--duration-fast, 160ms) var(--ease-out, ease-out); }
+.cw-fold-open { transform: rotate(180deg); }
+.cw-fold:focus-visible { outline: 3px solid var(--brand-line); outline-offset: 2px; border-radius: 8px; }
+
+/* the dot on the missions tab: work from the teacher the student has not seen yet */
+.tabbar .tab { position: relative; }
+.tab-dot { position: absolute; top: 6px; inset-inline-start: calc(50% + 6px); width: 10px; height: 10px; border-radius: 50%; background: var(--brand); box-shadow: 0 0 0 2px var(--paper); }
+@media (min-width: 900px) { .tab-dot { top: 50%; inset-inline-start: calc(var(--s3) + 18px); margin-top: -14px; } }
+
+/* the learning home's chip: the most urgent work from the teacher, a tap away */
+.learn-work-chip { display: flex; align-items: center; gap: var(--s2); min-height: 44px; margin: var(--s2) var(--gutter, 16px) 0; padding: 6px var(--s3); border: 2px solid var(--brand-line); border-radius: 14px; background: var(--brand-tint); color: var(--brand-d); font-weight: 700; font-size: 0.9375rem; line-height: 1.3334; text-decoration: none; }
+.learn-work-chip svg { flex: none; }
+.learn-work-text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.learn-work-chip:focus-visible { outline: 3px solid var(--brand-line); outline-offset: 2px; }
+
+/* the stair page opened from the teacher's work */
+.journey-work { display: flex; align-items: center; gap: var(--s2); margin: 0 0 var(--s3); padding: var(--s2) var(--s3); border-radius: 12px; background: var(--brand-tint); color: var(--brand-d); font-weight: 700; font-size: 0.9375rem; line-height: 1.4; }
+.journey-work svg { flex: none; }
+
+/* ------------------------------------------------------------------ the teaching figures (STUDENT-8)
+   Number line, thermometer, function machine, dot plot and bar chart, and the plane's quadrants, walks, lines, meeting
+   point and rise-and-run. Ink for the frame, the brand for what the text is about, orange for the one thing marked
+   (orange next to blue reads for every kind of colour vision). Every colour is a token, so dark mode is the same
+   drawing; text has a halo of the panel it sits on. */
+.figure.fig-numline, .figure.fig-dots, .figure.fig-bars { max-width: 360px; }
+.figure.fig-thermo { max-width: 200px; }
+.figure.fig-machine { max-width: 280px; }
+.fig-mc-io.target rect { stroke: var(--brand); stroke-width: 2.5; }
+.fig-mc-io.target text { fill: var(--brand-d); }
+.fig-bar.hi rect { fill: var(--streak); stroke: var(--streak-d); stroke-width: 2; }
+.fig-bar.gone rect { fill: none; stroke: var(--ink-2); stroke-width: 2; stroke-dasharray: 5 4; }
+
+/* a table in a teaching step: a maths cell never breaks inside (2x − 7 on one line); four columns fit a 320px phone */
+.lm-fig .fg-table th, .lm-fig .fg-table td { padding: 4px 10px; }
+
+/* on a short phone the tall drawings shrink to keep the text and the button in view */
+@media (max-height: 700px) { .lm-fig .figure.fig-machine, .lm-fig .figure.fig-thermo { max-height: 30dvh; } }
+
+/* a say step with a drawing (STUDENT-8 §4): on a phone the drawing sits right under the sentence and takes a good part of
+   the screen, so a teaching screen is never one line of text over an empty page */
+
+/* ------------------------------------------------------------------ both themes (STUDENT-2)
+   Control edges reach 3:1 against what they sit on, in light and in dark (WCAG 1.4.11): inputs and segmented controls
+   take --control-line. Three things stay light in the dark theme, each with its own light tokens: the notebook page
+   (squared paper, drawn in dark ink), the QR codes (the hand-over's and the backup code's: a scanner needs dark on
+   light), and printouts (dark.css, last). */
+.input { border-color: var(--control-line); }
+.input:disabled { border-color: var(--rule); } /* an input that cannot be used yet stays quiet (WCAG exempts it) */
+
+/* ------------------------------------------------------------------ offline (DURABLE-10)
+   A calm line at the top of Learn and the assistant while there is no internet: a quiet card, not an alarm. */
+/* online, the status region stays in the page for screen readers but out of the layout (no gap in a flex column) */
+.offline-slot:empty { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.offline-chip {
+  display: flex; align-items: center; gap: var(--s3); margin: var(--s4) var(--s4) 0; padding: 10px 14px;
+  border: 2px solid var(--rule); border-radius: 14px; background: var(--surface); color: var(--ink);
+  font-size: 0.9375rem; line-height: 1.4667; font-weight: 600;
+}
+.offline-chip svg { flex: none; color: var(--ink-2); }
+.page .offline-chip { margin: 0; } /* a page with its own padding (the assistant) */
+
+/* ------------------------------------------------------------------ digits in maths (STUDENT-9 §3)
+   Maths in a sentence uses the sentence's digits. A bare number ($-3$, $35^\circ$) is plain text (MathText's bdi.num);
+   in other inline maths ($x = -3$) the digits, the unary minus and \text{} words are set in Rubik while KaTeX's
+   italic letters and its operators keep KaTeX's fonts. Only leaf .mord boxes: a wrapper .mord (a fraction) would pass
+   Rubik on to the + inside it. Display maths (FitDisplay) is not touched. */
+.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.mt-inline .katex .mord:not(.mathnormal):not(.mathit):not(:has(*)) { font-family: var(--font-ui); }
+/* PRODUCT2-41: flat inline maths in a sentence ($x = -3$, $3^2 + 4^2$) is set in the sentence's font, at its size: digits,
+   operators and letters in Rubik, letters upright. MathText leaves .mt-ui off maths laid out in rows (a fraction, a root),
+   which keeps KaTeX's layout and fonts; display maths is not touched. */
+.mt-ui .katex { font-family: var(--font-ui); font-size: 1em; }
+.mt-ui .katex .mathnormal, .mt-ui .katex .mathit, .mt-ui .katex .boldsymbol { font-family: var(--font-ui); font-style: normal; }
+
+/* ------------------------------------------------------------------ touch targets (STUDENT-9 §1)
+   Every touch target on a student screen is at least 44×44 (inline links inside running text excepted). The lesson's
+   tools (hint, Madi, notebook) were 40×40 in the top bar and 36px tall in the dock; the Topics tiles 34×34 (30×30 on a
+   small phone); the unit's guide button 32px wide on a small phone. */
+.unit-guide { min-width: 44px; } /* its height is already 48px (44px on a small phone) */
+/* on a phone the wider guide takes its room from the banner's end padding, not from the unit's name and count */
+@media (max-width: 400px) { .unit-head { padding-inline-end: var(--s1); } }
+.continue-chip { min-height: 44px; } /* Quests' "עליתם 7 מתוך 25" and "דבר אחד לחזק" were 38px tall */
+.path-end { display: flex; flex-direction: column; align-items: center; gap: var(--s2); }
+
+/* ------------------------------------------------------------------ controls above the sheet (STUDENT-9 §2)
+   A teaching step's bottom (the button and the result sheet) is sticky over the step. StepPlayer keeps its height in
+   --foot-h; on "not yet" the step's object is scrolled to sit above it (and below the sticky header), so the number
+   line's buttons are never under the sheet. The bottom is in the flow, so the card needs only the room for that
+   margin, not a second copy of the bottom's height. */
+.step-player .lm-card { padding-bottom: var(--s4); }
+.step-player .lm-canvas { scroll-margin-bottom: calc(var(--foot-h, 0px) + 12px); scroll-margin-top: 72px; }
+/* an explore step's miss names what probably happened, above the hint (PRODUCT2-18) */
+.bl-why-text .bl-diag { margin: 0 0 var(--s1); font-weight: 600; }
+.bl-why-text .link-btn { position: relative; min-height: 0; padding: 0 2px; vertical-align: baseline; }
+/* "עוד" after two short lines (PRODUCT2-41): a word in the text, above a row's stretched link */
+.more-btn { display: inline; position: relative; z-index: 1; min-height: 0; padding: 0 2px; font-weight: 700; vertical-align: baseline; }
+.more-text p, p.more-text { margin: 0; }
+
+/* ------------------------------------------------------------------ the programme page (/programme, CURRICULUM-1)
+   Unit by unit, what the app teaches of the Ministry's programme. The state is a word in a chip (never colour alone):
+   brand for "יש" (progress), its outline for "חלקי", quiet grey for "עוד לא". Nothing here is red: a gap in the app is
+   not a mistake of the reader's. */
+a.prog-topic-name { display: inline-flex; align-items: center; min-height: 44px; color: var(--brand-d); text-decoration: underline; text-underline-offset: 3px; }
+.prog-foot p { margin: 0; }
+.prog-foot a { display: inline-flex; align-items: center; min-height: 44px; font-weight: 600; }
+/* the topics screen's floor (יסודות לחיזוק, CURRICULUM-3): the fractions unit's card, then rows of the same build as the
+   programme row, each a name and one line, then the quiet way to take the unit off the map */
+.floor-section, .guest-section { display: flex; flex-direction: column; gap: var(--s3); }
+.floor-section > .h-section, .guest-section > .h-section { margin: var(--s3) 0 0; }
+/* the way in, from the topics screen and the parents' area: one row with its arrow (pointing on, to the left in RTL) */
+/* the topics screen's floor (יסודות לחיזוק, CURRICULUM-3): the fractions unit's card, then rows of the same build as the
+   programme row, each a name and one line, then the quiet way to take the unit off the map */
+.floor-row-text b { font-weight: 700; color: var(--ink); }
+.floor-row-text span { color: var(--ink-2); font-size: var(--t-sm); line-height: var(--lh-sm); }
+/* the end of the path: two ways on, each a full-height target on its own line (the column is in the 44px block above);
+   the programme link wraps, so it is a link with a 44px row, not a one-line button like the topics link */
+.path-end a:not(.btn) { display: inline-flex; align-items: center; min-height: 44px; font-weight: 600; text-wrap: balance; }
+
+/* ------------------------------------------------------------------ a fraction answer (form 'frac', CURRICULUM-2)
+   The numerator over a bar over the denominator, each a full 44px field; the keypad's next key moves between them.
+   "Right, and it can be reduced" is a note on the form, not a mistake: brand ink, never the error colour. */
+.lesson .answer-frac .slot { width: clamp(84px, 26vw, 140px); height: 44px; font-size: 1.375rem; }
+/* after a practice first try that hid an object's readout (Manip.jsx readoutLine): what can be seen now */
+.fb .readout-line { font-weight: 700; }
+
+/* ------------------------------------------------------------------ the class exam (TEACHER-3): its builder and its sheet */
+.xs .screen-foot .btn svg { flex: none; }
+
+/* ------------------------------------------------------------------ the class exam, the student's side (TEACHER-5 §4):
+   the start card (what it is, how it runs, where the result goes) and the result's line on the done screen */
+.cx-lines li { font-size: 1.0625rem; line-height: 1.4706; color: var(--ink); }
+.cx-lines li + li { padding-top: var(--s3); border-top: 1px solid var(--rule); }
+
+/* ------------------------------------------------------------------ help both ways (TEACHER-6): a request's thread as
+   bubbles (as Hebrew chat apps lay them out: the other side's on the right, the reader's own tinted on the left), the
+   teacher's reply box with its quick
+   replies, the filters, and the student's "הבקשות שלי למורה" card with its status chips. Calm: no red anywhere. */
+.hb-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s2); }
+.mh-card .card-title { margin: 0; display: flex; align-items: center; gap: var(--s2); }
+.mh-list li + li { border-top: 1px solid var(--rule); }
+.mh-answers .btn svg, .mh-still .btn svg { flex: none; }
+.mh-still .input { width: 100%; min-height: 80px; }
+/* a toast's action ("לקריאה", "לתוצאות"): a 44px button in the app's blue, not the library's small default */
+[data-sonner-toast].toast [data-button] { height: auto !important; min-height: 44px; padding: 0 var(--s4) !important; border-radius: 12px !important; background: var(--brand) !important; color: var(--on-brand) !important; font-family: var(--font-ui) !important; font-size: 0.9375rem !important; font-weight: 700 !important; }
+[data-sonner-toast].toast [data-button]:focus-visible { outline: 3px solid var(--brand-line); outline-offset: 2px; }
+/* a toast never stands between the pointer and the screen under it: a sheet's button below it still takes the click,
+   and a mouse resting there does not hold the toast open. Only the toast's own action takes the pointer. */
+[data-sonner-toaster], [data-sonner-toast] { pointer-events: none; }
+[data-sonner-toast] :is(button, a) { pointer-events: auto; }
+.set-row:disabled { color: var(--ink-2); cursor: default; opacity: 0.7; }
+.demo-ask .lead { margin: 0; }
+
+/* the front page: the two backup ways in side by side (one when there is no server), and the Home Screen app's banner,
+   first in the footer on its first open */
+.hello-restores { display: flex; justify-content: center; gap: var(--s2); }
+.hello-restores .hello-restore { flex: 1 1 0; min-width: 0; margin-inline: 0; padding-inline: var(--s2); white-space: normal; }
+.hello-home { display: flex; flex-direction: column; gap: var(--s2); padding: var(--s3) var(--s4); border-radius: 16px; background: var(--brand-tint); }
+.hello-home p { margin: 0; font-size: 1rem; line-height: 1.5; color: var(--ink); }
+.hello-home .btn { margin-inline: 0; }
+/* the Home Screen app's front page gives the banner room: no tag line, and a smaller character on a short phone */
+.hello-standalone .hello-center .hello-fact { display: none; }
+@media (max-height: 700px) {
+  .hello-standalone .hello-center { padding-block: var(--s2); }
+  .hello-standalone .hello-madi { width: 84px; }
+}
+
+/* the backup question: מדי, two short lines, three answers (the sheet's own scroll keeps them reachable at 320) */
+.nudge-body { display: flex; flex-direction: column; align-items: center; gap: var(--s3); text-align: center; }
+.nudge-body > p { margin: 0; font-size: 1.0625rem; line-height: 1.5295; color: var(--ink); }
+.nudge-body > .nudge-how { font-size: 1rem; line-height: 1.5; color: var(--ink-2); }
+.nudge-body > .nudge-status { font-size: 0.9375rem; line-height: 1.4667; color: var(--ink-2); }
+.nudge-body > .nudge-status:empty { display: none; }
+.nudge-actions { align-self: stretch; display: flex; flex-direction: column; gap: var(--s2); }
+.nudge-actions .btn { margin-inline: 0; }
+
+/* the iPhone guide's step 1 with a server: the code that was copied, in case the clipboard said no */
+.install-steps .install-code { margin: 0; font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace; font-weight: 800; font-size: 1.25rem;
+  line-height: 1.4; letter-spacing: 0.04em; text-align: right; white-space: nowrap; color: var(--ink); }
+
+/* ------------------------------------------------------------------ exam and notebook photos (trust spec TRUST-5)
+   The warning before the camera: Madi still beside two short paragraphs, one button. PhotoPrep fills the screen: the
+   tools, the whole page fitted to what is left (nothing scrolls), the cut band in the brand blue at 35% with its line
+   and grip, solid black boxes, and the two answers at the bottom. */
+.photo-warn-text p { margin: 0; font-size: var(--t-base); line-height: var(--lh-base); color: var(--ink); }
+
+.sheet.photo-prep-sheet { inset: 0; height: 100dvh; max-height: none; border-radius: 0; }
+@media (min-width: 700px) { .sheet.photo-prep-sheet { inset: 3dvh auto auto 50%; width: min(640px, 92vw); height: 94dvh; max-height: 94dvh; border-radius: 18px; } }
+.prep-tool svg { color: var(--brand); flex: none; }
+.prep-foot .btn { margin-inline: 0; }
+/* the ways in to a photo are buttons now (the warning comes first): they keep the look of the dashed tiles */
+.upload-picked .upload-preview { border: 2px solid var(--rule); border-radius: var(--r-md); }
+/* a short phone gives the page the room: the line above the tools is still read aloud, and the warning said it */
+
+/* ------------------------------------------------------------------ a calm streak (STUDENT-5) */
+/* the repair card on the home screen: quiet, no red, Madi at rest, closable for the day */
+.repair-card { position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; gap: var(--s3); padding: var(--s4); padding-inline-end: 52px; border: 2px solid var(--rule); border-radius: 16px; background: var(--surface); }
+.repair-madi { margin-top: 2px; }
+.repair-main { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s3); min-width: 0; }
+.repair-text { margin: 0; color: var(--ink); font-size: 1rem; line-height: 1.5; text-wrap: pretty; }
+.repair-go { min-height: 44px; }
+.repair-close { position: absolute; top: 4px; inset-inline-end: 4px; }
+/* the one card above the path sits a little closer to it, so the path's start stays on the first screen (PRODUCT2-40) */
+.learn-body > .repair-card, .learn-body > .next-banner { margin-bottom: calc(-1 * var(--s4)); }
+/* השבוע שלי: this week's steps against the best week */
+
+/* ------------------------------------------------------------------ מדי שלי (STUDENT-3) */
+/* the profile's way to the wardrobe, under the name */
+/* the wardrobe: מדי on top (he stays in view while the options scroll), then one group per colour and slot */
+/* an option is a small tile: the picture, the name, and where it came from (or "נעול"); the check or the lock in its corner */
+.wardrobe-lock .lead { margin: 0; }
+/* a short phone: a smaller מדי, so the options keep most of the screen */
+/* the path's chest card says what the chest holds, with a picture of it */
+.chest-card-item { display: grid; grid-template-columns: 56px minmax(0, 1fr); align-items: center; gap: var(--s3); }
+.chest-card-art { width: 56px; height: 56px; }
+.chest-card-item .node-card-sub { margin: 0; }
+/* the maths burst (lib/mathBurst.js) on a new colour and on the class goal: its own canvas over the screen, above a
+   sheet, that never takes a tap; removed when the burst ends */
+.math-burst { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 45; pointer-events: none; }
+/* the unlock moment: מדי wearing the new piece */
+/* the class goal of the week (STUDENT-4): one shared total and the student's own share, no names; brand blue on the
+   way, gold once the class reached it */
+.class-goal-card { display: flex; flex-direction: column; gap: var(--s3); }
+.class-goal-card .card-title { margin: 0; }
+.cg-top { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); }
+.cg-count { margin: 0; color: var(--ink); font-size: 1.0625rem; line-height: 1.4118; font-weight: 600; }
+.cg-top .cg-count { flex: 1; min-width: 0; }
+.cg-madi { flex: none; margin-block: calc(-1 * var(--s3)) calc(-1 * var(--s1)); }
+.cg-track .cg-fill { height: 100%; border-radius: 999px; background: var(--brand); box-shadow: none; transition: width var(--duration-slow) var(--ease-smooth-out); }
+.is-reached .cg-track .cg-fill { background: var(--gold); }
+.cg-reached { margin: 0; color: var(--ink); font-size: 1rem; line-height: 1.5; font-weight: 600; text-wrap: pretty; }
+.cg-mine { margin: 0; color: var(--ink); font-size: 1rem; line-height: 1.5; }
+.cg-last { margin: 0; color: var(--ink-2); font-size: 0.9375rem; line-height: 1.4667; }
+.class-goal-card .field-hint { margin: 0; }
+.side-goal { gap: var(--s2); }
+.side-goal-count { font-weight: 600; }
+.goal-moment-hero { min-height: 150px; }
+.goal-moment-text { margin: var(--s2) auto 0; max-width: 34ch; color: var(--ink); font-size: 1.125rem; line-height: 1.5; text-align: center; text-wrap: pretty; }
+@media (prefers-reduced-motion: reduce) { .cg-track .cg-fill { transition: none; } }
+
+/* ------------------------------------------------------------------ the next step (CURRICULUM-7)
+   Above the home map when the plan's next step is not a stop of it: one card, its icon, its title, how long, and one
+   button. On the map, the stair the plan points at (when it is not the path's current stop) wears the same bubble as
+   the current stop, saying "הצעד הבא". */
+.next-banner { margin: var(--s3) var(--gutter) 0; padding: 8px 8px 8px 12px; display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2) var(--s3);
+  background: var(--surface); border: 2px solid var(--rule); border-radius: 16px; box-shadow: 0 3px 0 var(--rule-press); color: var(--ink); }
+/* v6: one slim strip above the path, as Duolingo keeps its home to the path: the step, and its button beside it */
+.next-banner-row { flex: 1 1 0; display: flex; align-items: center; gap: var(--s2); min-width: 0; }
+.next-banner .quest-icon { width: 36px; height: 36px; border-radius: 12px; }
+.next-banner .next-banner-go { flex: none; width: auto; min-height: 44px; padding-inline: var(--s4); }
+.next-banner-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.next-banner-title { margin: 0; font-family: var(--font-display); font-size: 1rem; line-height: 1.3334; font-weight: 700; color: var(--ink); overflow-wrap: anywhere; }
+.next-banner-meta { margin: 0; font-size: var(--t-sm); line-height: var(--lh-sm); color: var(--ink-2); }
+/* a guest stair's reason (FUNC-6): where the stair sits, since its unit is not on this map */
+.next-banner-why { flex-basis: 100%; margin: 0; font-size: var(--t-sm); line-height: var(--lh-sm); color: var(--ink-2); }
+.node-card-next { color: var(--ink); font-weight: 600; }
+/* the map starts closer under it: the banner belongs to the path */
+.next-banner + .unit { margin-top: calc(var(--s4) * -1); }
+/* as wide as the unit banner under it at every width: the gutter on phones and on a computer (the unit banner keeps
+   it there), the full width on small phones (the student lane's rule for the unit banner, above) */
+@media (max-width: 360px) { .next-banner { margin-inline: 0; } }
+
+/* ------------------------------------------------------------------ the challenge track (CURRICULUM-6.4)
+   A task outside the tab bar, like a lesson: one pinned top (close, the title, "חלק 2 מתוך 4", and the story with its
+   figure; on a phone under 700px tall the story folds into a "לסיפור" button), the part, and the lesson's bottom strip
+   and button. Every control is a 44px target; nothing moves under reduced motion but the chevron, which only turns. */
+/* the screen is one column the height of the window: the pinned top, then the part, which scrolls by itself (positioned,
+   so the hidden MathML of its maths stays inside it and never makes the page scroll), its strip
+   and button kept at the bottom */
+.ch-screen { display: flex; flex-direction: column; height: 100dvh; min-height: 0; overflow: hidden; }
+.ch-pin { position: relative; flex: none; z-index: 7; background: var(--surface); border-bottom: 1px solid var(--rule); padding: var(--s2) var(--gutter) var(--s3); display: flex; flex-direction: column; gap: var(--s2); }
+.ch-top { display: flex; align-items: center; gap: var(--s2); width: 100%; max-width: 640px; margin-inline: auto; }
+.ch-x { flex: none; width: 44px; height: 44px; }
+.ch-head { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.ch-title { margin: 0; font-family: var(--font-display); font-size: 1.125rem; line-height: 1.3334; font-weight: 700; color: var(--ink); overflow-wrap: anywhere; }
+.ch-count { margin: 0; font-size: 0.875rem; line-height: 1.4286; color: var(--ink-2); font-weight: 600; }
+.ch-story { width: 100%; max-width: 640px; margin-inline: auto; display: flex; flex-direction: column; gap: var(--s2); padding: var(--s3) var(--s4); border: 2px solid var(--rule); border-radius: 16px; background: var(--surface); max-height: 34dvh; overflow-y: auto; }
+.ch-story-text { margin: 0; font-size: 1.0625rem; line-height: 1.6; color: var(--ink); }
+.ch-story-fig { display: flex; justify-content: center; }
+.ch-story-fig .figure { width: 100%; max-width: 320px; max-height: 22dvh; height: auto; }
+.ch-story-fold { width: 100%; max-width: 640px; margin-inline: auto; display: flex; flex-direction: column; gap: var(--s2); }
+.ch-story-btn { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 var(--s3); border: 2px solid var(--rule); border-radius: 14px; background: var(--surface); color: var(--brand-d); font-weight: 700; font-size: 1rem; }
+.ch-chev { transition: transform var(--duration-quick) var(--ease-out); }
+.ch-chev.open { transform: rotate(180deg); }
+.ch-pin.short .ch-story { max-height: 40dvh; }
+/* on a short phone the story is opened on purpose: a graph read for its values (func:c3's ride) gets more height, and
+   the story scrolls inside its box */
+.ch-pin.short .ch-story-fig .figure { max-height: 30dvh; }
+.ch-main { position: relative; flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; padding: var(--s4) var(--gutter) 0; }
+.ch-part { flex: 1 0 auto; outline: none; }
+.ch-part > .ch-foot { margin-top: auto; }
+.ch-sub { margin: 0; font-family: var(--font-display); font-size: 1.0625rem; line-height: 1.4118; font-weight: 700; color: var(--ink); }
+.ch-ask { margin: 0; font-size: 1.0625rem; line-height: 1.6; color: var(--ink); }
+/* a typed number: the field (or the fields of a counterexample, each named) over the lesson's keypad */
+.ch-num { display: flex; flex-direction: column; gap: var(--s3); }
+.ch-fields { display: flex; justify-content: center; gap: var(--s3); flex-wrap: wrap; }
+.ch-field { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.ch-field-label { font-size: 0.9375rem; line-height: 1.3334; color: var(--ink-2); font-weight: 600; }
+.ch-field-row { display: inline-flex; align-items: center; gap: var(--s2); }
+/* the slot and the maths after it (□π), left to right */
+.ch-field-math { display: inline-flex; align-items: center; gap: 4px; }
+.ch-after { font-size: 1.5rem; }
+.ch-note { margin: 0; text-align: center; }
+.ch-slot { width: clamp(96px, 34vw, 160px); height: 52px; font-size: 1.5rem; }
+.ch-fields.many .ch-slot { width: clamp(72px, 24vw, 110px); }
+.ch-slot.good { border-color: var(--good-d); background: var(--good-tint); }
+/* the keypad is the lesson's own (components/ui.jsx Keypad): the same keys, sizes and layout (three rows on a short
+   phone), so a number is typed the same way in a lesson and in a challenge */
+.ch-num .keypad { max-width: 420px; width: 100%; margin-inline: auto; }
+/* a claim: the quote (a tinted panel with the card's 2px edge in the brand's light line), then three answers in one
+   segmented row */
+.ch-claim { margin: 0; padding: var(--s3) var(--s4); border: 2px solid var(--brand-line); background: var(--brand-tint); border-radius: 16px; font-size: 1.125rem; line-height: 1.6; color: var(--ink); }
+.ch-seg { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; padding: 4px; border: 2px solid var(--rule); border-radius: 16px; background: var(--surface); }
+.ch-seg-opt { min-height: 48px; padding: 4px 6px; border: 2px solid transparent; border-radius: 12px; background: transparent; color: var(--ink); font-family: var(--font-display); font-size: 1rem; font-weight: 700; line-height: 1.25; }
+.ch-seg-opt.on { border-color: var(--select); background: var(--select-tint); color: var(--select-ink); }
+.ch-seg-opt.good { border-color: var(--good-d); background: var(--good-tint); color: var(--good-ink); }
+.ch-seg-opt.bad { border-color: var(--gold); background: var(--gold-tint); }
+.ch-seg-opt:disabled { cursor: default; }
+.ch-example, .ch-fix { display: flex; flex-direction: column; gap: var(--s3); }
+/* a proof to order: numbered steps, each with its two move buttons */
+.ch-order { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s2); }
+.ch-step { display: flex; align-items: center; gap: var(--s2); padding: var(--s2) var(--s2) var(--s2) var(--s3); border: 2px solid var(--rule); border-radius: 14px; background: var(--surface); }
+.ch-step.off { border-color: var(--gold); background: var(--gold-tint); }
+.ch-step.set { border-color: var(--good-line); }
+.ch-step.now { border-color: var(--brand); background: var(--brand-tint); }
+.ch-step-n { flex: none; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 9px; background: var(--ground); font-weight: 700; font-size: 0.9375rem; color: var(--ink-2); }
+.ch-step-text { flex: 1; min-width: 0; font-size: 1rem; line-height: 1.5; color: var(--ink); overflow-wrap: anywhere; }
+.ch-step-moves { flex: none; display: flex; flex-direction: column; gap: 4px; }
+/* a reason shown and not asked (GEOM-3.1): נתון on a given, under its step */
+.ch-step-fixed { display: block; margin-top: 2px; font-size: var(--t-sm); line-height: 1.4; color: var(--ink-2); }
+.ch-step-fixed-lab { font-weight: 700; }
+.ch-move { width: 44px; height: 44px; border: 2px solid var(--rule); border-radius: 12px; background: var(--surface); color: var(--brand-d); }
+.ch-move:disabled { color: var(--disabled-ink); background: var(--ground); border-color: var(--ground); }
+.ch-order.done .ch-step { padding-inline-end: var(--s3); }
+.ch-reason { display: flex; flex-direction: column; gap: var(--s2); }
+.ch-reason-step { margin: 0; font-size: 1rem; line-height: 1.5; color: var(--ink-2); }
+/* someone's solution: each line a choice */
+.ch-lines { display: flex; flex-direction: column; gap: var(--s2); }
+.ch-line { display: flex; align-items: center; gap: var(--s3); min-height: 52px; padding: var(--s2) var(--s3); border: 2px solid var(--rule); border-radius: 14px; background: var(--surface); box-shadow: 0 3px 0 var(--rule-press); text-align: start; color: var(--ink); font-size: 1.0625rem; line-height: 1.5; }
+.ch-line.on { border-color: var(--select); background: var(--select-tint); box-shadow: 0 3px 0 var(--select); }
+.ch-line.found { border-color: var(--good-d); background: var(--good-tint); box-shadow: 0 3px 0 var(--good-line); }
+.ch-line.tried { border-color: var(--gold); background: var(--gold-tint); box-shadow: 0 3px 0 var(--gold-line); }
+.ch-line:disabled { cursor: default; }
+.ch-line-n { flex: none; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 9px; background: var(--ground); font-weight: 700; font-size: 0.9375rem; color: var(--ink-2); }
+.ch-line-text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+/* an explanation: the student's words, then the self-check */
+.ch-explain { width: 100%; min-height: 120px; resize: vertical; font-size: 1.0625rem; line-height: 1.6; padding: var(--s3); border: 2px solid var(--rule); border-radius: 14px; }
+.ch-explain:focus { outline: none; border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-tint); }
+.ch-check { display: flex; flex-direction: column; gap: var(--s3); }
+.ch-rubric { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s2); }
+.ch-tick { display: flex; align-items: flex-start; gap: var(--s3); min-height: 44px; padding: var(--s2) var(--s3); border: 2px solid var(--rule); border-radius: 14px; background: var(--surface); font-size: 1rem; line-height: 1.5; cursor: pointer; }
+.ch-tick input { flex: none; width: 24px; height: 24px; margin-top: 2px; accent-color: var(--brand); }
+.ch-sample { padding: var(--s3) var(--s4); border-radius: 14px; background: var(--ground); font-size: 1rem; line-height: 1.6; }
+.ch-sample p { margin: 0; }
+.ch-sample-tag { margin-bottom: 4px !important; font-weight: 700; color: var(--ink-2); font-size: 0.875rem; }
+/* the end: the lesson-complete screen's words and numbers */
+.ch-done-stats { grid-template-columns: minmax(0, 160px); justify-content: center; }
+@media (max-width: 360px) { .ch-seg-opt { font-size: 0.9375rem; } .ch-step-text { font-size: 0.9375rem; } }
+@media (prefers-reduced-motion: reduce) { .ch-chev { transition: none; } }
+
+/* ------------------------------------------------------------------ where challenges appear (CURRICULUM-6.3) */
+/* after a passed mastery check: a quiet card under the stat tiles, never the main button */
+.check-challenge-icon, .jchallenge-icon { flex: none; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 999px; background: var(--brand-tint); color: var(--brand); }
+.check-challenge-actions .btn { flex: 1 1 120px; min-height: 44px; }
+/* ------------------------------------------------------------------ the path as a journey (PRODUCT2-35/37)
+   Only the unit the student is on opens; the next shows its banner and first stop; the others are rows, one tap away.
+   מדי stands at the stop the student is on and walks to the next one after a stair (components/map/Walker.jsx). Each
+   unit's landmark is its emblem and two drawings in its own colour (canon: no scenery behind content). */
+.unit-row { margin: var(--s2) var(--gutter) 0; }
+.unit-row-h { margin: 0; font: inherit; }
+/* a folded unit is a pressable row in its own colour: its edge and its lip are the unit's (a light mix of it, so the
+   rows stay calm), and it sinks onto its lip when pressed, like every other pressable thing */
+.unit-row-btn {
+  display: flex; align-items: center; gap: var(--s3); width: 100%; min-height: 52px; padding: 4px var(--s2); border: 0; border-bottom: 2px solid var(--rule); border-radius: 0; background: none; color: var(--ink); box-shadow: none; font: inherit; text-align: start; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.unit-row-btn:active { background: var(--ground); }
+.unit-row-btn:focus-visible { outline: 3px solid var(--brand-d); outline-offset: 2px; }
+.unit-row .emblem { width: 34px; height: 34px; border-radius: 10px; background: var(--c-tint, var(--brand-tint)); box-shadow: none; }
+.unit-row .emblem svg { width: 26px; height: 26px; }
+.unit-row-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.unit-row .unit-title { color: var(--ink-2); font-size: 1rem; line-height: 1.375; }
+.unit-row .unit-label { color: var(--ink-2); }
+.unit-row-go { flex: none; color: var(--ink-2); }
+/* on a narrow phone the label wraps after the unit's number, never inside its count ("5 מתוך 6 מדרגות" stays whole) */
+.unit-count { white-space: nowrap; }
+/* small phones: as wide as the banners (which lose their side margin there), with a tighter inside */
+@media (max-width: 360px) {
+  .unit-row { margin-inline: 0; }
+  .unit-row-btn { gap: var(--s2); padding-inline: var(--s3) var(--s2); }
+}
+.unit.is-preview .path { padding-bottom: 4px; }
+.unit-more { display: flex; gap: 6px; margin: 0 auto var(--s2); }
+.node-preview { --face-c: var(--c-tint, var(--brand-tint)); --edge: var(--rule-press); color: var(--c-ink, var(--brand-d)); box-shadow: inset 0 0 0 3px var(--c, var(--brand)), 0 var(--lip) 0 var(--edge); }
+.node-preview:active { box-shadow: inset 0 0 0 3px var(--c, var(--brand)), 0 0 0 var(--edge); }
+.path-walker { position: absolute; top: 50%; z-index: 2; width: 44px; margin-top: -26px; pointer-events: none; }
+.path-walker.is-left { right: calc(100% - 4px); }
+.path-walker.is-right { left: calc(100% - 4px); }
+.path-walker .mascot { display: block; max-width: none; }
+.node-unlock { position: absolute; inset: 0; z-index: 3; display: grid; place-items: center; color: var(--ink-3); pointer-events: none; animation: node-unlock 0.9s ease-in 0.3s both; }
+.node-unlock svg { width: 32px; height: 32px; }
+@media (prefers-reduced-motion: reduce) { .node-unlock { animation: none; display: none; } }
+@keyframes node-unlock { 0% { opacity: 1; transform: none; } 55% { opacity: 1; transform: translateY(-14px) rotate(-12deg); } 100% { opacity: 0; transform: translateY(-36px) rotate(-20deg) scale(0.6); } }
+.unit .unit-head .emblem { width: 64px; height: 64px; border-radius: 20px; }
+.unit .unit-head .emblem svg { width: 54px; height: 54px; }
+.path-art { width: 104px; height: 104px; margin-block: -56px; }
+.path-art::before { content: ""; position: absolute; inset: auto 8px 2px; height: 22px; border-radius: 50%; background: var(--c-tint, var(--brand-tint)); }
+.path-art svg { position: relative; width: 96px; height: 96px; transform: rotate(var(--tilt, -4deg)); }
+.path-art ~ .path-art svg { --tilt: 4deg; }
+/* the road ahead in the unit's own colour, not a column of grey padlocks: a locked stop is the unit's tint, its lock in
+   the unit's ink */
+.unit .node-locked { --face-c: var(--c-tint, var(--track)); --edge: color-mix(in srgb, var(--c, var(--track-edge)) 30%, var(--c-tint, var(--track))); color: var(--c-ink, var(--ink-3)); }
+.unit .node-locked .node-glyph { opacity: 0.75; }
+/* so is the chest on the road while it is shut (its gift in the unit's ink, never a grey stop among the unit's own);
+   open, it is gold */
+.unit .chest:not(.is-open) { background: var(--c-tint, var(--track)); color: var(--c-ink, var(--ink-3)); box-shadow: 0 6px 0 color-mix(in srgb, var(--c, var(--track-edge)) 30%, var(--c-tint, var(--track))); }
+.unit .chest:not(.is-open):active { box-shadow: 0 0 0 transparent; }
+@media (prefers-reduced-motion: reduce) { .node-unlock { display: none; } }
+@media (max-width: 400px) { .unit .unit-head .emblem { width: 48px; height: 48px; border-radius: 14px; } .unit .unit-head .emblem svg { width: 38px; height: 38px; } }
+
+/* Large text (COUNCIL2-8): the reader chose a bigger text size in the browser or the phone, so the screen is less than
+   20 times the text size wide (on a phone from 125%; never at the default size, where 20em is 320px). Labels wrap onto
+   a second line instead of being cut off, and the tab bar's five labels keep to their columns. */
+@media (max-width: 19.99em) {
+  .btn { white-space: normal; text-wrap: balance; }
+  .tabbar { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .tabbar .tab { font-size: min(0.875rem, 4.2vw); }
+  .segmented { grid-auto-flow: row; grid-template-columns: repeat(auto-fit, minmax(min(100%, 6em), 1fr)); }
+  .seg { white-space: normal; }
+  .num-row { flex-wrap: wrap; }
+  .num-row dd { white-space: normal; }
+  /* the home bar may take two lines: it scrolls away with the page, and the unit's band sticks to the top instead */
+  .learn-top { flex-wrap: wrap; height: auto; row-gap: 0; padding-bottom: var(--s1); position: relative; }
+  .unit-head { top: env(safe-area-inset-top, 0px); }
+}
+
+/* ------------------------------------------------------------------ the press (ux-motion 1, 8, 10, 20) */
+/* One press for the whole app: a button sinks onto its lip in --duration-press (app.css .btn). A tile, a segment, a stop
+   on the path, the gift and a switch's knob also squash as they go down, from the edge they stand on (tokens.css
+   --squash), in --duration-squash. The most-used controls only sink, and at once (--duration-tap): the keypad, "בדיקה",
+   the feedback's button and the help buttons beside the bar. Text, numbers and data never squash. */
+.check-btn, .fb-actions .btn { transition-duration: var(--duration-tap); }
+.ls-choice { transform-origin: 50% 100%; transition: transform var(--duration-squash) var(--ease-out), scale var(--duration-squash) var(--ease-out), box-shadow var(--duration-squash) var(--ease-out), border-color var(--duration-quick) var(--ease-out), background-color var(--duration-quick) var(--ease-out); }
+.ls-choice:active:not(:disabled) { transform: translateY(4px); scale: var(--squash-soft); box-shadow: 0 0 0 transparent; }
+.lm .ls-choice:active:not(:disabled) { transform: translateY(3px); }
+.tool:active:not(:disabled) { background: var(--ground); }
+.chest svg, .node-slot.has-ring .node-current::before { transition: transform var(--duration-squash) var(--ease-out); }
+:is(.save-switch, .report-email) input[role="switch"]::after { transition: inset-inline-start var(--duration-quick) var(--ease-in-out), scale var(--duration-squash) var(--ease-out); }
+:is(.save-switch, .report-email) input[role="switch"]:active:not(:disabled)::after { scale: var(--squash-knob); }
+
+/* ------------------------------------------------------------------ a list arriving (ux-motion 3) */
+/* Its items come in one after another, 40ms apart (--duration-stagger), each rising 8px into place; from the seventh on
+   they come together, so the whole cascade starts within 240ms however long the list is. Once, as the list appears:
+   a list that is already there does not move again. Under reduced motion it is simply there. */
+.cascade > * { animation: cascade-in var(--duration-fast) var(--ease-smooth-out) both; }
+.cascade > :nth-child(2) { animation-delay: var(--duration-stagger); }
+.cascade > :nth-child(3) { animation-delay: calc(2 * var(--duration-stagger)); }
+.cascade > :nth-child(4) { animation-delay: calc(3 * var(--duration-stagger)); }
+.cascade > :nth-child(5) { animation-delay: calc(4 * var(--duration-stagger)); }
+.cascade > :nth-child(6) { animation-delay: calc(5 * var(--duration-stagger)); }
+.cascade > :nth-child(n + 7) { animation-delay: calc(6 * var(--duration-stagger)); }
+@keyframes cascade-in { from { opacity: 0; translate: 0 var(--distance-base); } }
+@media (prefers-reduced-motion: reduce) { .cascade > * { animation: none; } }
+
+/* ======================================================================================================
+   v6: clay (DESIGN.md, Nov 2026; ui-ux-pro-max: an educational app is claymorphism with micro-interactions, Fredoka for
+   display). The page is white; cards, buttons and the path's stops are chunky clay: round, a light edge on top, a
+   solid lip under them; headings, buttons, numbers and tabs are set in Fredoka. Every colour is a token.
+   ====================================================================================================== */
+h1, h2, h3, .screen-bar-title, .hub-card-title, .card-title, .set-head, .h-section, .section > h2, .unit-title, .node-card-title, .empty-title, .done-title, .lm-banner, .fb-title, .top-stat, .grade-switch, .node-start, .btn, .tab, .key, .slot, .qbar-text, .me-stat dd, .q-title {
+  font-family: var(--font-display); font-weight: 700; letter-spacing: 0;
+}
+
+/* buttons: a light edge on top, the lip under it */
+.btn-primary { --hi: inset 0 2px 0 color-mix(in srgb, var(--on-brand) 22%, transparent); box-shadow: var(--hi), 0 var(--lip) 0 var(--btn-lip); }
+.btn-primary:active:not(:disabled) { box-shadow: var(--hi), 0 0 0 var(--btn-lip); }
+
+/* the tab bar: a white dock, the open tab in an outlined tinted box */
+.tabbar .tab svg { width: 28px; height: 28px; }
+.tabbar .tab.active { background: var(--select-tint); box-shadow: inset 0 0 0 2px var(--select); }
+@media (min-width: 960px) { .tabbar .tab svg { width: 24px; height: 24px; } }
+
+/* the stops: round clay with a glossy top; the current one in a highlighter ring */
+.node { background-image: linear-gradient(color-mix(in srgb, var(--on-brand) 24%, transparent), transparent 50%); }
+.node-current::before { content: ''; position: absolute; inset: -9px; border-radius: 50%; border: 4px solid var(--hl); pointer-events: none; }
+.node-locked { box-shadow: inset 0 0 0 2px var(--track-edge), 0 var(--lip) 0 var(--edge); }
+
+/* lessons and teaching: the rules for the maths panel, the slot and the keys are in lazy/shared.css (out of the first load) */

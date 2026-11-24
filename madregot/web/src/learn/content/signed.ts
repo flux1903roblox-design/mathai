@@ -1,0 +1,1302 @@
+// Signed numbers (מספרים מכוונים), grade 7. The number line is the model throughout: a number is a place,
+// adding is a move, subtracting is the opposite move.
+import type { DiagModel, FigSpec, StairContent } from '../types';
+import { rint, rnz } from '../expr';
+// @ts-ignore: plain JS helpers shared with the exercise generators
+import { T } from '@/content/util.js';
+// @ts-ignore: plain JS, the class's chains, absolute value and opposites (CLASSROOM-1, -2), shared with grade7.js
+import { drawChain, chainValue, chainBugs, chainTex, chainSolution, CHAIN_HINT, signOutside, drawAbs, absValue, absBug, absTex, absSolution, ABS_HINT, drawOpp, oppText, oppTex, oppSolution, oppHint, drawNested, nestedValue, nestedBugs, nestedTex, nestedSolution, nestedHint } from '@/content/signedItems.js';
+
+// The teaching steps' drawings (STUDENT-8): the number line the words walk on. A point named by its own number lights
+// that number up; a jump is a move, an arc from where it starts to where it lands, with its size over it.
+type Jump = { from: number; to: number; label?: string };
+const axis = (from: number, to: number, marks: { x: number; label?: string }[] = [], jumps: Jump[] = [], anim = false): FigSpec =>
+  ({ type: 'numline', from, to, marks, jumps, ...(anim ? { anim } : {}) });
+/** A point labelled with its own number, as the line writes it (a real minus sign). */
+const at = (x: number) => ({ x, label: x < 0 ? `\u2212${-x}` : `${x}` });
+const jump = (from: number, to: number, label?: string): Jump => ({ from, to, label });
+/** Numbers as arrows from 0 (CLASSROOM-1): the length is the distance from 0, the absolute value; the way is the sign. */
+const ARROWS: FigSpec = axis(-10, 7, [], [jump(0, -9, '\u22129'), jump(0, 6, '6')]);
+/** Two mornings on the Hermon: −3 on Sunday, −8 on Monday (stair 2). */
+const HERMON: FigSpec = { type: 'thermo', value: -3, label: 'יום ראשון', also: { value: -8, label: 'יום שני' }, min: -10, max: 10 };
+/** A line with ticks every `step` (multiplying and dividing by 6 or 9 in steps of the factor: −48, −42, …, 48). */
+const axisBy = (from: number, to: number, step: number, marks: { x: number; label?: string }[] = [], jumps: Jump[] = []): FigSpec =>
+  ({ type: 'numline', from, to, step, marks, jumps });
+/** n equal jumps of `size` from `start`, each with its size over it (repeated adding: 4 · (−9) is four jumps of −9). */
+const hops = (start: number, size: number, n: number): Jump[] =>
+  Array.from({ length: n }, (_, i) => jump(start + i * size, start + (i + 1) * size, size < 0 ? `\u2212${-size}` : `+${size}`));
+// The worked examples and solving together draw the line their numbers move on (SK-STUDENT-1, as stage A does): where a
+// problem starts, and a step's move once that step is shown, with what it found. A problem solved together never shows
+// where its last step lands (learn/figures.test.ts).
+/** The temperature story of stair 1: −2 in the morning, −8 in the evening. */
+const MORNING: FigSpec = { type: 'thermo', value: -2, label: 'בבוקר', also: { value: -8, label: 'בערב' }, min: -10, max: 10 };
+/** The quiz of stair 4: 5 right answers worth +4 each, 7 wrong ones worth −3 each. */
+const QUIZ: FigSpec = { type: 'table', head: ['', 'תשובות נכונות', 'תשובות שגויות'], rows: [['כמה תשובות', 5, 7], ['נקודות לכל תשובה', '+4', '\u22123']] };
+
+const sgn = (x: number) => (x > 0 ? 1 : x < 0 ? -1 : 0);
+const nl = (from: number, start = from) => ({ kind: 'numberline' as const, min: -10, max: 10, from, start });
+
+// ---------------------------------------------------------------- stair 1: adding and subtracting
+
+// a + s·b, s = 1 (plus) or -1 (minus); f 2: the class's chain of five bracketed numbers, term i is o[i]·v[i]
+type AddSub = { a: number; b: number; s: number; f?: number; o?: number[]; v?: number[] };
+const isChain = (p: AddSub) => p.f === 2;
+const chainOf = (p: AddSub) => ({ o: p.o!, v: p.v! });
+const show = (p: AddSub): string => (isChain(p) ? chainTex(chainOf(p)) : `${T(p.a)} ${p.s > 0 ? '+' : '-'} ${T(p.b, true)}`);
+const value = (p: AddSub): number => (isChain(p) ? chainValue(chainOf(p)) : p.a + p.s * p.b);
+const chainBug = (p: AddSub, id: string): number | null => (chainBugs(chainOf(p)) as Record<string, number | null>)[id];
+
+const addSubModel: DiagModel<AddSub> = {
+  // mostly subtraction, and mostly of a negative number: the heart of the stair
+  params: (rnd) => {
+    // a quarter are the class's chains: (-8) + (+3) - (-6) - (+9) + (-4) (CLASSROOM-2)
+    if (rnd() < 0.25) { const c = drawChain(rnd); return { a: 0, b: 0, s: 1, f: 2, o: c.o, v: c.v }; }
+    const s = rnd() < 0.65 ? -1 : 1;
+    const a = rnz(rnd, -12, 12);
+    const b = s < 0 && rnd() < 0.7 ? -rint(rnd, 1, 12) : rnz(rnd, -12, 12);
+    return { a, b, s };
+  },
+  text: () => 'חשבו:',
+  display: show,
+  answer: value,
+  bugs: {
+    // a − (−b) read as a − b; in a chain, every −(−n) read as −n
+    'minus-minus': (p) => (isChain(p) ? chainBug(p, 'minus-minus') : p.s < 0 && p.b < 0 ? p.a + p.b : null),
+    // the distance is right, the sign is not
+    sign: (p) => (value(p) !== 0 ? -value(p) : null),
+    // different signs, but the distances were added
+    'abs-add': (p) => { if (isChain(p)) return null; const bb = p.s * p.b; return sgn(p.a) !== sgn(bb) ? sgn(p.a) * (Math.abs(p.a) + Math.abs(bb)) : null; },
+    // the first number's minus was dropped: started on the wrong side of zero
+    'drop-sign': (p) => (isChain(p) ? chainBug(p, 'drop-sign') : p.a < 0 ? -p.a + p.s * p.b : null),
+    // "minus and minus make plus" applied to everything: −a − (−b) read as a + b
+    'neg-neg-plus': (p) => (!isChain(p) && p.a < 0 && p.s < 0 && p.b < 0 ? -p.a - p.b : null),
+    // (no 'direction': these questions are typed, with no number line to move on. The number-line exercises name it,
+    // content/grade7.js addSubLine, and a verification of it asks them, learn/items.ts genProbe.)
+  },
+  // −4 − (−11) answered −15: subtracting the negative as a positive. Adding the distances (abs-add) predicts the same
+  // number wherever the first number is negative, and the stair's own mistake names it, as the exercises do
+  flagship: 'minus-minus',
+  solution: (p) => {
+    if (isChain(p)) return chainSolution(chainOf(p));
+    const bb = p.s * p.b; const ans = value(p); const out: string[] = [];
+    if (p.s < 0) out.push(`חיסור הוא חיבור של הנגדי: $${show(p)} = ${T(p.a)} + ${T(bb, true)}$`);
+    // the class's line: the sign outside the brackets, the absolute values inside, (+4) + (-11) = -(11 - 4) = -7
+    // (two lines: the sum with the sign outside, then "=" the result, so each fits a phone)
+    if (ans === 0) out.push(`סימנים שונים: מחסרים את הערכים המוחלטים, $${Math.abs(p.a)} - ${Math.abs(bb)} = 0$, כי שני המספרים באותו מרחק מאפס, ולכן התוצאה אפס.`);
+    else {
+      const [line, end] = signOutside(p.a, bb) as [string, string];
+      out.push(sgn(p.a) === sgn(bb) ? `אותו סימן: מחברים את המרחקים מאפס (הערכים המוחלטים) ושומרים על הסימן, $${line}$` : `סימנים שונים: מחסרים את הערכים המוחלטים (המרחקים מאפס), והסימן של הרחוק יותר מאפס, $${line}$`, `$${end}$`);
+    }
+    out.push(`התשובה: $${T(ans)}$`);
+    return out;
+  },
+  hint: (p) => (isChain(p) ? CHAIN_HINT : p.s < 0 ? `חיסור של מספר הוא חיבור של הנגדי שלו: $${T(p.a)} + ${T(-p.b, true)}$.` : sgn(p.a) === sgn(p.b) ? 'אותו סימן: מחברים את המרחקים מאפס (הערכים המוחלטים) ושומרים על הסימן.' : 'סימנים שונים: מחסרים את הערכים המוחלטים (המרחקים מאפס), והסימן הוא של המספר הרחוק יותר מאפס.'),
+};
+
+type Story = { k: number; a: number; b: number };
+const storyModel: DiagModel<Story> = {
+  // the same skill in a context: a temperature difference (a − b with b below zero) and an elevator (a + b from below zero)
+  params: (rnd) => (rnd() < 0.5 ? { k: 0, a: rint(rnd, 2, 25), b: -rint(rnd, 1, 15) } : { k: 1, a: -rint(rnd, 1, 4), b: rint(rnd, 2, 9) }),
+  text: (p) => (p.k === 0
+    ? `בתל אביב $${p.a}$ מעלות, ובפסגת החרמון $${T(p.b)}$ מעלות. בכמה מעלות חם יותר בתל אביב?`
+    : `מעלית יצאה מקומה $${T(p.a)}$ (בחניון) ועלתה $${p.b}$ קומות. באיזו קומה היא עכשיו?`),
+  answer: (p) => (p.k === 0 ? p.a - p.b : p.a + p.b),
+  bugs: {
+    'minus-minus': (p) => (p.k === 0 ? p.a + p.b : null),
+    'drop-sign': (p) => (p.k === 1 ? -p.a + p.b : null),
+    'abs-add': (p) => (p.k === 1 ? p.a - p.b : null),
+    sign: (p) => { const v = p.k === 0 ? p.a - p.b : p.a + p.b; return v ? -v : null; },
+  },
+  solution: (p) => (p.k === 0
+    ? [`ההפרש הוא החם פחות הקר: $${p.a} - ${T(p.b, true)}$.`, `חיסור של שלילי הוא חיבור: $${p.a} + ${-p.b} = ${p.a - p.b}$.`, `חם יותר ב־$${p.a - p.b}$ מעלות.`]
+    : [`עלייה היא תזוזה למעלה: $${T(p.a)} + ${p.b}$.`, `מ־$${T(p.a)}$ עולים ${p.b} קומות ומגיעים לקומה $${T(p.a + p.b)}$.`]),
+  hint: (p) => (p.k === 0 ? 'כמה מעלות צריך לעלות מהטמפרטורה הקרה כדי להגיע לחמה? על ציר המספרים זה המרחק ביניהן.' : 'קומה $0$ היא הכניסה. מתחילים מתחתיה ועולים.'),
+};
+
+const stair1: StairContent = {
+  skill: 'signed:1', topic: 'signed', level: 1, title: 'חיבור וחיסור',
+  objectives: [
+    'לצייר מספר כחץ שיוצא מ־$0$, ולהכיר את הערך המוחלט שלו ואת המספר הנגדי שלו.',
+    'לחבר ולחסר מספרים מכוונים בעזרת ציר המספרים.',
+    'להבין למה חיסור של מספר שלילי מגדיל את התוצאה.',
+    'לפתור בלי ציר: לכתוב חיסור כחיבור של הנגדי.',
+  ],
+  idea: 'חיבור הוא תזוזה על ציר המספרים: מספר חיובי מזיז ימינה, מספר שלילי מזיז שמאלה. חיסור הוא תזוזה לכיוון ההפוך.',
+  why: [
+    'חיסור הוא הפעולה ההפוכה לחיבור: מה שחיבור עושה, חיסור מבטל.',
+    'חיבור של $-3$ מזיז שמאלה 3. לכן חיסור של $-3$ מזיז ימינה 3, בדיוק כמו חיבור של $3$.',
+    'בודקים כמו בחיסור רגיל: $5 - 3 = 2$ כי $2 + 3 = 5$. באותו אופן $5 - (-3) = 8$, כי $8 + (-3) = 5$.',
+  ],
+  alt: [
+    'חשבו על מדחום. חיסור עונה על השאלה "מה ההפרש". מ־$-3$ מעלות עד $4$ מעלות עולים 7 מעלות, ולכן $4 - (-3) = 7$.',
+    'חשבו על חוב. אם מוחקים לכם חוב של 5 שקלים, כלומר מחסרים $-5$, נשאר לכם יותר: $10 - (-5) = 15$.',
+    'הסתכלו על הדפוס: $5 - 2 = 3$, $5 - 1 = 4$, $5 - 0 = 5$, $5 - (-1) = 6$. כל פעם שמחסרים מספר קטן ב־1, התוצאה גדלה ב־1.',
+  ],
+  discover: [
+    { kind: 'say', fig: { type: 'numline', from: -6, to: 6, marks: [{ x: 0, label: '0' }], jumps: [{ from: -2, to: 3, label: '+5' }], anim: true }, mood: 'happy', text: 'נתחיל בציר המספרים. כל מספר הוא מקום על הציר, וחיבור הוא תזוזה.' },
+    // CLASSROOM-1, in the book's order: the number line, then absolute value as arrows, then adding, opposites, subtracting
+    { kind: 'say', fig: ARROWS, text: 'כל מספר אפשר לצייר כחץ שיוצא מ־$0$: האורך שלו הוא המרחק מאפס, והכיוון שלו הוא הסימן. המרחק של מספר מאפס נקרא הערך המוחלט שלו, וכותבים אותו בין שני קווים: $\\lvert -9 \\rvert = 9$, $\\lvert 6 \\rvert = 6$.' },
+    { kind: 'explore', text: 'מתחילים ב־$-2$ ומוסיפים $5$. הזיזו את הסמן 5 צעדים ימינה.', display: '-2 + 5', manip: nl(-2), answer: 3,
+      hint: 'חיבור של מספר חיובי מזיז ימינה. ספרו 5 צעדים מ־$-2$.', success: 'נכון: $-2 + 5 = 3$. חיבור של מספר חיובי מזיז ימינה.' },
+    { kind: 'explore', text: 'עכשיו מתחילים ב־$4$ ומוסיפים $-6$. מספר שלילי מזיז שמאלה.', display: '4 + (-6)', manip: nl(4), answer: -2,
+      hint: 'חיבור של מספר שלילי מזיז שמאלה. ספרו 6 צעדים מ־$4$.', success: '$4 + (-6) = -2$. חיבור של מספר שלילי מזיז שמאלה, ואפשר לעבור את האפס.' },
+    { kind: 'rule', fig: axis(-12, 12, [at(-11), at(11)]), text: 'שני מספרים נגדיים, כמו $11$ ו־$-11$, נמצאים באותו מרחק מאפס, משני צדדיו. לכן יש להם אותו ערך מוחלט.', display: '-(-11) = 11,\\quad 8 + (-8) = 0',
+      why: 'מינוס לפני מספר מעביר אותו לנגדי שלו, לצד השני של האפס: הנגדי של $-11$ הוא $11$. ומספר ועוד הנגדי שלו מגיעים בדיוק לאפס: מ־$8$ זזים $8$ צעדים שמאלה.' },
+    { kind: 'predict', fig: axis(-20, 20, [at(-17)]), text: 'מה הנגדי של $-17$?', choices: ['$17$', '$-17$', '$0$'], answer: 0,
+      why: '$-17$ נמצא 17 צעדים משמאל לאפס. הנגדי שלו נמצא באותו מרחק, בצד השני: $17$.',
+      wrongWhy: { 1: 'זה אותו מספר. הנגדי נמצא באותו מרחק, בצד השני של האפס.', 2: '$0$ יוצא כשמחברים מספר ועוד הנגדי שלו: $-17 + 17 = 0$. הנגדי עצמו נמצא בצד השני של האפס.' } },
+    { kind: 'say', fig: axis(-5, 5, [at(0)], [jump(0, 3, '+3'), jump(0, -3, '−3')]), text: 'ומה עם חיסור? חיסור הוא הפעולה ההפוכה לחיבור. חיבור של $3$ מזיז ימינה, אז חיסור של $3$ מזיז שמאלה.' },
+    { kind: 'explore', text: '$1 - 4$: מתחילים ב־$1$ ומחסרים $4$.', display: '1 - 4', manip: nl(1), answer: -3,
+      hint: 'חיסור של מספר חיובי מזיז שמאלה.', success: '$1 - 4 = -3$. ירדנו מתחת לאפס.' },
+    { kind: 'predict', fig: axis(-6, 6, [at(2)]), text: 'ועכשיו השאלה החשובה: מה קורה כשמחסרים מספר שלילי? מה לדעתכם יוצא?', display: '2 - (-3)',
+      choices: ['$-1$', '$5$', '$-5$'], answer: 1,
+      why: 'חיבור של $-3$ מזיז שמאלה 3. חיסור הוא הכיוון ההפוך, ולכן חיסור של $-3$ מזיז ימינה 3: $2 - (-3) = 5$.',
+      wrongWhy: { 0: '$-1$ הוא $2 + (-3)$, חיבור של $-3$. בחיסור זזים לכיוון ההפוך.', 2: '$-5$ הוא $-(2 + 3)$: המרחק $5$ נכון, אבל הסימן לא. מתחילים ב־$2$, וחיסור של $-3$ מזיז ימינה, ולכן התוצאה חיובית.' } },
+    { kind: 'explore', text: 'בדקו על הציר: מתחילים ב־$2$ ומחסרים $-3$.', display: '2 - (-3)', manip: nl(2), answer: 5,
+      hint: 'חיבור של $-3$ היה מזיז שמאלה. חיסור עושה את ההפך: 3 צעדים ימינה.', success: 'בדיוק: $2 - (-3) = 5$. כשמחסרים מספר שלילי, התוצאה גדלה.' },
+    { kind: 'predict', fig: axis(0, 8, [at(3), at(4), at(5)], [jump(3, 4, '+1'), jump(4, 5, '+1')]), text: 'עוד דרך לראות את זה, בדפוס: $5 - 2 = 3$, $5 - 1 = 4$, $5 - 0 = 5$. מה בא אחרי?', display: '5 - (-1)',
+      choices: ['$4$', '$6$', '$-6$'], answer: 1,
+      why: 'בכל שורה המספר שמחסרים קטן ב־1, והתוצאה גדלה ב־1. אחרי $5 - 0 = 5$ מגיע $5 - (-1) = 6$.',
+      wrongWhy: { 0: 'בכל שורה התוצאה גדלה ב־1: $3, 4, 5$. אחרי $5$ בא $6$, לא $4$.', 2: 'התוצאות הולכות $3, 4, 5$ וגדלות ב־1. אין סיבה לקפוץ פתאום למינוס.' } },
+    { kind: 'rule', fig: axis(-1, 7, [at(2), at(5)], [jump(2, 5, '−(−3)')]), text: 'הכלל: חיסור של מספר הוא חיבור של הנגדי שלו.', display: 'a - (-b) = a + b',
+      why: 'חיסור מבטל חיבור. חיבור של $-b$ מזיז שמאלה $b$, ולכן חיסור של $-b$ מזיז ימינה $b$, כמו חיבור של $b$.' },
+    { kind: 'explore', text: 'נסו לבד: $-4 - (-7)$. מתחילים ב־$-4$ וזזים לפי הכלל.', display: '-4 - (-7)', manip: nl(-4), answer: 3,
+      hint: 'חיסור של $-7$ הוא חיבור של $7$: שבעה צעדים ימינה.', success: '$-4 - (-7) = -4 + 7 = 3$. ככה עובדים עם הכלל.' },
+  ],
+  examples: [
+    { problem: 'חשבו:', display: '-6 - (-9)', answer: 3, check: '-6 - (-9)', fig: axis(-10, 6, [at(-6)]),
+      steps: [
+        { action: 'כותבים את החיסור כחיבור של הנגדי.', why: 'חיסור של $-9$ מזיז ימינה 9, כמו חיבור של $9$.', result: '-6 - (-9) = -6 + 9', value: '-6 + 9', fig: axis(-10, 6, [at(-6)], [jump(-6, 3, '+9')]) },
+        { action: 'הסימנים שונים: מחסרים את המרחקים מאפס.', why: 'מ־$-6$ זזים 9 ימינה: 6 צעדים עד האפס, ועוד 3 אחריו.', result: '9 - 6 = 3', calc: { expr: '9 - 6', value: 3 }, fig: axis(-10, 6, [at(-6)], [jump(-6, 0, '+6'), jump(0, 3, '+3')]) },
+        { action: 'הסימן הוא של המספר הרחוק יותר מאפס.', why: '$9$ רחוק יותר מאפס מ־$-6$, והוא חיובי, לכן התוצאה חיובית.', result: '-6 - (-9) = 3', value: '3' },
+      ] },
+    { problem: 'בבוקר היו $-2$ מעלות ובערב $-8$ מעלות. בכמה השתנתה הטמפרטורה?', display: '-8 - (-2)', answer: -6, check: '-8 - (-2)', fig: MORNING,
+      steps: [
+        { action: 'שינוי הוא הסוף פחות ההתחלה.', why: 'השינוי הוא מה שצריך להוסיף להתחלה כדי להגיע לסוף.', result: '-8 - (-2)', value: '-8 - (-2)' },
+        { action: 'חיסור של $-2$ הוא חיבור של $2$.', why: 'אותו כלל: חיסור של שלילי מזיז ימינה.', result: '-8 + 2', value: '-8 + 2' },
+        { action: 'סימנים שונים: $8 - 2 = 6$, והסימן של $-8$, הרחוק יותר מאפס.', why: 'מ־$-8$ זזים 2 ימינה ומגיעים ל־$-6$.', result: '-6', value: '-6', calc: { expr: '8 - 2', value: 6 }, fig: axis(-10, 2, [at(-8)], [jump(-8, -6, '+2')]) },
+        { action: 'בודקים ומפרשים: הטמפרטורה ירדה ב־6 מעלות.', why: 'שינוי שלילי הוא ירידה. מההתחלה, $-2$, יורדים 6 ומגיעים ל־$-8$.', result: '-2 + (-6) = -8', calc: { expr: '-2 + (-6)', value: -8 }, fig: axis(-10, 2, [at(-2), at(-8)], [jump(-2, -8, '\u22126')]) },
+      ] },
+    // CLASSROOM-2: a chain of five bracketed numbers, in the class's two steps
+    { problem: 'חשבו:', display: '(-8) + (+3) - (-6) - (+9) + (-4)', answer: -12, check: '(-8)+(+3)-(-6)-(+9)+(-4)',
+      steps: [
+        { action: 'מורידים סוגריים: פעולה וסימן הופכים לסימן אחד.', why: 'שני סימנים זהים נותנים פלוס, ושני סימנים שונים נותנים מינוס: $+(+a) = +a$, $+(-a) = -a$, $-(+a) = -a$, $-(-a) = +a$.', result: '-8 + 3 + 6 - 9 - 4', value: '-8 + 3 + 6 - 9 - 4' },
+        { action: 'השליליים יחד, והחיוביים יחד.', why: 'כשהסימנים זהים מחברים את הערכים המוחלטים ושומרים על הסימן. כל מספר זז עם הסימן שלפניו.', result: '-8 - 9 - 4 = -21,\\quad 3 + 6 = 9', value: '-21 + 9', calc: { expr: '-8 - 9 - 4', value: -21 }, fig: axis(-22, 10, [], [jump(0, -21, '\u221221'), jump(0, 9, '+9')]) },
+        { action: 'וכולם יחד: סימנים שונים, מחסרים את הערכים המוחלטים.', why: '$21 - 9 = 12$, והסימן של $-21$, הרחוק יותר מאפס.', result: '-21 + 9 = -12', value: '-12', calc: { expr: '21 - 9', value: 12 }, fig: axis(-22, 10, [at(-21)], [jump(-21, -12, '+9')]) },
+      ] },
+    { problem: 'חשבו:', display: '-(+3) - 0 + (-8) - (+12) - (-6)', answer: -17, check: '-(+3)-0+(-8)-(+12)-(-6)',
+      steps: [
+        { action: 'מורידים סוגריים.', why: '$-(+3)$ הוא $-3$, $+(-8)$ הוא $-8$, $-(+12)$ הוא $-12$, ו־$-(-6)$ הוא $+6$.', result: '-3 - 0 - 8 - 12 + 6', value: '-3 - 0 - 8 - 12 + 6' },
+        { action: 'מחסרים $0$: לא משתנה כלום.', why: 'חיסור של $0$ הוא תזוזה של אפס צעדים: נשארים במקום.', result: '-3 - 8 - 12 + 6', value: '-3 - 8 - 12 + 6' },
+        { action: 'השליליים יחד, והחיוביים יחד.', why: 'שלושה מספרים שליליים: מחברים $3 + 8 + 12$ ושומרים על המינוס. החיובי היחיד הוא $6$.', result: '-3 - 8 - 12 = -23,\\quad +6', value: '-23 + 6', calc: { expr: '-3 - 8 - 12', value: -23 }, fig: axis(-25, 8, [], [jump(0, -23, '\u221223'), jump(0, 6, '+6')]) },
+        { action: 'וכולם יחד.', why: 'סימנים שונים: $23 - 6 = 17$, והסימן של $-23$, הרחוק יותר מאפס.', result: '-23 + 6 = -17', value: '-17', calc: { expr: '23 - 6', value: 17 }, fig: axis(-25, 8, [at(-23)], [jump(-23, -17, '+6')]) },
+      ] },
+  ],
+  together: [
+    { problem: 'נפתור יחד, צעד אחר צעד.', display: '-3 - (-8)', fig: axis(-5, 8, [at(-3)]),
+      steps: [
+        { prompt: 'מה הצעד הראשון?', choices: [
+          { text: 'לכתוב $-3 + 8$', ok: true, feedback: 'נכון: חיסור של $-8$ הוא חיבור של $8$.' },
+          { text: 'לכתוב $-3 - 8$', ok: false, misc: 'minus-minus', feedback: 'זה חיסור של $8$, לא של $-8$. המינוס של $8$ לא נעלם, הוא הופך את הכיוון.' },
+          { text: 'לכתוב $3 + 8$', ok: false, misc: ['drop-sign', 'neg-neg-plus'], feedback: 'המספר הראשון, $-3$, נשאר כמו שהוא: הוא נקודת ההתחלה. רק החיסור של $-8$ משתנה.' },
+        ], hints: ['מה הפעולה ההפוכה לחיבור של $-8$?', 'חיבור של $-8$ מזיז שמאלה 8, ולכן החיסור שלו מזיז ימינה 8: כמו $+8$.'], done: '$-3 - (-8) = -3 + 8$' },
+        { prompt: 'ב־$-3 + 8$: לאיזה כיוון זזים מ־$-3$, וכמה?', choices: [
+          { text: '8 צעדים ימינה', ok: true, feedback: 'נכון: חיבור של מספר חיובי מזיז ימינה.' },
+          { text: '8 צעדים שמאלה', ok: false, misc: ['minus-minus', 'abs-add'], feedback: 'שמאלה זזים בחיבור של מספר שלילי. $8$ חיובי.' },
+          { text: '3 צעדים ימינה', ok: false, feedback: 'מתחילים ב־$-3$, וזזים לפי המספר השני: $8$.' },
+        ], hints: ['לאיזה צד מזיז מספר חיובי?', 'מתחילים ב־$-3$ וזזים לפי $+8$.'], done: 'מ־$-3$ זזים 8 צעדים ימינה.' },
+      ],
+      final: { prompt: 'לאן מגיעים? כתבו את התוצאה.', answer: 5, check: '-3 - (-8)', hints: ['3 צעדים מגיעים לאפס. כמה צעדים נשארו?', '$8 - 3 = 5$, ומעבר לאפס זה חיובי.'] } },
+    { problem: 'ועוד אחד, עם הפתעה.', display: '-5 - (-5)', fig: axis(-7, 7, [at(-5)]),
+      steps: [
+        { prompt: 'איך כותבים את זה כחיבור?', choices: [
+          { text: '$-5 + 5$', ok: true, feedback: 'נכון.' },
+          { text: '$-5 - 5$', ok: false, misc: 'minus-minus', feedback: 'חיסור של $-5$ הופך לחיבור של $5$, לא לחיסור של $5$.' },
+          { text: '$5 + 5$', ok: false, misc: ['drop-sign', 'neg-neg-plus'], feedback: 'רק המספר שמחסרים הופך לנגדי. $-5$ שבהתחלה נשאר.' },
+        ], hints: ['איזה מספר הוא הנגדי של $-5$?', 'הנגדי של $-5$ הוא $5$: $-5 - (-5) = -5 + 5$.'], done: '$-5 - (-5) = -5 + 5$' },
+      ],
+      final: { prompt: 'כמה זה?', answer: 0, check: '-5 - (-5)', hints: ['מספר ועוד הנגדי שלו: לאן מגיעים?', 'מ־$-5$ זזים 5 צעדים ימינה ומגיעים בדיוק לאפס.'] } },
+  ],
+  diag: addSubModel,
+  transfer: storyModel,
+  misconceptions: [
+    { id: 'minus-minus', title: 'חיסור של מספר שלילי חושב כמו חיסור של חיובי',
+      cause: 'כשרואים $-(-3)$ קל לחשוב שזה עוד "מינוס 3". אבל זה חיסור של מספר שלילי, והוא מזיז לכיוון ההפוך.',
+      explain: [
+        'נראה שהחלק שמבלבל הוא מה קורה כשמחסרים מספר שלילי. בואו נראה את זה על ציר המספרים.',
+        'חיבור של $-3$ מזיז שמאלה 3. חיסור מבטל חיבור, ולכן חיסור של $-3$ מזיז ימינה 3.',
+        'בדיקה: $5 - (-3) = 8$, כי $8 + (-3) = 5$.',
+      ],
+      remedy: [
+        { kind: 'explore', text: 'קודם החיבור: מתחילים ב־$4$ ומוסיפים $-3$.', display: '4 + (-3)', manip: nl(4), answer: 1, hint: 'חיבור של שלילי מזיז שמאלה.', success: '$4 + (-3) = 1$: שלושה צעדים שמאלה.' },
+        { kind: 'explore', text: 'עכשיו ההפך: $4 - (-3)$. חיסור מבטל את החיבור, אז זזים לכיוון השני.', display: '4 - (-3)', manip: nl(4), answer: 7, hint: 'החיבור הזיז שמאלה 3. החיסור מזיז ימינה 3.', success: '$4 - (-3) = 7$. חיסור של שלילי מזיז ימינה.' },
+        { kind: 'predict', text: 'המשיכו את הדפוס: $6 - 1 = 5$, $6 - 0 = 6$. מה הלאה?', display: '6 - (-1)', choices: ['$5$', '$7$', '$-7$'], answer: 1, why: 'המספר שמחסרים קטן ב־1, והתוצאה גדלה ב־1: $6 - (-1) = 7$.' },
+      ] },
+    { id: 'sign', title: 'התשובה יצאה עם הסימן ההפוך',
+      cause: 'המרחק מאפס חושב נכון, אבל הסימן נקבע לפי המספר הלא נכון.',
+      explain: ['המספר יצא נכון, רק הסימן התהפך.', 'אחרי שהופכים חיסור לחיבור, הסימן של התוצאה הוא של המספר הרחוק יותר מאפס.'],
+      remedy: [
+        { kind: 'predict', text: 'בלי לחשב: התוצאה חיובית או שלילית?', display: '3 + (-10)', choices: ['חיובית', 'שלילית'], answer: 1, why: '$-10$ רחוק יותר מאפס מ־$3$, ולכן הוא קובע: התוצאה שלילית.' },
+        { kind: 'explore', text: 'בדקו על הציר: $-9 + 4$. בצד ימין של האפס או בצד שמאל?', display: '-9 + 4', manip: nl(-9), answer: -5, hint: 'מתחילים ב־$-9$ וזזים 4 ימינה. האם מגיעים לאפס?', success: '$-9 + 4 = -5$. לא הגענו לאפס, ולכן התוצאה שלילית.' },
+      ] },
+    { id: 'abs-add', title: 'חיברו מרחקים כשהסימנים שונים, במקום לחסר',
+      cause: 'כשהסימנים שונים, התזוזה הולכת לכיוון האפס. המרחקים מתקזזים, לא מצטברים.',
+      explain: ['כשהסימנים שונים, צעד אחד מקרב לאפס והשני מרחיק ממנו.', 'לכן מחסרים את המרחקים: $-7 + 3$ הוא $7 - 3 = 4$ צעדים מאפס, בצד של $-7$.'],
+      remedy: [
+        { kind: 'explore', text: '$-7 + 3$: מתחילים ב־$-7$ וזזים 3 ימינה, לכיוון האפס.', display: '-7 + 3', manip: nl(-7), answer: -4, hint: 'שלושה צעדים ימינה מקרבים לאפס.', success: '$-7 + 3 = -4$. התקרבנו לאפס ב־3.' },
+        { kind: 'predict', text: 'כמה צעדים מאפס יוצא $8 + (-5)$?', choices: ['$13$', '$3$'], answer: 1, why: 'הצעדים שמאלה מקרבים את $8$ לאפס: $8 - 5 = 3$.' },
+      ] },
+    { id: 'drop-sign', title: 'התעלמו מהמינוס של המספר הראשון',
+      cause: 'המספר הראשון הוא נקודת ההתחלה. כשהוא שלילי, מתחילים משמאל לאפס.',
+      explain: ['המספר הראשון אומר מאיפה מתחילים. $-6$ הוא שישה צעדים משמאל לאפס, לא מימינו.'],
+      remedy: [
+        { kind: 'explore', text: 'בתרגיל $-6 + 2$, שימו את הסמן בנקודת ההתחלה.', manip: nl(0), answer: -6, hint: 'נקודת ההתחלה היא המספר הראשון, $-6$.', success: 'מתחילים ב־$-6$, משמאל לאפס.' },
+        { kind: 'explore', text: 'ועכשיו זזים לפי $+2$.', display: '-6 + 2', manip: nl(-6), answer: -4, hint: 'חיבור של $2$: שני צעדים ימינה.', success: '$-6 + 2 = -4$.' },
+      ] },
+    { id: 'neg-neg-plus', title: 'הפכו גם את המספר הראשון לחיובי ("מינוס ומינוס זה פלוס")',
+      cause: '"מינוס ומינוס זה פלוס" נכון לחיסור של מספר שלילי. המספר הראשון לא משתנה.',
+      explain: ['רק החיסור של המספר השלילי הופך לחיבור. המספר הראשון נשאר נקודת ההתחלה.', '$-4 - (-6) = -4 + 6 = 2$, ולא $4 + 6$.'],
+      remedy: [
+        { kind: 'explore', text: '$-4 - (-6)$: מתחילים ב־$-4$, וחיסור של $-6$ מזיז 6 ימינה.', display: '-4 - (-6)', manip: nl(-4), answer: 2, hint: 'נקודת ההתחלה היא $-4$. משם 6 צעדים ימינה.', success: '$-4 - (-6) = 2$.' },
+      ] },
+    { id: 'drop-minus', title: 'המינוס שלפני איבר נעלם',
+      cause: 'כשמסדרים שורה מחדש, קל להזיז מספר ולשכוח את הסימן שלפניו. אבל הסימן הוא חלק מהאיבר, והוא זז איתו.',
+      explain: [
+        'נראה שהמינוס של אחד המספרים נעלם כשסידרתם את השורה.',
+        'ב־$5 - 8 + 2$ האיבר האמצעי הוא $-8$, לא $8$. גם בסידור החדש הוא $-8$: $-8 + 5 + 2$, ושתי השורות שוות $-1$.',
+      ],
+      remedy: [
+        { kind: 'predict', fig: axis(-9, 3, [at(-8)]), text: 'איזו שורה היא הסידור של $5 - 8 + 2$, עם השליליים קודם?', choices: ['$-8 + 5 + 2$', '$8 + 5 + 2$'], answer: 0,
+          why: 'כל מספר זז עם הסימן שלפניו, ולכן $-8$ נשאר $-8$. בדיקה: $-8 + 5 + 2 = -1$, כמו $5 - 8 + 2$. ואילו $8 + 5 + 2 = 15$.' },
+        { kind: 'explore', text: 'בדקו על הציר: $-8 + 5 + 2$. מתחילים ב־$-8$.', display: '-8 + 5 + 2', manip: nl(-8), answer: -1,
+          hint: 'חמישה צעדים ימינה, ואז עוד שניים.', success: '$-8 + 5 + 2 = -1$, בדיוק כמו $5 - 8 + 2$. הסידור לא שינה את התוצאה.' },
+      ] },
+    { id: 'direction', title: 'זזו לכיוון ההפוך על הציר',
+      cause: 'הכיוון נקבע פעמיים: לפי הפעולה (חיבור או חיסור) ולפי הסימן של המספר השני.',
+      explain: ['חיבור של חיובי: ימינה. חיבור של שלילי: שמאלה.', 'חיסור הופך את הכיוון: חיסור של חיובי שמאלה, חיסור של שלילי ימינה.'],
+      remedy: [
+        { kind: 'explore', text: '$-1 + 4$: חיבור של חיובי.', display: '-1 + 4', manip: nl(-1), answer: 3, hint: 'חיבור של חיובי: ימינה.', success: '$-1 + 4 = 3$.' },
+        { kind: 'explore', text: '$-1 - 4$: אותו מספר, אבל חיסור. הכיוון מתהפך.', display: '-1 - 4', manip: nl(-1), answer: -5, hint: 'חיסור של חיובי: שמאלה.', success: '$-1 - 4 = -5$.' },
+      ] },
+  ],
+};
+
+// ---------------------------------------------------------------- shared helpers for stairs 2–5
+
+/** A permutation of a small list, from the seeded source (so a question can be reproduced). */
+const mix = <X>(arr: X[], rnd: () => number): X[] => {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i -= 1) { const j = Math.floor(rnd() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
+};
+/** Labelled markers to put on the line (the labels use the typographic minus, like the exercises). */
+const pins = (vals: number[], start: number[]) => ({ kind: 'pins' as const, min: -10, max: 10, labels: vals.map((v) => (v < 0 ? `−${-v}` : `${v}`)), start });
+const opTex = (s: number) => (s > 0 ? '+' : '-');
+/** Points in a story, with the number agreeing in Hebrew: "נקודה אחת", "$5$ נקודות". */
+const points = (n: number) => (n === 1 ? 'נקודה אחת' : `$${T(n)}$ נקודות`);
+const hadPoints = (who: string, n: number) => (n === 1 ? `${who} הייתה נקודה אחת` : n === -1 ? `${who} הייתה מינוס נקודה אחת` : `${who} היו $${T(n)}$ נקודות`);
+/**
+ * The end of a solution line that computes the points: "= 5$ נקודות", and one point said in words, after the maths:
+ * "= 1$, כלומר נקודה אחת" (council round 3: "$17 + (-16) = 1$ נקודות").
+ */
+const pointsEnd = (n: number) => (n === 1 ? ', כלומר נקודה אחת' : n === -1 ? ', כלומר מינוס נקודה אחת' : ' נקודות');
+
+// ---------------------------------------------------------------- stair 2: comparing
+// The model: the place on the line. Right is bigger; among negatives the one closer to zero is bigger.
+
+/**
+ * k 0: the largest of the numbers, k 1: the smallest. Five numbers in a question (two in a guided problem), with
+ * different distances from zero: picking one of the numbers shown is right only one time in five, so a check cannot be
+ * passed by typing a number from the question (src/learn/guessing.test.ts).
+ */
+// k 2: |a| ± |b| (v = [a, b], s = 0 plus, 1 minus); k 3: the opposite of a (v = [a], s = the form) (CLASSROOM-1)
+type Cmp = { k: number; v: number[]; s?: number };
+const absOf = (p: Cmp) => ({ k: p.s, a: p.v[0], b: p.v[1] });
+const oppOf = (p: Cmp) => ({ k: p.s, a: p.v[0] });
+const negOf = (p: Cmp) => p.v.filter((x) => x < 0);
+const listMath = (a: number[]) => `⁦${a.map((v) => `$${T(v)}$`).join(', ')}⁩`;
+const compareModel: DiagModel<Cmp> = {
+  // mostly negatives only (the heart of the stair); then negatives with zero or a positive closer to zero than some of
+  // them; and some with a positive farther from zero than every negative
+  params: (rnd) => {
+    // 15% absolute value and 15% the opposite, so checks see them too
+    const r0 = rnd();
+    if (r0 < 0.15) { const q = drawAbs(rnd); return { k: 2, v: [q.a, q.b], s: q.k }; }
+    if (r0 < 0.3) { const q = drawOpp(rnd); return { k: 3, v: [q.a], s: q.k }; }
+    const k = rnd() < 0.5 ? 0 : 1;
+    for (;;) {
+      const r = rnd();
+      const neg = (lo: number, hi: number) => [1, 2, 3, 4].map(() => -rint(rnd, lo, hi));
+      const v = r < 0.55 ? [...neg(1, 15), -rint(rnd, 1, 15)] : r < 0.85 ? [...neg(3, 15), rint(rnd, 0, 9)] : [...neg(1, 9), rint(rnd, 10, 15)];
+      const far = Math.max(...v.map(Math.abs));
+      // five different distances from zero, and a small positive (or zero) always nearer to zero than some negative
+      if (new Set(v.map(Math.abs)).size === 5 && !(r >= 0.55 && r < 0.85 && v[4] >= far)) return { k, v: mix(v, rnd) };
+    }
+  },
+  // the numbers in the sentence, one expression each inside a left-to-right isolate: they keep their order in Hebrew,
+  // and a narrow phone wraps the list between numbers (five do not fit one line of display maths at 320px)
+  text: (p) => (p.k === 2 ? 'חשבו:' : p.k === 3 ? oppText(oppOf(p)) : `מה המספר ${p.k === 0 ? 'הגדול' : 'הקטן'} ביותר מבין ${listMath(p.v)}?`),
+  display: (p) => (p.k === 2 ? absTex(absOf(p)) : p.k === 3 ? oppTex(oppOf(p)) : undefined) as string,
+  answer: (p) => (p.k === 2 ? absValue(absOf(p)) : p.k === 3 ? -p.v[0] : p.k === 0 ? Math.max(...p.v) : Math.min(...p.v)),
+  bugs: {
+    // among negatives, the one farther from zero taken for the bigger: the "largest" of negatives only is then the one
+    // farthest from zero, and the "smallest" negative the one closest to it (a positive or zero is still bigger)
+    'neg-compare': (p) => { if (p.k >= 2) return null; const n = negOf(p); if (n.length < 2) return null; return p.k === 0 ? (n.length === p.v.length ? Math.min(...n) : null) : Math.max(...n); },
+    // the minus ignored altogether: sizes compared, even against zero or a positive number
+    'ignore-sign': (p) => { if (p.k >= 2) return null; const byAbs = [...p.v].sort((x, y) => Math.abs(x) - Math.abs(y)); return p.k === 0 ? byAbs[byAbs.length - 1] : byAbs[0]; },
+    // the bars read as brackets: |−7| + |−5| as −7 + (−5)
+    'abs-keep-sign': (p) => (p.k === 2 ? absBug(absOf(p)) : null),
+    // the opposite of a written as a itself
+    'opp-same': (p) => (p.k === 3 ? p.v[0] : null),
+  },
+  solution: (p) => {
+    if (p.k === 2) return absSolution(absOf(p));
+    if (p.k === 3) return oppSolution(oppOf(p));
+    const s = [...p.v].sort((x, y) => x - y);
+    const ans = p.k === 0 ? s[s.length - 1] : s[0];
+    return [
+      negOf(p).length === p.v.length
+        ? 'כל המספרים שליליים. על הציר מי שקרוב יותר לאפס נמצא ימינה יותר, ולכן הוא גדול יותר.'
+        : 'השליליים נמצאים משמאל לאפס, ולכן הם קטנים מאפס ומכל מספר חיובי. ביניהם, הקרוב יותר לאפס גדול יותר.',
+      `מהקטן לגדול, כמו משמאל לימין על הציר: $${s.map((x) => T(x)).join(' < ')}$.`,
+      `${p.k === 0 ? 'הגדול ביותר' : 'הקטן ביותר'} הוא $${T(ans)}$.`,
+    ];
+  },
+  hint: (p) => (p.k === 2 ? ABS_HINT : p.k === 3 ? oppHint(oppOf(p)) : p.k === 0
+    ? 'הגדול ביותר הוא הימני ביותר על ציר המספרים. בין מספרים שליליים, הקרוב יותר לאפס גדול יותר.'
+    : 'הקטן ביותר הוא השמאלי ביותר על ציר המספרים. בין מספרים שליליים, הרחוק יותר מאפס קטן יותר.'),
+};
+
+type Temps = { k: number; v: number[] }; // k = 0: the coldest of three mornings; k = 1: the highest of three divers
+const tempsModel: DiagModel<Temps> = {
+  params: (rnd) => {
+    const k = rnd() < 0.6 ? 0 : 1;
+    for (;;) {
+      const v = k === 0 ? [-rint(rnd, 1, 12), -rint(rnd, 1, 12), rint(rnd, -3, 9)] : [-rint(rnd, 2, 30), -rint(rnd, 2, 30), -rint(rnd, 2, 30)];
+      if (new Set(v.map(Math.abs)).size === 3) return { k, v: mix(v, rnd) };
+    }
+  },
+  text: (p) => (p.k === 0
+    ? `בחרמון מדדו את הטמפרטורה בשלושה בקרים: ביום ראשון $${T(p.v[0])}^\\circ$, ביום שני $${T(p.v[1])}^\\circ$ וביום שלישי $${T(p.v[2])}^\\circ$. מה הייתה הטמפרטורה הנמוכה ביותר?`
+    : `שלושה צוללנים נמצאים מתחת לפני הים, בגבהים $${T(p.v[0])}$, $${T(p.v[1])}$ ו־$${T(p.v[2])}$ מטר (מתחת לפני הים הגובה שלילי). מה הגובה של הצוללן שנמצא הכי גבוה?`),
+  answer: (p) => (p.k === 0 ? Math.min(...p.v) : Math.max(...p.v)),
+  bugs: {
+    // "−9 > −2": the coldest is then the negative closest to zero, the highest the one farthest from it
+    'neg-compare': (p) => (p.k === 0 ? Math.max(...p.v.filter((x) => x < 0)) : Math.min(...p.v)),
+    // the distances compared without the signs: the coldest is the closest to zero, the highest the farthest
+    'ignore-sign': (p) => { const byAbs = [...p.v].sort((x, y) => Math.abs(x) - Math.abs(y)); return p.k === 0 ? byAbs[0] : byAbs[2]; },
+  },
+  solution: (p) => {
+    const sorted = [...p.v].sort((x, y) => x - y);
+    const order = `מהקטן לגדול: $${sorted.map((x) => T(x)).join(' < ')}$.`;
+    return p.k === 0
+      ? ['קר יותר פירושו מספר קטן יותר: על ציר המספרים, השמאלי ביותר.', order, `הכי קר היה ביום של $${T(sorted[0])}$ מעלות.`]
+      : ['גבוה יותר פירושו מספר גדול יותר, כמו על ציר מספרים שעומד. פני הים הם $0$.', 'שלושתם שליליים, ולכן הגבוה ביותר הוא הקרוב ביותר לאפס.', order, `הגבוה ביותר נמצא בגובה $${T(sorted[2])}$ מטר.`];
+  },
+  hint: (p) => (p.k === 0 ? 'הטמפרטורה הנמוכה ביותר היא המספר הקטן ביותר. איזה מספר נמצא הכי שמאלה על ציר המספרים?' : 'פני הים הם $0$. מי מהצוללנים הכי קרוב אליהם?'),
+};
+
+const stair2: StairContent = {
+  skill: 'signed:2', topic: 'signed', level: 2, title: 'השוואה וערך מוחלט',
+  objectives: [
+    'להשוות שני מספרים מכוונים לפי המקום שלהם על ציר המספרים.',
+    'להבין למה $-2 > -9$, למרות ש־$9 > 2$.',
+    'לסדר כמה מספרים מהקטן לגדול, גם עם אפס ומספרים חיוביים.',
+    'לחשב ערך מוחלט ולמצוא את המספר הנגדי, ולהבדיל בין "גדול יותר" ל"רחוק יותר מאפס".',
+  ],
+  idea: 'על ציר המספרים, מספר שנמצא ימינה יותר גדול יותר. לכן בין שני מספרים שליליים, הקרוב יותר לאפס הוא הגדול.',
+  why: [
+    'על הציר כל צעד ימינה מוסיף $1$. המספר הימני הוא מה שמקבלים כשמוסיפים מספר חיובי לשמאלי: $-2 = -9 + 7$, ולכן $-2 > -9$.',
+    'הנגדי הוא שיקוף סביב האפס, והשיקוף הופך את הסדר. $2 < 9$, ולכן אחרי השיקוף $-2 > -9$.',
+    'כל מספר שלילי נמצא משמאל לאפס וכל מספר חיובי מימינו. לכן כל שלילי קטן מאפס, ואפס קטן מכל חיובי.',
+  ],
+  alt: [
+    'חשבו על בניין עם חניון: קומה $-3$ נמצאת מתחת לקומה $-1$. נמוך יותר פירושו מספר קטן יותר, ולכן $-3 < -1$.',
+    'חשבו על חוב: מי שחייב $9$ ₪ ($-9$) במצב גרוע יותר ממי שחייב $2$ ₪ ($-2$). למי שחייב פחות יש יותר, ולכן $-2 > -9$.',
+    'אפשר לבדוק בחיסור, כמו במדרגה הקודמת: $a$ גדול מ־$b$ כש־$a - b$ חיובי. $-2 - (-9) = 7$, חיובי, ולכן $-2 > -9$.',
+  ],
+  discover: [
+    { kind: 'say', fig: { type: 'thermo', value: -3, min: -10, max: 10, anim: true }, mood: 'happy', text: 'במדרגה הזאת נשאל שאלה אחת: איזה מספר גדול יותר? עם מספרים חיוביים זה קל. עם שליליים כדאי להתחיל ממדחום.' },
+    { kind: 'predict', fig: HERMON, text: 'ביום ראשון בבוקר היו בחרמון $-3$ מעלות, וביום שני בבוקר $-8$ מעלות. מתי היה קר יותר?',
+      choices: ['ביום ראשון, ב־$-3$ מעלות', 'ביום שני, ב־$-8$ מעלות', 'קר באותה מידה'], answer: 1,
+      why: 'ב־$-8$ המדחום ירד 8 מעלות מתחת לאפס, וב־$-3$ רק 3. ככל שיורדים יותר מתחת לאפס, קר יותר.',
+      wrongWhy: { 0: '$-3$ הוא רק 3 מעלות מתחת לאפס. $-8$ הוא 8 מעלות מתחת לאפס, ושם קר יותר.', 2: 'המספרים שונים: אחד 3 מעלות מתחת לאפס, והשני 8.' } },
+    { kind: 'say', fig: HERMON, text: 'קר יותר פירושו טמפרטורה נמוכה יותר, כלומר מספר קטן יותר. לכן $-8$ קטן מ־$-3$, למרות ש־$8$ גדול מ־$3$.', display: '-8 < -3' },
+    { kind: 'explore', text: 'ציר המספרים הוא כמו מדחום ששוכב על הצד: למטה זה שמאלה. שימו את $-8$ ואת $-3$ במקום שלהם.', manip: pins([-8, -3], [1, 4]), answer: [-8, -3],
+      hint: 'מספר שלילי נמצא משמאל לאפס, במרחק שלו מאפס: $-8$ הוא שמונה צעדים שמאלה.', success: '$-8$ נמצא משמאל ל־$-3$. על הציר, מי שמשמאל קטן יותר.' },
+    { kind: 'predict', fig: axis(-8, 2, [{ x: -1 }, { x: -6 }]), text: 'על הציר, המספרים גדלים כשזזים ימינה. מה גדול יותר?', display: '-1 \\qquad -6', choices: ['$-1$', '$-6$'], answer: 0,
+      why: '$-1$ נמצא ימינה מ־$-6$, קרוב יותר לאפס. לכן $-1 > -6$.',
+      wrongWhy: { 1: '$6$ גדול מ־$1$, אבל $-6$ רחוק יותר שמאלה. אצל השליליים, רחוק יותר מאפס פירושו קטן יותר.' } },
+    { kind: 'explore', text: 'למה ימינה פירושו גדול יותר? מתחילים ב־$-9$. הזיזו את הסמן ל־$-2$, ושימו לב לקשת.', manip: nl(-9), answer: -2,
+      hint: '$-2$ קרוב יותר לאפס מ־$-9$. זזים לכיוון האפס.', success: 'זזתם 7 צעדים ימינה: $-9 + 7 = -2$. כדי להגיע ל־$-2$ צריך להוסיף, ולכן $-2$ גדול מ־$-9$.' },
+    { kind: 'rule', fig: axis(-10, 1, [at(-9), at(-2)], [jump(-9, -2, '+7')]), text: 'הכלל: על ציר המספרים, מספר שנמצא ימינה יותר גדול יותר. לכן בין שני מספרים שליליים, הקרוב יותר לאפס הוא הגדול.', display: '-2 > -9',
+      why: 'כל צעד ימינה מוסיף $1$. מ־$-9$ מגיעים ל־$-2$ כשמוסיפים $7$, ומה שמקבלים כשמוסיפים מספר חיובי גדול ממה שהיה.' },
+    { kind: 'predict', fig: axis(-10, 3, [{ x: -9 }, { x: 2 }]), text: 'ומה עם מספר שלילי מול מספר חיובי? מה גדול יותר?', display: '-9 \\qquad 2', choices: ['$-9$', '$2$'], answer: 1,
+      why: 'כל מספר שלילי נמצא משמאל לאפס, וכל מספר חיובי מימינו. לכן $2 > -9$: כל חיובי גדול מכל שלילי, לא משנה כמה רחוק השלילי.',
+      wrongWhy: { 0: '$9$ גדול מ־$2$, אבל המינוס הוא חלק מהמספר: $-9$ נמצא 9 צעדים משמאל לאפס, הרחק משמאל ל־$2$.' } },
+    // CLASSROOM-1: which number is bigger, and which is farther from zero, are two different questions
+    { kind: 'predict', fig: ARROWS, text: 'מה גדול יותר: $-9$ או $6$? ומה גדול יותר: $\\lvert -9 \\rvert$ או $\\lvert 6 \\rvert$?',
+      choices: ['$6$ גדול יותר, ו־$\\lvert -9 \\rvert$ גדול יותר', '$-9$ גדול יותר, וגם $\\lvert -9 \\rvert$', '$6$ גדול יותר, וגם $\\lvert 6 \\rvert$'], answer: 0,
+      why: '$-9 < 6$, כי $-9$ שמאלה יותר על הציר. אבל החץ של $-9$ ארוך יותר: $\\lvert -9 \\rvert = 9 > 6$.',
+      wrongWhy: { 1: 'החץ של $-9$ אכן ארוך יותר, אבל $-9$ עצמו נמצא משמאל לאפס, ולכן הוא קטן מ־$6$.', 2: '$6$ אכן גדול מ־$-9$. אבל הערך המוחלט הוא אורך החץ, ו־$-9$ רחוק יותר מאפס: $\\lvert -9 \\rvert = 9$.' } },
+    { kind: 'explore', text: 'שימו על הציר ארבעה מספרים: $-2$, $-7$, $4$ ו־$0$.', manip: pins([-2, -7, 4, 0], [-9, 9, -5, 2]), answer: [-2, -7, 4, 0],
+      hint: 'קודם את $0$, באמצע. השליליים משמאל לו, והחיובי מימינו.', success: 'משמאל לימין: $-7 < -2 < 0 < 4$. הסדר על הציר הוא הסדר מהקטן לגדול.' },
+    { kind: 'rule', fig: axis(-8, 5, [at(-7), at(-2), at(0), at(4)]), text: 'לסדר מהקטן לגדול פירושו לקרוא את הציר משמאל לימין. אפס גדול מכל מספר שלילי וקטן מכל מספר חיובי.', display: '-7 < -2 < 0 < 4',
+      why: '$-7$ הוא השיקוף של $7$ סביב האפס, ו־$-2$ השיקוף של $2$. שיקוף הופך את הסדר: $2 < 7$, ולכן $-2 > -7$.' },
+  ],
+  examples: [
+    { problem: 'איזה מספר גדול יותר?', display: '-12 \\qquad -5', answer: -5, check: 'max(-12, -5)', fig: axis(-14, 2, [at(-12), at(-5)]),
+      steps: [
+        { action: 'בודקים סימנים: שני המספרים שליליים, ולכן שניהם משמאל לאפס.', why: 'כשהסימנים שונים, החיובי גדול. כששניהם שליליים, צריך לבדוק מי ימינה יותר.', result: '-12 < 0, \\quad -5 < 0' },
+        { action: 'משווים את המרחקים מאפס: $12$ ו־$5$.', why: '$-5$ נמצא 5 צעדים משמאל לאפס, ו־$-12$ נמצא 12 צעדים. $-5$ קרוב יותר לאפס.', result: '5 < 12', calc: { expr: 'abs(-5)', value: 5 } },
+        { action: 'הקרוב יותר לאפס הוא הגדול.', why: 'מ־$-12$ זזים 7 צעדים ימינה ומגיעים ל־$-5$: $-12 + 7 = -5$. תזוזה ימינה מגדילה.', result: '-5 > -12', value: '-12 + 7', fig: axis(-14, 2, [at(-12), at(-5)], [jump(-12, -5, '+7')]) },
+      ] },
+    { problem: 'בבוקר חורפי נמדדו: בברלין $-2$ מעלות, במוסקבה $-9$, בפריז $3$ ובוורשה $-4$. סדרו את הערים מהקרה לחמה. מה הטמפרטורה הנמוכה ביותר?', display: '-2, \\quad -9, \\quad 3, \\quad -4', answer: -9, check: 'min(-2, -9, 3, -4)', fig: axis(-10, 4, [at(-9), at(-4), at(-2), at(3)]),
+      steps: [
+        { action: 'החיובי לבד בסוף: $3$ הוא החם ביותר.', why: 'כל מספר חיובי גדול מכל מספר שלילי: הוא מימין לאפס, והם משמאל.', result: '3', calc: { expr: 'max(-2, -9, 3, -4)', value: 3 } },
+        { action: 'בין השליליים, הקר ביותר הוא הרחוק ביותר מאפס.', why: '$-9$ הוא 9 מעלות מתחת לאפס, יותר מ־$-4$ ומ־$-2$. ככל שיורדים יותר מתחת לאפס, קר יותר.', result: '-9 < -4 < -2', value: '-9' },
+        { action: 'כותבים את כל הסדר: מוסקבה, ורשה, ברלין, פריז.', why: 'מהקטן לגדול הוא בדיוק הסדר משמאל לימין על הציר.', result: '-9 < -4 < -2 < 3', value: 'min(-2, -9, 3, -4)' },
+      ] },
+  ],
+  together: [
+    { problem: 'איזה מספר גדול יותר? נחליט יחד.', display: '-15 \\qquad -4', fig: axis(-16, 2, [at(-15), at(-4)]),
+      steps: [
+        { prompt: 'מה בודקים קודם?', choices: [
+          { text: 'את הסימנים: שני המספרים שליליים', ok: true, feedback: 'נכון. כששניהם שליליים, בודקים מי קרוב יותר לאפס.' },
+          { text: 'מי גדול יותר, $15$ או $4$', ok: false, misc: ['ignore-sign', 'neg-compare'], feedback: 'זה משווה רק מרחקים מאפס. אצל השליליים, מרחק גדול יותר פירושו מספר קטן יותר.' },
+          { text: 'איזה מספר כתוב ראשון', ok: false, feedback: 'הסדר שבו המספרים כתובים לא משנה. משנה איפה הם על הציר.' },
+        ], hints: ['באיזה צד של האפס נמצא כל מספר?', 'לשני המספרים יש מינוס, ולכן שניהם משמאל לאפס.'], done: '$-15$ ו־$-4$ שניהם משמאל לאפס.' },
+        { prompt: 'מי מהם נמצא ימינה יותר על הציר?', choices: [
+          { text: '$-4$, כי הוא קרוב יותר לאפס', ok: true, feedback: 'נכון: $-4$ רק 4 צעדים משמאל לאפס, ו־$-15$ 15 צעדים.' },
+          { text: '$-15$, כי $15 > 4$', ok: false, misc: 'neg-compare', feedback: 'ל־$-15$ צריך ללכת 15 צעדים שמאלה מאפס. הוא רחוק יותר שמאלה, ולכן קטן יותר.' },
+        ], hints: ['מי צריך ללכת פחות צעדים שמאלה מהאפס?', '$-4$ הוא 4 צעדים שמאלה, $-15$ הוא 15 צעדים שמאלה.'], done: '$-4$ נמצא ימינה ל־$-15$.' },
+      ],
+      final: { prompt: 'כתבו את המספר הגדול יותר.', answer: -4, check: 'max(-15, -4)', hints: ['ימינה על הציר פירושו גדול יותר.', 'הגדול הוא זה שנמצא רק 4 צעדים משמאל לאפס.'] } },
+    { problem: 'מה המספר הקטן ביותר?', display: '-3, \\quad 0, \\quad -11, \\quad 2', fig: axis(-12, 4, [at(-11), at(-3), at(0), at(2)]),
+      steps: [
+        { prompt: 'איפה מחפשים את הקטן ביותר?', choices: [
+          { text: 'בין המספרים השליליים', ok: true, feedback: 'נכון: השליליים משמאל לאפס, ולכן קטנים מכל השאר.' },
+          { text: 'באפס, כי אפס הוא "כלום"', ok: false, misc: 'ignore-sign', feedback: 'אפס גדול מכל מספר שלילי: $-3$ ו־$-11$ נמצאים משמאל לו.' },
+          { text: 'ב־$2$, כי הוא המספר החיובי הקטן', ok: false, feedback: 'מספר חיובי גדול מכל מספר שלילי, וגם מאפס.' },
+        ], hints: ['אילו מספרים נמצאים משמאל לאפס?', 'השליליים כאן הם $-3$ ו־$-11$.'], done: 'הקטן ביותר הוא $-3$ או $-11$.' },
+        { prompt: 'בין $-3$ ל־$-11$, מי קטן יותר?', choices: [
+          { text: '$-11$, כי הוא רחוק יותר שמאלה', ok: true, feedback: 'נכון: $-11$ נמצא 11 צעדים משמאל לאפס.' },
+          { text: '$-3$, כי $3 < 11$', ok: false, misc: 'neg-compare', feedback: '$-3$ קרוב יותר לאפס, ולכן הוא דווקא הגדול מבין השניים.' },
+        ], hints: ['מי רחוק יותר משמאל לאפס?', 'אצל השליליים: רחוק יותר מאפס פירושו קטן יותר.'], done: '$-11 < -3$' },
+      ],
+      final: { prompt: 'כתבו את המספר הקטן ביותר.', answer: -11, check: 'min(-3, 0, -11, 2)', hints: ['הסדר המלא, משמאל לימין: מתחילים מהשלילי הרחוק ביותר.', 'הוא נמצא 11 צעדים משמאל לאפס.'] } },
+  ],
+  diag: compareModel,
+  transfer: tempsModel,
+  misconceptions: [
+    { id: 'neg-compare', title: 'חשבו שבין שני מספרים שליליים, הרחוק יותר מאפס גדול יותר',
+      cause: 'אצל מספרים חיוביים, רחוק יותר מאפס פירושו גדול יותר. קל להעביר את זה לשליליים, אבל שם זה הפוך: $-9$ רחוק יותר שמאלה, ולכן קטן יותר.',
+      explain: [
+        'נראה שמה שמבלבל הוא השוואה בין שני מספרים שליליים.',
+        'גדול יותר פירושו ימינה יותר על הציר. $-2$ קרוב יותר לאפס מ־$-9$, ולכן הוא ימינה יותר: $-2 > -9$.',
+        'בדיקה: כדי להגיע מ־$-9$ ל־$-2$ צריך להוסיף $7$. מה שמקבלים אחרי הוספה הוא הגדול.',
+      ],
+      remedy: [
+        { kind: 'explore', text: 'מתחילים ב־$-7$. הזיזו את הסמן ל־$-2$.', manip: nl(-7), answer: -2, hint: 'מ־$-7$ ל־$-2$ זזים לכיוון האפס.', success: 'זזתם ימינה, כלומר הוספתם: $-7 + 5 = -2$. לכן $-2$ גדול מ־$-7$.' },
+        { kind: 'predict', text: 'דני חייב $9$ ₪, כלומר יש לו $-9$. רוני חייב $2$ ₪, כלומר יש לו $-2$. למי יש יותר כסף?', choices: ['לדני', 'לרוני'], answer: 1,
+          why: 'לרוני חסרים רק $2$ ₪ כדי להגיע לאפס, ולדני $9$. לכן $-2 > -9$.' },
+        { kind: 'explore', text: 'שימו על הציר את $-9$, $-2$ ו־$-5$.', manip: pins([-9, -2, -5], [0, 3, 6]), answer: [-9, -2, -5], hint: 'כל אחד מהם משמאל לאפס, במרחק שלו מאפס.', success: 'מהקטן לגדול: $-9 < -5 < -2$. ככל שהמספר רחוק יותר שמאלה, הוא קטן יותר.' },
+      ] },
+    { id: 'abs-keep-sign', title: 'חישבו ערך מוחלט של מספר שלילי כאילו הוא נשאר שלילי ($\\lvert -7 \\rvert = -7$)',
+      cause: 'הערך המוחלט הוא מרחק: כמה צעדים יש בין המספר לבין $0$. מרחק אף פעם לא שלילי, גם כשהולכים שמאלה.',
+      explain: [
+        'נראה שהקווים של הערך המוחלט נקראו כמו סוגריים, והמינוס נשאר.',
+        '$\\lvert -7 \\rvert$ שואל כמה צעדים יש בין $-7$ לבין $0$. יש $7$ צעדים, ולכן $\\lvert -7 \\rvert = 7$.',
+      ],
+      remedy: [
+        { kind: 'say', fig: axis(-8, 2, [at(-7)], [jump(0, -7, '7')]), text: 'החץ של $-7$ יוצא מ־$0$ והולך שמאלה. הכיוון הוא הסימן, והאורך הוא $7$ צעדים.' },
+        { kind: 'predict', fig: axis(-8, 2, [at(-7)]), text: 'כמה צעדים יש בין $-7$ לבין $0$? זה הערך המוחלט.', display: '\\lvert -7 \\rvert', choices: ['$7$', '$-7$'], answer: 0,
+          why: 'סופרים צעדים: מ־$-7$ עד $0$ יש $7$ צעדים. מרחק תמיד חיובי, ולכן $\\lvert -7 \\rvert = 7$.' },
+        { kind: 'predict', fig: axis(-7, 1, [at(-6), at(-3)], [jump(0, -6, '6'), jump(0, -3, '3')]), text: 'ועכשיו שני ערכים מוחלטים. כמה זה?', display: '\\lvert -6 \\rvert + \\lvert -3 \\rvert', choices: ['$9$', '$-9$', '$3$'], answer: 0,
+          why: '$\\lvert -6 \\rvert = 6$ ו־$\\lvert -3 \\rvert = 3$: שני אורכים של חצים. $6 + 3 = 9$.' },
+      ] },
+    { id: 'opp-same', title: 'כתבו את אותו מספר במקום הנגדי שלו',
+      cause: 'הנגדי הוא לא אותו מספר: הוא נמצא באותו מרחק מאפס, אבל בצד השני. לכן הסימן מתהפך.',
+      explain: [
+        'נראה שנשאר אותו מספר, עם אותו סימן.',
+        'הנגדי של $-6$ נמצא $6$ צעדים מאפס, בצד ימין: $6$. בודקים: $-6 + 6 = 0$.',
+      ],
+      remedy: [
+        { kind: 'say', fig: axis(-8, 8, [at(-6), at(6)], [jump(0, -6, '6'), jump(0, 6, '6')]), text: '$-6$ ו־$6$ נמצאים שניהם $6$ צעדים מאפס, משני הצדדים. לכן הם מספרים נגדיים.' },
+        { kind: 'predict', fig: axis(-10, 10, [at(9)]), text: 'מה הנגדי של $9$?', choices: ['$9$', '$-9$'], answer: 1,
+          why: '$9$ נמצא 9 צעדים מימין לאפס. הנגדי שלו נמצא 9 צעדים משמאל: $-9$. בודקים: $9 + (-9) = 0$.' },
+        { kind: 'explore', text: 'כמה זה $-(-4)$, הנגדי של $-4$? הזיזו את הסמן אליו.', display: '-(-4)', manip: nl(0), answer: 4,
+          hint: '$-4$ נמצא 4 צעדים משמאל לאפס. הנגדי שלו באותו מרחק, מימין.', success: '$-(-4) = 4$: אותו מרחק מאפס, בצד השני.' },
+      ] },
+    { id: 'ignore-sign', title: 'השוו את המספרים בלי הסימן, כאילו $-9$ גדול מ־$2$',
+      cause: 'המינוס הוא חלק מהמספר. הוא אומר שהמספר משמאל לאפס, ולכן קטן מאפס ומכל מספר חיובי, גם כשהמרחק שלו מאפס גדול.',
+      explain: [
+        'נראה שהשוויתם רק את המרחקים מאפס: $9$ מול $2$.',
+        'אבל $-9$ נמצא בצד השני של האפס. כל מספר שלילי קטן מאפס, ואפס קטן מכל מספר חיובי: $-9 < 0 < 2$.',
+      ],
+      remedy: [
+        { kind: 'predict', text: 'מה חם יותר: $-9$ מעלות או $2$ מעלות?', choices: ['$-9$ מעלות', '$2$ מעלות'], answer: 1,
+          why: '$2$ מעלות זה מעל האפס, ו־$-9$ זה תשע מעלות מתחת לאפס. חם יותר פירושו מספר גדול יותר: $2 > -9$.' },
+        { kind: 'explore', text: 'שימו על הציר את $-9$, $2$ ו־$0$.', manip: pins([-9, 2, 0], [5, -5, 8]), answer: [-9, 2, 0], hint: 'אפס באמצע. מספר עם מינוס הולך שמאלה מהאפס.', success: '$-9$ משמאל לאפס ו־$2$ מימינו: $-9 < 0 < 2$.' },
+        { kind: 'predict', text: 'מה גדול יותר?', display: '0 \\qquad -5', choices: ['$0$', '$-5$'], answer: 0,
+          why: 'אפס גדול מכל מספר שלילי: $-5$ נמצא חמישה צעדים משמאל לו.' },
+      ] },
+  ],
+};
+
+// ---------------------------------------------------------------- stair 3: multiplying and dividing
+// The model: multiplying is repeated adding (jumps on the line); a pattern table shows why (−)·(−) is (+);
+// dividing is the inverse of multiplying, so it keeps the same sign rule.
+
+type MulDiv = { f: number; a: number; b: number; c: number }; // f = 0: a·b, 1: a : b, 2: a·b·c
+const mdValue = (p: MulDiv) => (p.f === 0 ? p.a * p.b : p.f === 1 ? p.a / p.b : p.a * p.b * p.c);
+const mdShow = (p: MulDiv) => (p.f === 0 ? `${T(p.a, true)} \\cdot ${T(p.b, true)}`
+  : p.f === 1 ? `${T(p.a, true)} : ${T(p.b, true)}` : `${T(p.a, true)} \\cdot ${T(p.b, true)} \\cdot ${T(p.c, true)}`);
+/** The answer the sign rule of ADDITION gives (same signs keep the sign; different signs take the sign of the farther). */
+const addRuleSign = (a: number, b: number, value: number): number | null => {
+  const m = Math.abs(value);
+  if (sgn(a) === sgn(b)) return sgn(a) * m;
+  if (Math.abs(a) === Math.abs(b)) return null;
+  return (Math.abs(a) > Math.abs(b) ? sgn(a) : sgn(b)) * m;
+};
+
+const mulDivModel: DiagModel<MulDiv> = {
+  params: (rnd) => {
+    const r = rnd();
+    if (r < 0.45) { // two factors, at least one negative
+      let a = rint(rnd, 2, 12); let b = rint(rnd, 2, 9);
+      if (rnd() < 0.4) { a = -a; b = -b; } else if (rnd() < 0.5) a = -a; else b = -b;
+      return { f: 0, a, b, c: 1 };
+    }
+    if (r < 0.8) { // a division that comes out whole
+      let b = rint(rnd, 2, 9); let q = rint(rnd, 2, 10);
+      if (rnd() < 0.4) b = -b; else { q = -q; if (rnd() < 0.5) b = -b; }
+      return { f: 1, a: q * b, b, c: 1 };
+    }
+    // three factors: three, two or one of them negative
+    const neg = rnd() < 0.5 ? 3 : rnd() < 0.6 ? 2 : 1;
+    const v = [rint(rnd, 2, 5), rint(rnd, 2, 5), rint(rnd, 2, 5)];
+    mix([0, 1, 2], rnd).slice(0, neg).forEach((i) => { v[i] = -v[i]; });
+    return { f: 2, a: v[0], b: v[1], c: v[2] };
+  },
+  text: () => 'חשבו:',
+  display: mdShow,
+  answer: mdValue,
+  bugs: {
+    // the size is right, the sign is not
+    sign: (p) => -mdValue(p),
+    // the sign rule of addition used for × and ÷: (−3)·(−4) = −12, 8·(−2) = +16
+    'add-sign': (p) => (p.f === 2 ? null : addRuleSign(p.a, p.b, mdValue(p))),
+    // "minus times minus is plus" stretched to three negative factors
+    'neg-many': (p) => (p.f === 2 && p.a < 0 && p.b < 0 && p.c < 0 ? -mdValue(p) : null),
+  },
+  solution: (p) => {
+    const ans = mdValue(p);
+    if (p.f === 2) {
+      const n = [p.a, p.b, p.c].filter((x) => x < 0).length;
+      return [
+        `סופרים גורמים שליליים: ${n}. ${n % 2 === 0 ? 'מספר זוגי: כל זוג מינוסים נותן פלוס, והתוצאה חיובית.' : 'מספר אי־זוגי: נשאר מינוס אחד, והתוצאה שלילית.'}`,
+        `הגודל: $${Math.abs(p.a)} \\cdot ${Math.abs(p.b)} \\cdot ${Math.abs(p.c)} = ${Math.abs(ans)}$`,
+        `התשובה: $${T(ans)}$`,
+      ];
+    }
+    const out = [
+      `הסימן: ${sgn(p.a) === sgn(p.b) ? 'סימנים זהים, לכן התוצאה חיובית' : 'סימנים שונים, לכן התוצאה שלילית'}.`,
+      `הגודל: $${Math.abs(p.a)} ${p.f === 0 ? '\\cdot' : ':'} ${Math.abs(p.b)} = ${Math.abs(ans)}$`,
+      `התשובה: $${T(ans)}$`,
+    ];
+    if (p.f === 1) out.push(`בדיקה בכפל: $${T(ans, true)} \\cdot ${T(p.b, true)} = ${T(p.a)}$`);
+    return out;
+  },
+  hint: (p) => (p.f === 2
+    ? 'כפלו שניים שניים, או ספרו את הגורמים השליליים: מספר זוגי נותן חיובי, מספר אי־זוגי נותן שלילי.'
+    : `קודם הסימן: סימנים זהים נותנים חיובי, סימנים שונים נותנים שלילי. אחר כך הגודל, בלי הסימנים.${p.f === 1 ? ' את החילוק אפשר לבדוק בכפל.' : ''}`),
+};
+
+type Rate = { k: number; r: number; t: number }; // a temperature that falls r degrees an hour; k = 0 later, 1 earlier, 2 the rate itself
+const rateValue = (p: Rate) => (p.k === 0 ? -p.t * p.r : p.k === 1 ? p.t * p.r : -p.r);
+const rateModel: DiagModel<Rate> = {
+  params: (rnd) => ({ k: rint(rnd, 0, 2), r: rint(rnd, 2, 6), t: rint(rnd, 2, 6) }),
+  text: (p) => (p.k === 0
+    ? `בלילה הטמפרטורה יורדת באותו קצב: $${p.r}$ מעלות בכל שעה. בכמה מעלות היא תשתנה בעוד $${p.t}$ שעות? (ירידה כותבים כמספר שלילי.)`
+    : p.k === 1
+      ? `בלילה הטמפרטורה יורדת באותו קצב: $${p.r}$ מעלות בכל שעה. עכשיו $0$ מעלות. כמה מעלות היו לפני $${p.t}$ שעות?`
+      : `במשך $${p.t}$ שעות הטמפרטורה ירדה בסך הכול $${p.t * p.r}$ מעלות, באותו קצב בכל שעה. מה השינוי בכל שעה? (ירידה כותבים כמספר שלילי.)`),
+  answer: rateValue,
+  bugs: {
+    sign: (p) => -rateValue(p),
+    // the factors are t·(−r), (−t)·(−r) and (−t·r) : t
+    'add-sign': (p) => (p.k === 0 ? addRuleSign(p.t, -p.r, rateValue(p)) : p.k === 1 ? addRuleSign(-p.t, -p.r, rateValue(p)) : addRuleSign(-p.t * p.r, p.t, rateValue(p))),
+  },
+  solution: (p) => (p.k === 0
+    ? [`כל שעה השינוי הוא $${T(-p.r)}$. בעוד $${p.t}$ שעות: $${p.t} \\cdot ${T(-p.r, true)}$.`, `סימנים שונים, לכן שלילי: $${p.t} \\cdot ${T(-p.r, true)} = ${T(-p.t * p.r)}$.`, `הטמפרטורה תרד ${p.t * p.r} מעלות: שינוי של $${T(-p.t * p.r)}$.`]
+    : p.k === 1
+      ? [`זמן שעבר הוא זמן שלילי: לפני $${p.t}$ שעות זה $${T(-p.t)}$.`, `הטמפרטורה אז: $${T(-p.t, true)} \\cdot ${T(-p.r, true)} = ${p.t * p.r}$ מעלות.`, `בדיקה: מ־$${p.t * p.r}$ מעלות ירדה $${p.t}$ פעמים $${p.r}$ מעלות והגיעה ל־$0$.`]
+      : [`השינוי הכולל הוא $${T(-p.t * p.r)}$, ומחלקים אותו ל־$${p.t}$ שעות.`, `סימנים שונים, לכן שלילי: $${T(-p.t * p.r, true)} : ${p.t} = ${T(-p.r)}$.`, `בדיקה: $${p.t} \\cdot ${T(-p.r, true)} = ${T(-p.t * p.r)}$.`]),
+  hint: (p) => (p.k === 0 ? 'כל שעה מוסיפה עוד שינוי של ירידה. כופלים את מספר השעות בשינוי של שעה אחת.'
+    : p.k === 1 ? 'חשבו על סרטון שרץ אחורה: כשחוזרים בזמן, הירידה הופכת לעלייה. זמן שעבר הוא זמן שלילי.'
+      : 'שינוי בשעה אחת = השינוי הכולל חלקי מספר השעות. ירידה היא שינוי שלילי.'),
+};
+
+const aligned = (rows: string[]) => `\\begin{aligned} ${rows.join(' \\\\ ')} \\end{aligned}`;
+
+const stair3: StairContent = {
+  skill: 'signed:3', topic: 'signed', level: 3, title: 'כפל וחילוק',
+  objectives: [
+    'לכפול ולחלק מספרים מכוונים: קודם הסימן, אחר כך הגודל.',
+    'להבין למה שלילי כפול שלילי יוצא חיובי.',
+    'לבדוק חילוק בעזרת כפל, ולקבוע את הסימן של מכפלה של כמה גורמים.',
+  ],
+  idea: 'כפל הוא חיבור חוזר, וכפל במספר שלילי הופך את הכיוון. לכן סימנים זהים נותנים תוצאה חיובית וסימנים שונים נותנים תוצאה שלילית, וגם בחילוק.',
+  why: [
+    'כפל הוא חיבור חוזר: $3 \\cdot (-2) = (-2) + (-2) + (-2) = -6$, שלוש קפיצות שמאלה.',
+    'בדפוס $3 \\cdot (-2) = -6$, $2 \\cdot (-2) = -4$, $1 \\cdot (-2) = -2$, $0 \\cdot (-2) = 0$ התוצאה גדלה ב־$2$ בכל שורה. כדי שהדפוס ימשיך, $(-1) \\cdot (-2) = 2$.',
+    'חילוק בודקים בכפל: $(-12) : (-3) = 4$ כי $4 \\cdot (-3) = -12$. לכן לחילוק יש אותו כלל סימנים כמו לכפל.',
+  ],
+  alt: [
+    'סרטון של מדחום: הטמפרטורה יורדת $2$ מעלות בכל שעה, שינוי של $-2$. אם מריצים את הסרטון $3$ שעות אחורה, זמן $-3$, רואים אותה עולה $6$ מעלות: $(-3) \\cdot (-2) = 6$.',
+    'כפל ב־$-1$ הוא מעבר לנגדי, שיקוף סביב האפס. $(-3) \\cdot (-2)$ הוא הנגדי של $3 \\cdot (-2) = -6$, כלומר $6$.',
+    'בחוק הפילוג: $(-1) \\cdot (-2) + 1 \\cdot (-2) = (-1 + 1) \\cdot (-2) = 0$. מכיוון ש־$1 \\cdot (-2) = -2$, המספר $(-1) \\cdot (-2)$ חייב להיות $2$.',
+  ],
+  discover: [
+    { kind: 'say', fig: axis(0, 12, [at(0)], [jump(0, 4, '+4'), jump(4, 8, '+4'), jump(8, 12, '+4')], true), mood: 'happy', text: 'כפל הוא קיצור של חיבור חוזר: $3 \\cdot 4$ הוא $4 + 4 + 4$. מה קורה כשהמספר שחוזר הוא שלילי?', display: '3 \\cdot (-2) = (-2) + (-2) + (-2)' },
+    { kind: 'explore', text: 'מתחילים באפס וקופצים שלוש פעמים $-2$. כל קפיצה היא 2 צעדים שמאלה.', display: '(-2) + (-2) + (-2)', manip: nl(0), answer: -6,
+      hint: 'שלוש קפיצות של 2 צעדים שמאלה: 6 צעדים שמאלה מהאפס.', success: '$3 \\cdot (-2) = -6$. חיובי כפול שלילי יוצא שלילי. ובכפל הסדר לא משנה, ולכן גם $(-2) \\cdot 3 = -6$.' },
+    { kind: 'say', fig: axis(-7, 3, [at(-6), at(-4), at(-2), at(0)]), text: 'אבל מה זה $(-1) \\cdot (-2)$? אי אפשר לחבר משהו "מינוס פעם אחת". אז נחפש דפוס.' },
+    { kind: 'predict', fig: axis(-7, 3, [at(-6), at(-4), at(-2), at(0)], [jump(-6, -4, '+2'), jump(-4, -2, '+2'), jump(-2, 0, '+2')]), text: 'בכל שורה הגורם הראשון קטן ב־$1$. מה קורה לתוצאה? מה יבוא בשורה האחרונה?',
+      display: aligned(['3 \\cdot (-2) &= -6', '2 \\cdot (-2) &= -4', '1 \\cdot (-2) &= -2', '0 \\cdot (-2) &= 0', '(-1) \\cdot (-2) &= \\;?']),
+      choices: ['$-2$', '$2$', '$0$'], answer: 1,
+      why: 'בכל שורה התוצאה גדלה ב־$2$: $-6, -4, -2, 0$. כדי שהדפוס ימשיך, $(-1) \\cdot (-2) = 2$.',
+      wrongWhy: { 0: '$-2$ שובר את הדפוס: התוצאה גדלה ב־2 בכל שורה, ופתאום הייתה יורדת.', 2: '$0$ כבר הופיע בשורה של $0 \\cdot (-2)$. השורה הבאה ממשיכה לגדול ב־2.' } },
+    { kind: 'explore', text: 'המשיכו את הדפוס עוד שתי שורות: $(-2) \\cdot (-2)$, ואחריו $(-3) \\cdot (-2)$. הזיזו את הסמן לתוצאה של $(-3) \\cdot (-2)$.', display: '(-3) \\cdot (-2)', manip: nl(0), answer: 6,
+      hint: 'בכל שורה מוסיפים $2$: $(-1) \\cdot (-2) = 2$, אחר כך $4$, ואחר כך...', success: '$(-3) \\cdot (-2) = 6$. שלילי כפול שלילי יוצא חיובי: זה הנגדי של $3 \\cdot (-2) = -6$.' },
+    { kind: 'rule', fig: axis(-7, 7, [at(-6), at(6)], [jump(0, -6, '3·(−2)'), jump(0, 6, '(−3)·(−2)')]), text: 'כלל הסימנים בכפל: סימנים זהים נותנים תוצאה חיובית, סימנים שונים נותנים תוצאה שלילית. את הגודל מחשבים בלי הסימנים.',
+      display: '\\begin{aligned} (+) \\cdot (+) &= (+) & (-) \\cdot (-) &= (+) \\\\ (+) \\cdot (-) &= (-) & (-) \\cdot (+) &= (-) \\end{aligned}',
+      why: 'כפל ב־$-1$ הופך מספר לנגדי שלו, שיקוף סביב האפס. לכן $(-3) \\cdot (-2)$ הוא הנגדי של $3 \\cdot (-2) = -6$, כלומר $6$. מינוס אחד הופך את הכיוון, ומינוס שני מחזיר אותו.' },
+    { kind: 'predict', fig: axis(-12, 12, [at(-12)], [jump(0, 4, '+4'), jump(4, 8, '+4'), jump(8, 12, '+4')]), text: 'חילוק הוא הפעולה ההפוכה לכפל: $12 : 3 = 4$, כי $4 \\cdot 3 = 12$. אז כמה זה $(-12) : 3$? חפשו מספר שכפול $3$ נותן $-12$.', display: '(-12) : 3',
+      choices: ['$4$', '$-4$', '$-36$'], answer: 1,
+      why: '$(-4) \\cdot 3 = -12$, ולכן $(-12) : 3 = -4$. סימנים שונים, תוצאה שלילית, כמו בכפל.',
+      wrongWhy: { 0: '$4 \\cdot 3 = 12$, לא $-12$.', 2: '$-36$ הוא $(-12) \\cdot 3$. כאן מחלקים.' } },
+    { kind: 'explore', text: 'ועכשיו $(-12) : (-3)$: איזה מספר כפול $-3$ נותן $-12$? הזיזו את הסמן אליו.', display: '(-12) : (-3)', manip: nl(0), answer: 4,
+      hint: 'נסו את $-4$: $(-4) \\cdot (-3)$ יוצא חיובי, לא $-12$. חפשו בצד השני של האפס.', success: '$4 \\cdot (-3) = -12$, ולכן $(-12) : (-3) = 4$. גם בחילוק, סימנים זהים נותנים חיובי.' },
+    { kind: 'rule', fig: axis(-14, 2, [at(-12)], [jump(0, -3, '−3'), jump(-3, -6, '−3'), jump(-6, -9, '−3'), jump(-9, -12, '−3')]), text: 'בחילוק אותו כלל סימנים כמו בכפל: סימנים זהים נותנים חיובי, סימנים שונים נותנים שלילי.', display: '4 \\cdot (-3) = -12 \\;\\Rightarrow\\; (-12) : (-3) = 4',
+      why: 'כל חילוק אפשר לבדוק בכפל. אם $(-12) : (-3)$ היה $-4$, אז $(-4) \\cdot (-3)$ היה צריך להיות $-12$. אבל $(-4) \\cdot (-3) = 12$, ולכן התשובה היא $4$.' },
+    // CLASSROOM-3: dividing with 0 and 1, checked by multiplying (0 is written 0, never −0)
+    { kind: 'rule', fig: axis(-8, 8, [at(0), at(-6)]), text: '$(-6) : 0$ לא מוגדר: אין מספר שכפול $0$ נותן $-6$. אבל את $0$ אפשר לחלק, וגם לחלק ב־$1$ וב־$-1$.',
+      display: aligned(['0 : (-6) &= 0', '(-6) : 1 &= -6', '(-6) : (-1) &= 6']),
+      why: 'בודקים בכפל: $0 \\cdot (-6) = 0$, $(-6) \\cdot 1 = -6$ ו־$6 \\cdot (-1) = -6$. אבל כל מספר כפול $0$ נותן $0$, אף פעם לא $-6$, ולכן לחילוק באפס אין תשובה.' },
+    { kind: 'predict', fig: axis(-4, 4, [at(-2), at(2)], [jump(-2, 2, '·(−1)')]), text: 'ומה עם שלושה גורמים? בלי לחשב את הגודל: התוצאה חיובית או שלילית?', display: '(-2) \\cdot (-1) \\cdot (-3)', choices: ['חיובית', 'שלילית'], answer: 1,
+      why: 'כופלים שניים שניים: $(-2) \\cdot (-1) = 2$, ואז $2 \\cdot (-3) = -6$. כל זוג מינוסים נותן פלוס. כשמספר הגורמים השליליים אי־זוגי, נשאר מינוס אחד והתוצאה שלילית.',
+      wrongWhy: { 0: 'כל זוג מינוסים נותן פלוס. עם שלושה מינוסים, אחד נשאר בלי זוג.' } },
+  ],
+  examples: [
+    { problem: 'חשבו:', display: '(-7) \\cdot (-6)', answer: 42, check: '(-7) * (-6)',
+      steps: [
+        { action: 'קובעים קודם את הסימן: שני הגורמים שליליים.', why: 'סימנים זהים נותנים תוצאה חיובית, כמו בדפוס שבו $(-1) \\cdot (-2) = 2$.', result: '(-) \\cdot (-) = (+)' },
+        { action: 'מחשבים את הגודל, בלי הסימנים.', why: 'הסימן כבר ידוע, ונשאר רק כמה: $7 \\cdot 6$.', result: '7 \\cdot 6 = 42', calc: { expr: '7 * 6', value: 42 } },
+        { action: 'מחברים את הסימן לגודל.', why: 'התוצאה חיובית, ולכן $42$ ולא $-42$.', result: '(-7) \\cdot (-6) = 42', value: '42', fig: axisBy(-48, 48, 6, [at(-42), at(42)], [jump(0, -42, '7·(\u22126)'), jump(0, 42, '(\u22127)·(\u22126)')]) },
+        { action: 'בודקים בחילוק.', why: 'חילוק הוא הפעולה ההפוכה: אם $(-7) \\cdot (-6) = 42$, אז $42 : (-6)$ מחזיר $-7$.', result: '42 : (-6) = -7', calc: { expr: '42 : (-6)', value: -7 } },
+      ] },
+    { problem: 'צוללת ירדה $36$ מטר ב־$4$ דקות, באותו קצב בכל דקה. מה השינוי בגובה שלה בכל דקה?', display: '(-36) : 4', answer: -9, check: '(-36) : 4', fig: axisBy(-45, 9, 9, [at(-36)], [jump(0, -36, '\u221236')]),
+      steps: [
+        { action: 'ירידה היא שינוי שלילי: השינוי הכולל הוא $-36$, ומחלקים אותו ל־$4$ דקות.', why: 'בכל דקה אותו שינוי, ולכן מחלקים את השינוי הכולל במספר הדקות.', result: '(-36) : 4', value: '(-36) : 4' },
+        { action: 'הסימן: שלילי חלקי חיובי.', why: 'סימנים שונים נותנים תוצאה שלילית.', result: '(-) : (+) = (-)' },
+        { action: 'הגודל: $36 : 4 = 9$, עם הסימן השלילי.', why: 'מחשבים בלי הסימנים, ואז מוסיפים את הסימן שקבענו.', result: '(-36) : 4 = -9', value: '-9', calc: { expr: '36 : 4', value: 9 } },
+        { action: 'בודקים בכפל ומפרשים.', why: '$4$ דקות, בכל אחת $-9$ מטר: $4 \\cdot (-9) = -36$. הצוללת יורדת 9 מטר בכל דקה.', result: '4 \\cdot (-9) = -36', calc: { expr: '4 * (-9)', value: -36 }, fig: axisBy(-45, 9, 9, [at(-36)], hops(0, -9, 4)) },
+      ] },
+  ],
+  together: [
+    { problem: 'נפתור יחד.', display: '(-48) : (-6)', fig: axisBy(-54, 6, 6, [at(-48)], [jump(0, -6, '\u22126')]),
+      steps: [
+        { prompt: 'מה מחליטים קודם?', choices: [
+          { text: 'את הסימן: לשני המספרים אותו סימן, אז התוצאה חיובית', ok: true, feedback: 'נכון: סימנים זהים בחילוק נותנים חיובי.' },
+          { text: 'את הסימן: שני המספרים שליליים, אז התוצאה שלילית', ok: false, misc: ['add-sign', 'sign'], feedback: 'זה כלל של חיבור: $(-48) + (-6)$ באמת שלילי. בכפל ובחילוק, סימנים זהים נותנים חיובי.' },
+          { text: 'את הסימן: הוא של המספר הרחוק יותר מאפס, $-48$', ok: false, misc: 'add-sign', feedback: 'גם זה כלל של חיבור. בחילוק לא משנה מי גדול יותר, רק אם הסימנים זהים או שונים.' },
+        ], hints: ['האם לשני המספרים יש אותו סימן?', 'סימנים זהים, בכפל או בחילוק, נותנים תוצאה חיובית.'], done: 'התוצאה חיובית.' },
+        { prompt: 'ואיך בודקים את התשובה?', choices: [
+          { text: 'כופלים אותה ב־$-6$, וצריך לצאת $-48$', ok: true, feedback: 'נכון: חילוק בודקים בכפל.' },
+          { text: 'מחברים אותה ל־$-6$, וצריך לצאת $-48$', ok: false, feedback: 'חילוק הוא ההפך של כפל, לא של חיבור.' },
+        ], hints: ['איזו פעולה הפוכה לחילוק?', 'אם $a : b = c$, אז $c \\cdot b = a$.'], done: 'בודקים: התשובה כפול $-6$ צריכה לתת $-48$.' },
+      ],
+      final: { prompt: 'כמה זה $(-48) : (-6)$?', answer: 8, check: '(-48) : (-6)', hints: ['כמה זה $48 : 6$? והסימן חיובי.', 'בדיקה: $8 \\cdot (-6) = -48$.'] } },
+    { problem: 'ועכשיו שלושה גורמים.', display: '(-2) \\cdot 5 \\cdot (-3)',
+      steps: [
+        { prompt: 'איך מתחילים?', choices: [
+          { text: 'כופלים שניים, משמאל: $(-2) \\cdot 5$', ok: true, feedback: 'נכון: כופלים שניים שניים.' },
+          { text: 'יש שלושה מספרים, אז התוצאה שלילית', ok: false, misc: 'sign', feedback: 'סופרים רק את הגורמים השליליים, לא את כל המספרים. כאן יש שניים: $-2$ ו־$-3$.' },
+          { text: 'מחברים: $-2 + 5 - 3$', ok: false, feedback: 'בין המספרים יש סימני כפל, לא חיבור.' },
+        ], hints: ['אפשר לכפול רק שניים בכל פעם.', 'מתחילים ב־$(-2) \\cdot 5$: סימנים שונים.'], done: '$(-2) \\cdot 5 = -10$', fig: axis(-12, 2, [], hops(0, -2, 5)) },
+        { prompt: 'נשאר $(-10) \\cdot (-3)$. מה הסימן?', choices: [
+          { text: 'חיובי', ok: true, feedback: 'נכון: סימנים זהים.' },
+          { text: 'שלילי', ok: false, misc: 'sign', feedback: 'לשני המספרים אותו סימן, ולכן התוצאה חיובית.' },
+        ], hints: ['האם לשני המספרים אותו סימן?', 'שני גורמים שליליים: המינוסים מתבטלים.'], done: 'התוצאה חיובית.' },
+      ],
+      final: { prompt: 'כמה זה?', answer: 30, check: '(-2) * 5 * (-3)', hints: ['$10 \\cdot 3$, והסימן חיובי.', 'שני גורמים שליליים, מספר זוגי: התוצאה חיובית.'] } },
+  ],
+  diag: mulDivModel,
+  transfer: rateModel,
+  misconceptions: [
+    { id: 'sign', title: 'הסימן של המכפלה או של המנה יצא הפוך',
+      cause: 'הגודל חושב נכון, אבל הסימן נקבע לא לפי הכלל, למשל לפי הסימן של אחד המספרים בלבד.',
+      explain: [
+        'המספר יצא נכון, רק הסימן התהפך.',
+        'בכפל ובחילוק מחליטים על הסימן לפני החישוב, ובודקים רק דבר אחד: האם לשני המספרים אותו סימן. אותו סימן: חיובי. סימנים שונים: שלילי.',
+      ],
+      remedy: [
+        { kind: 'explore', text: '$4 \\cdot (-2)$ הוא ארבע קפיצות של $-2$. מתחילים באפס.', display: '(-2) + (-2) + (-2) + (-2)', manip: nl(0), answer: -8, hint: 'כל קפיצה היא 2 צעדים שמאלה.', success: '$4 \\cdot (-2) = -8$. סימנים שונים: שלילי.' },
+        { kind: 'predict', text: 'בלי לחשב את הגודל: חיובי או שלילי?', display: '(-5) \\cdot (-7)', choices: ['חיובי', 'שלילי'], answer: 0, why: 'לשני המספרים אותו סימן, ולכן התוצאה חיובית: $(-5) \\cdot (-7) = 35$.' },
+        { kind: 'predict', text: 'ובחילוק?', display: '(-20) : (-4)', choices: ['$5$', '$-5$'], answer: 0, why: 'בודקים בכפל: $5 \\cdot (-4) = -20$. סימנים זהים נותנים חיובי.' },
+      ] },
+    { id: 'add-sign', title: 'השתמשו בכלל הסימנים של חיבור, למשל $(-3) \\cdot (-4) = -12$',
+      cause: 'בחיבור, שני מספרים שליליים נותנים שלילי, וכשהסימנים שונים קובע הרחוק יותר מאפס. בכפל ובחילוק הכלל אחר, כי זו פעולה אחרת.',
+      explain: [
+        'בחיבור מחברים תזוזות: שתי תזוזות שמאלה הן תזוזה שמאלה, ולכן $(-3) + (-4) = -7$.',
+        'בכפל, כפל במספר שלילי הופך כיוון. שני היפוכים מחזירים לכיוון החיובי: $(-3) \\cdot (-4) = 12$.',
+        'ובכפל לא משנה מי גדול יותר: $8 \\cdot (-2) = -16$, למרות ש־$8$ חיובי ורחוק יותר מאפס.',
+      ],
+      remedy: [
+        { kind: 'predict', text: 'המשיכו את הדפוס.', display: aligned(['2 \\cdot (-4) &= -8', '1 \\cdot (-4) &= -4', '0 \\cdot (-4) &= 0', '(-1) \\cdot (-4) &= \\;?']), choices: ['$-4$', '$4$'], answer: 1,
+          why: 'בכל שורה התוצאה גדלה ב־$4$: $-8, -4, 0$, ואז $4$. לכן $(-1) \\cdot (-4) = 4$, לא $-4$.' },
+        { kind: 'predict', text: 'אותם שני מספרים, שתי פעולות. מה התוצאות?', display: '(-3) + (-4) \\qquad (-3) \\cdot (-4)', choices: ['$-7$ ו־$12$', '$-7$ ו־$-12$', '$7$ ו־$12$'], answer: 0,
+          why: 'בחיבור, שתי תזוזות שמאלה: $-7$. בכפל, שלילי כפול שלילי: $12$. לכל פעולה כלל משלה.' },
+        { kind: 'explore', text: 'ב־$5 \\cdot (-2)$ המספר החיובי רחוק יותר מאפס. בדקו מה יוצא: חמש קפיצות של $-2$ מאפס.', display: '(-2) + (-2) + (-2) + (-2) + (-2)', manip: nl(0), answer: -10,
+          hint: 'כל קפיצה היא 2 צעדים שמאלה. חמש קפיצות.', success: '$5 \\cdot (-2) = -10$. סימנים שונים נותנים שלילי, לא משנה מי גדול יותר.' },
+      ] },
+    { id: 'div-zero', title: 'חשבו שחילוק באפס נותן $0$ או את המספר עצמו (חילוק באפס לא מוגדר)',
+      cause: 'חילוק בודקים בכפל. כל מספר כפול $0$ נותן $0$, ולכן אין מספר שכפול $0$ נותן $-6$: לחילוק באפס אין תשובה.',
+      explain: [
+        'נראה שחילוק באפס נראה כמו חילוק רגיל.',
+        '$(-6) : 0$ שואל: איזה מספר כפול $0$ נותן $-6$? אין מספר כזה, ולכן אומרים שחילוק באפס לא מוגדר.',
+      ],
+      remedy: [
+        { kind: 'predict', fig: axis(-8, 8, [at(0), at(-6)]), text: 'בודקים בכפל: איזה מספר כפול $0$ נותן $-6$?', choices: ['$0$', '$-6$', 'אין מספר כזה'], answer: 2,
+          why: '$0 \\cdot 0 = 0$, וגם $(-6) \\cdot 0 = 0$: כל מספר כפול $0$ נותן $0$, אף פעם לא $-6$. לכן $(-6) : 0$ לא מוגדר.',
+          wrongWhy: { 0: '$0 \\cdot 0 = 0$, לא $-6$.', 1: '$(-6) \\cdot 0 = 0$, לא $-6$.' } },
+        { kind: 'say', fig: axis(-8, 8, [at(0), at(-6)]), text: 'חילוק באפס לא מוגדר. אבל את האפס עצמו אפשר לחלק: $0 : (-6) = 0$, כי $0 \\cdot (-6) = 0$.' },
+      ] },
+    { id: 'zero-div', title: 'חשבו ש־$0$ חלקי מספר לא מוגדר (התוצאה $0$)',
+      cause: 'רק חלוקה באפס לא מוגדרת. כשהאפס הוא המספר שמחלקים, יש תשובה: $0$ חלקי כל מספר הוא $0$.',
+      explain: [
+        'נראה שהאפס בחילוק הזכיר את החילוק באפס.',
+        '$0 : (-6)$ שואל: איזה מספר כפול $-6$ נותן $0$? התשובה היא $0$, כי $0 \\cdot (-6) = 0$.',
+      ],
+      remedy: [
+        { kind: 'predict', text: 'בודקים בכפל: איזה מספר כפול $-6$ נותן $0$?', choices: ['$0$', 'אין מספר כזה'], answer: 0,
+          why: '$0 \\cdot (-6) = 0$, ולכן $0 : (-6) = 0$. רק חילוק באפס לא מוגדר.' },
+      ] },
+    { id: 'neg-many', title: 'חשבו שכפל של שלושה מספרים שליליים יוצא חיובי',
+      cause: 'זוכרים ש"מינוס כפול מינוס זה פלוס", אבל שוכחים שאחרי שני המינוסים הראשונים נשאר עוד אחד.',
+      explain: [
+        'כופלים שניים שניים: $(-2) \\cdot (-3) = 6$, ואז $6 \\cdot (-1) = -6$.',
+        'כל זוג מינוסים נותן פלוס. כשמספר הגורמים השליליים זוגי, התוצאה חיובית. כשהוא אי־זוגי, נשאר מינוס אחד והתוצאה שלילית.',
+      ],
+      remedy: [
+        { kind: 'predict', text: 'בכל שורה מוסיפים עוד גורם $-1$. מה יוצא בשורה האחרונה?', display: aligned(['(-1) &= -1', '(-1) \\cdot (-1) &= 1', '(-1) \\cdot (-1) \\cdot (-1) &= \\;?']), choices: ['$1$', '$-1$'], answer: 1,
+          why: 'כל גורם $-1$ הופך את הסימן: $-1$, אחר כך $1$, ואחר כך שוב $-1$.' },
+        { kind: 'explore', text: 'חשבו שניים שניים, והזיזו את הסמן לתוצאה.', display: '(-2) \\cdot (-3) \\cdot (-1)', manip: nl(0), answer: -6,
+          hint: 'קודם $(-2) \\cdot (-3) = 6$. ואז $6 \\cdot (-1)$.', success: '$(-2) \\cdot (-3) \\cdot (-1) = -6$. שלושה גורמים שליליים: נשאר מינוס אחד.' },
+      ] },
+  ],
+};
+
+// ---------------------------------------------------------------- stair 4: order of operations
+// The model: a product is shorthand for repeated adding, so it is one package that is worked out first.
+
+type Ord = { f: number; a: number; b: number; c: number; s: number }; // f = 0: a ± b·c, 1: a·b ± c, 2: a ± b : c
+/** What is added or subtracted at the end, and what it is added to. */
+const ordTerm = (p: Ord) => (p.f === 0 ? p.b * p.c : p.f === 1 ? p.c : p.b / p.c);
+const ordBase = (p: Ord) => (p.f === 1 ? p.a * p.b : p.a);
+const ordValue = (p: Ord) => ordBase(p) + p.s * ordTerm(p);
+const ordShow = (p: Ord) => (p.f === 0 ? `${T(p.a)} ${opTex(p.s)} ${T(p.b, true)} \\cdot ${T(p.c, true)}`
+  : p.f === 1 ? `${T(p.a)} \\cdot ${T(p.b, true)} ${opTex(p.s)} ${T(p.c, true)}` : `${T(p.a)} ${opTex(p.s)} ${T(p.b, true)} : ${T(p.c, true)}`);
+
+const orderModel: DiagModel<Ord> = {
+  params: (rnd) => {
+    const r = rnd(); const s = rnd() < 0.55 ? -1 : 1;
+    if (r < 0.45) return { f: 0, a: rnz(rnd, -10, 10), b: rnz(rnd, -6, 6), c: rnz(rnd, -6, 6), s };
+    if (r < 0.7) return { f: 1, a: rnz(rnd, -6, 6), b: rnz(rnd, -6, 6), c: rnz(rnd, -10, 10), s };
+    const c = (rnd() < 0.5 ? -1 : 1) * rint(rnd, 2, 5); const q = rnz(rnd, -6, 6);
+    return { f: 2, a: rnz(rnd, -10, 10), b: c * q, c, s };
+  },
+  text: () => 'חשבו:',
+  display: ordShow,
+  answer: ordValue,
+  bugs: {
+    // left to right: the first two numbers combined before the multiplication or division
+    order: (p) => (p.f === 0 ? (p.a + p.s * p.b) * p.c : p.f === 2 ? (p.a + p.s * p.b) / p.c : null),
+    // the product (or the last number) is negative and subtracted, but it was subtracted as if positive
+    'minus-minus': (p) => (p.s < 0 && ordTerm(p) < 0 ? ordBase(p) + ordTerm(p) : null),
+    // the order is right, the sign of the product or quotient is not
+    'mul-sign': (p) => (p.f === 1 ? -ordBase(p) + p.s * ordTerm(p) : ordBase(p) - p.s * ordTerm(p)),
+  },
+  solution: (p) => {
+    const t = ordTerm(p); const base = ordBase(p); const ans = ordValue(p); const out: string[] = [];
+    if (p.f === 0) out.push(`קודם הכפל: $${T(p.b, true)} \\cdot ${T(p.c, true)} = ${T(t)}$`);
+    if (p.f === 1) out.push(`קודם הכפל: $${T(p.a, true)} \\cdot ${T(p.b, true)} = ${T(base)}$`);
+    if (p.f === 2) out.push(`קודם החילוק: $${T(p.b, true)} : ${T(p.c, true)} = ${T(t)}$`);
+    out.push(`נשאר ${p.s > 0 ? 'חיבור' : 'חיסור'}: $${T(base)} ${opTex(p.s)} ${T(t, true)}$`);
+    if (p.s < 0 && t < 0) out.push(`חיסור של מספר שלילי הוא חיבור: $${T(base)} + ${-t} = ${T(ans)}$`);
+    out.push(`התשובה: $${T(ans)}$`);
+    return out;
+  },
+  hint: (p) => `כפל וחילוק לפני חיבור וחיסור. חשבו קודם את ${p.f === 2 ? 'החילוק' : 'הכפל'}, עם הסימן שלו.${p.s < 0 && ordTerm(p) < 0 ? ' אחר כך זכרו: חיסור של מספר שלילי הוא חיבור.' : ''}`,
+};
+
+type Quiz = { k: number; s: number; w: number; q: number }; // s points, w wrong answers of −q each; k = 1: those w are cancelled
+const quizValue = (p: Quiz) => (p.k === 0 ? p.s - p.w * p.q : p.s + p.w * p.q);
+const quizModel: DiagModel<Quiz> = {
+  params: (rnd) => { const k = rnd() < 0.5 ? 0 : 1; return { k, s: k === 0 ? rint(rnd, -10, 20) : rint(rnd, -20, 10), w: rint(rnd, 2, 6), q: rint(rnd, 2, 5) }; },
+  text: (p) => (p.k === 0
+    ? `בחידון כל תשובה שגויה מורידה $${p.q}$ נקודות. ${hadPoints('לדנה', p.s)}, ואז היא טעתה ב־$${p.w}$ שאלות. כמה נקודות יש לה עכשיו?`
+    : `בחידון כל תשובה שגויה מורידה $${p.q}$ נקודות. ${hadPoints('לדנה', p.s)}. אחר כך התברר ש־$${p.w}$ טעויות נרשמו לה בטעות, והן בוטלו. כמה נקודות יש לה עכשיו?`),
+  answer: quizValue,
+  bugs: {
+    order: (p) => (p.k === 0 ? (p.s + p.w) * -p.q : (p.s - p.w) * -p.q),
+    // cancelling (subtracting) the penalties, but subtracting them again
+    'minus-minus': (p) => (p.k === 1 ? p.s - p.w * p.q : null),
+    // w·(−q) taken as positive
+    'mul-sign': (p) => (p.k === 0 ? p.s + p.w * p.q : p.s - p.w * p.q),
+  },
+  solution: (p) => {
+    const prod = -p.w * p.q; const ans = quizValue(p);
+    return p.k === 0
+      ? [`כל טעות היא $${T(-p.q)}$ נקודות: $${T(p.s)} + ${p.w} \\cdot ${T(-p.q, true)}$.`, `קודם הכפל: $${p.w} \\cdot ${T(-p.q, true)} = ${T(prod)}$.`, `עכשיו: $${T(p.s)} + ${T(prod, true)} = ${T(ans)}$${pointsEnd(ans)}.`]
+      : [`ביטול הוא חיסור של מה שנרשם: $${T(p.s)} - ${p.w} \\cdot ${T(-p.q, true)}$.`, `קודם הכפל: $${p.w} \\cdot ${T(-p.q, true)} = ${T(prod)}$.`, `חיסור של שלילי הוא חיבור: $${T(p.s)} + ${p.w * p.q} = ${T(ans)}$${pointsEnd(ans)}.`];
+  },
+  hint: (p) => (p.k === 0 ? 'כמה נקודות הורידו כל הטעויות יחד? זה כפל, ומחשבים אותו קודם.' : 'ביטול של טעות מחזיר את הנקודות שהיא הורידה. כמה נקודות הורידו כל הטעויות האלה יחד?'),
+};
+
+const stair4: StairContent = {
+  skill: 'signed:4', topic: 'signed', level: 4, title: 'סדר פעולות',
+  objectives: [
+    'לחשב תרגיל עם כמה פעולות לפי הסדר: כפל וחילוק לפני חיבור וחיסור.',
+    'להבין למה הכפל בא קודם: הוא קיצור של חיבור חוזר.',
+    'לשמור על הסימנים לאורך הדרך, גם כשמחסרים מכפלה שלילית.',
+  ],
+  idea: 'בתרגיל עם כמה פעולות, כל מכפלה ומנה היא חבילה שמחשבים קודם, עם הסימן שלה. מה שנשאר הוא חיבור וחיסור, משמאל לימין.',
+  why: [
+    '$5 + 3 \\cdot (-2)$ הוא $5 + (-2) + (-2) + (-2)$. הכפל הוא רק דרך קצרה לכתוב את החיבור החוזר, ולכן מחשבים אותו כיחידה אחת: $5 + (-6) = -1$.',
+    'משמאל לימין היה יוצא $(5 + 3) \\cdot (-2) = -16$: כאילו $-2$ חוזר 8 פעמים במקום 3.',
+    'פעולות מאותה דרגה עושים משמאל לימין. חיסור הוא חיבור של הנגדי: $10 - 4 + 3 = 10 + (-4) + 3$, וכל מספר שומר על הסימן שלו.',
+  ],
+  alt: [
+    'בקנייה: לחמנייה ב־$3$ ₪ ו־$4$ שוקו ב־$5$ ₪ כל אחד. משלמים $3 + 4 \\cdot 5 = 23$ ₪, לא $(3 + 4) \\cdot 5 = 35$.',
+    'סמנו כל מכפלה ומנה בקו מתחת, כמו חבילה. חשבו כל חבילה לבד. מה שנשאר הוא רק חיבור וחיסור.',
+    'במשחק: היו לכם $5$ נקודות וטעיתם 3 פעמים, כל טעות $-2$. ההפסד הוא $3 \\cdot (-2) = -6$, ונשארו $5 - 6 = -1$ נקודות.',
+  ],
+  discover: [
+    { kind: 'say', fig: axis(-3, 12, [at(5)], [], true), mood: 'happy', text: 'בתרגיל עם כמה פעולות, השאלה היא מה עושים קודם. נתחיל מסיפור.' },
+    { kind: 'predict', fig: axis(-3, 12, [at(5)], [jump(5, 3, '−2')]), text: 'לרוני היו $5$ נקודות במשחק. אחר כך הוא טעה 3 פעמים, וכל טעות מורידה $2$ נקודות. כמה נקודות יש לו עכשיו?', display: '5 + 3 \\cdot (-2)',
+      choices: ['$-1$', '$-16$', '$11$'], answer: 0,
+      why: 'שלוש טעויות של $-2$ הן $3 \\cdot (-2) = -6$. מ־$5$ נקודות יורדים 6: $5 + (-6) = -1$.',
+      wrongWhy: { 1: '$-16$ יוצא משמאל לימין: $5 + 3 = 8$, ואז $8 \\cdot (-2)$. אבל רק הטעויות חוזרות שלוש פעמים, לא ה־$5$ נקודות שהיו.', 2: 'טעות מורידה נקודות, ולכן המכפלה שלילית: $3 \\cdot (-2) = -6$, לא $6$.' } },
+    { kind: 'explore', text: 'ב־$5 + 3 \\cdot (-2)$ הכפל הוא שלוש קפיצות של $-2$. מתחילים ב־$5$ וקופצים.', display: '5 + (-2) + (-2) + (-2)', manip: nl(5), answer: -1,
+      hint: 'כל קפיצה היא 2 צעדים שמאלה. שלוש קפיצות מ־$5$.', success: '$5 + 3 \\cdot (-2) = -1$. הכפל הוא קיצור של שלוש הקפיצות, ולכן הוא חבילה אחת.' },
+    { kind: 'rule', fig: axis(-3, 7, [at(5), at(-1)], [jump(5, -1, '3·(−2)')]), text: 'סדר פעולות: קודם כפל וחילוק, אחר כך חיבור וחיסור.', display: '5 + \\underbrace{3 \\cdot (-2)}_{-6} = 5 + (-6) = -1',
+      why: 'כפל הוא קיצור של חיבור חוזר: $3 \\cdot (-2)$ הוא $(-2) + (-2) + (-2)$. כדי שהקיצור ייתן את אותה תוצאה כמו החיבור המלא, מחשבים אותו כיחידה אחת, לפני שמחברים אליו משהו אחר.' },
+    { kind: 'predict', fig: axis(-12, 2, [at(-6)]), text: 'חילוק הוא הפעולה ההפוכה לכפל, וגם הוא בא לפני חיסור. כמה זה?', display: '-6 - 12 : 3', choices: ['$-10$', '$-6$', '$-2$'], answer: 0,
+      why: 'קודם החילוק: $12 : 3 = 4$. ואז $-6 - 4 = -10$.',
+      wrongWhy: { 1: '$-6$ יוצא מ־$(-6 - 12) : 3$, כאילו החיסור קודם. בלי סוגריים, החילוק קודם.', 2: '$-2$ יוצא מ־$-6 + 4$. אבל את $4$ מחסרים.' } },
+    { kind: 'say', fig: axis(-8, 2, [at(-6), at(-2)], [jump(-6, -2, '−(−4)')]), text: 'שיטה שעוזרת: מסמנים כל מכפלה ומנה כחבילה, ומחשבים אותה עם הסימן שלה. מה שנשאר הוא רק חיבור וחיסור.', display: '\\underbrace{2 \\cdot (-3)}_{-6} - \\underbrace{(-8) : 2}_{-4} = -6 - (-4) = -2' },
+    { kind: 'predict', fig: axis(-2, 16, [at(7)]), text: 'עכשיו מחסרים מכפלה שלילית. כמה זה?', display: '7 - 2 \\cdot (-4)', choices: ['$-1$', '$15$', '$-20$'], answer: 1,
+      why: 'המכפלה: $2 \\cdot (-4) = -8$. נשאר $7 - (-8)$, וחיסור של $-8$ הוא חיבור של $8$: $15$.',
+      wrongWhy: { 0: '$-1$ יוצא מ־$7 - 8$. אבל המכפלה היא $-8$, וחיסור של מספר שלילי הוא חיבור.', 2: '$-20$ יוצא משמאל לימין: $(7 - 2) \\cdot (-4)$. הכפל קודם.' } },
+    { kind: 'explore', text: 'בדקו על הציר, עם מספרים קטנים יותר: ב־$1 - 2 \\cdot (-4)$ המכפלה היא $-8$, ונשאר $1 - (-8)$. מתחילים ב־$1$.', display: '1 - (-8)', manip: nl(1), answer: 9,
+      hint: 'חיסור של $-8$ מזיז ימינה 8.', success: '$1 - 2 \\cdot (-4) = 1 - (-8) = 9$. קודם הכפל, ואז חיסור של שלילי: ימינה.' },
+    { kind: 'predict', fig: axis(0, 12, [at(10)]), text: 'ומה כשיש רק חיבור וחיסור? כמה זה?', display: '10 - 4 + 3', choices: ['$9$', '$3$'], answer: 0,
+      why: 'משמאל לימין: $10 - 4 = 6$, ואז $6 + 3 = 9$.',
+      wrongWhy: { 1: '$3$ יוצא מ־$10 - (4 + 3)$: כאילו מחסרים גם את $3$. אבל לפני $3$ כתוב פלוס.' } },
+    { kind: 'rule', fig: axis(0, 12, [at(10), at(6), at(9)], [jump(10, 6, '−4'), jump(6, 9, '+3')]), text: 'פעולות מאותה דרגה (רק חיבור וחיסור, או רק כפל וחילוק) עושים משמאל לימין.', display: '10 - 4 + 3 = 10 + (-4) + 3 = 9',
+      why: 'חיסור הוא חיבור של הנגדי. כשכותבים $10 - 4 + 3$ כ־$10 + (-4) + 3$, כל מספר שומר על הסימן שלו: רק $4$ מחוסר, ו־$3$ מחובר.' },
+  ],
+  examples: [
+    { problem: 'חשבו:', display: '-4 + 6 \\cdot (-3) - 10 : (-2)', answer: -17, check: '-4 + 6 * (-3) - 10 : (-2)',
+      steps: [
+        { action: 'מסמנים את החבילות ומחשבים כל אחת עם הסימן שלה.', why: 'כפל וחילוק קודמים. $6 \\cdot (-3)$: סימנים שונים, שלילי. $10 : (-2)$: סימנים שונים, שלילי.', result: '-4 + \\underbrace{6 \\cdot (-3)}_{-18} - \\underbrace{10 : (-2)}_{-5}', calc: { expr: '6 * (-3)', value: -18 } },
+        { action: 'כותבים מחדש: נשארים רק חיבור וחיסור.', why: 'כל חבילה הפכה למספר אחד, עם הסימן שלו.', result: '-4 + (-18) - (-5)', value: '-4 + (-18) - (-5)', calc: { expr: '10 : (-2)', value: -5 } },
+        { action: 'מחשבים משמאל לימין: $-4 + (-18)$.', why: 'אותו סימן: מחברים מרחקים ושומרים על המינוס.', result: '-22 - (-5)', value: '-22 - (-5)', calc: { expr: '-4 + (-18)', value: -22 }, fig: axis(-24, 0, [at(-4)], [jump(-4, -22, '\u221218')]) },
+        { action: 'חיסור של $-5$ הוא חיבור של $5$.', why: 'כמו במדרגה הראשונה: חיסור של שלילי מזיז ימינה.', result: '-22 + 5 = -17', value: '-22 + 5', fig: axis(-24, 0, [at(-22)], [jump(-22, -17, '\u2212(\u22125)')]) },
+      ] },
+    { problem: 'בחידון כל תשובה נכונה מוסיפה $4$ נקודות, וכל תשובה שגויה מורידה $3$. מאיה ענתה נכון על $5$ שאלות וטעתה ב־$7$. כמה נקודות יש לה?', display: '5 \\cdot 4 + 7 \\cdot (-3)', answer: -1, check: '5 * 4 + 7 * (-3)', fig: QUIZ,
+      steps: [
+        { action: 'כותבים תרגיל: נכונות כפול $4$, ועוד שגויות כפול $-3$.', why: 'כל קבוצה של תשובות דומות היא חיבור חוזר, ולכן כפל. הורדה היא מספר שלילי.', result: '5 \\cdot 4 + 7 \\cdot (-3)', value: '5 * 4 + 7 * (-3)' },
+        { action: 'מחשבים את שתי המכפלות.', why: 'כפל לפני חיבור. $7 \\cdot (-3)$: סימנים שונים, שלילי.', result: '20 + (-21)', value: '20 + (-21)', calc: { expr: '7 * (-3)', value: -21 } },
+        { action: 'מחברים: סימנים שונים, מחסרים מרחקים.', why: '$21 - 20 = 1$, והסימן של $-21$, הרחוק יותר מאפס. לכן למאיה נקודה אחת מתחת לאפס: הטעויות הורידו יותר ממה שהתשובות הנכונות הוסיפו.', result: '20 + (-21) = -1', value: '-1', calc: { expr: '21 - 20', value: 1 }, fig: axis(-4, 22, [at(20)], [jump(20, -1, '\u221221')]) },
+      ] },
+  ],
+  together: [
+    { problem: 'נפתור יחד.', display: '9 - 3 \\cdot (-5)',
+      steps: [
+        { prompt: 'מה מחשבים קודם?', choices: [
+          { text: '$3 \\cdot (-5)$', ok: true, feedback: 'נכון: כפל לפני חיסור.' },
+          { text: '$9 - 3$', ok: false, misc: 'order', feedback: 'ה־$3$ שייך לכפל: שלוש פעמים $-5$. ה־$9$ לא חוזר, ולכן לא מתחילים בו.' },
+          { text: '$9 \\cdot (-5)$', ok: false, feedback: 'מכפילים את שני המספרים שמשני הצדדים של סימן הכפל: $3$ ו־$-5$.' },
+        ], hints: ['איזו פעולה באה קודם: חיסור או כפל?', 'כפל קודם: מכפילים את שני המספרים הצמודים לסימן הכפל.'], done: '$3 \\cdot (-5) = -15$', fig: axis(-17, 2, [], hops(0, -5, 3)) },
+        { prompt: 'עכשיו $9 - (-15)$. איך ממשיכים?', choices: [
+          { text: '$9 + 15$', ok: true, feedback: 'נכון: חיסור של $-15$ הוא חיבור של $15$.' },
+          { text: '$9 - 15$', ok: false, misc: 'minus-minus', feedback: 'זה חיסור של $15$. כאן מחסרים $-15$, וחיסור של שלילי הוא חיבור.' },
+        ], hints: ['מה עושה חיסור של מספר שלילי?', 'חיסור של מספר הוא חיבור של הנגדי שלו. הנגדי של $-15$ הוא $15$.'], done: '$9 - (-15) = 9 + 15$' },
+      ],
+      final: { prompt: 'כמה זה?', answer: 24, check: '9 - 3 * (-5)', hints: ['$9 + 15$', '$9 + 10 = 19$, ועוד $5$.'] } },
+    { problem: 'ועוד אחד, עם שתי חבילות.', display: '-2 \\cdot 4 + 18 : (-6)',
+      steps: [
+        { prompt: 'אילו חבילות יש כאן?', choices: [
+          { text: '$-2 \\cdot 4$ ו־$18 : (-6)$', ok: true, feedback: 'נכון: מכפלה אחת ומנה אחת.' },
+          { text: '$4 + 18$', ok: false, misc: 'order', feedback: 'החיבור מחכה לסוף. ה־$4$ שייך לכפל, וה־$18$ שייך לחילוק.' },
+        ], hints: ['איפה יש סימן כפל או חילוק?', 'כל סימן כפל או חילוק קושר את שני המספרים שצמודים אליו.'], done: '$-2 \\cdot 4 = -8$, ו־$18 : (-6) = -3$', fig: axis(-10, 2, [], [jump(0, -8, '\u22122·4'), jump(0, -3, '18:(\u22126)')]) },
+        { prompt: 'נשאר $-8 + (-3)$. מה עושים?', choices: [
+          { text: 'אותו סימן: מחברים מרחקים ושומרים על המינוס', ok: true, feedback: 'נכון.' },
+          { text: 'סימנים שונים: מחסרים מרחקים', ok: false, feedback: 'שני המספרים שליליים: $-8$ ו־$-3$.' },
+          { text: 'מינוס ועוד מינוס זה פלוס: $8 + 3$', ok: false, feedback: 'זה כלל של כפל. בחיבור, שתי תזוזות שמאלה הן תזוזה שמאלה.' },
+        ], hints: ['לשני המספרים אותו סימן?', 'שתי תזוזות שמאלה: 8 ועוד 3.'], done: '$-8 + (-3)$: מחברים $8 + 3$ ושומרים על המינוס.' },
+      ],
+      final: { prompt: 'כמה זה?', answer: -11, check: '-2 * 4 + 18 : (-6)', hints: ['$8 + 3 = 11$, והסימן?', 'שני המספרים שליליים, ולכן התוצאה שלילית.'] } },
+  ],
+  diag: orderModel,
+  transfer: quizModel,
+  misconceptions: [
+    { id: 'order', title: 'חישבו משמאל לימין, בלי לתת לכפל לבוא קודם',
+      cause: 'קוראים משמאל לימין, כמו מילים במשפט. אבל כפל הוא קיצור של חיבור חוזר, ולכן הוא חבילה אחת שמחשבים קודם.',
+      explain: [
+        'ב־$4 + 3 \\cdot (-2)$, ה־$3$ שייך לכפל: שלוש פעמים $-2$. ה־$4$ לא חוזר.',
+        'לכן קודם $3 \\cdot (-2) = -6$, ורק אחר כך $4 + (-6) = -2$. משמאל לימין היה יוצא $7 \\cdot (-2) = -14$, כאילו $-2$ חוזר 7 פעמים.',
+      ],
+      remedy: [
+        { kind: 'explore', text: '$4 + 3 \\cdot (-2)$ הוא $4 + (-2) + (-2) + (-2)$. מתחילים ב־$4$ וקופצים.', display: '4 + (-2) + (-2) + (-2)', manip: nl(4), answer: -2,
+          hint: 'שלוש קפיצות של 2 צעדים שמאלה.', success: '$4 + 3 \\cdot (-2) = -2$. ה־$4$ הוא נקודת ההתחלה, והכפל הוא הקפיצות.' },
+        { kind: 'predict', text: 'כמה זה?', display: '-1 + 2 \\cdot 4', choices: ['$7$', '$4$'], answer: 0,
+          why: 'קודם הכפל: $2 \\cdot 4 = 8$. ואז $-1 + 8 = 7$. התשובה $4$ יוצאת מ־$(-1 + 2) \\cdot 4$, משמאל לימין.' },
+      ] },
+    { id: 'minus-minus', title: 'חיסור של מכפלה שלילית חושב כמו חיסור של חיובי',
+      cause: 'אחרי שמחשבים את הכפל, נשאר חיסור של מספר שלילי. קל לשכוח שחיסור של שלילי הוא חיבור.',
+      explain: [
+        'הכפל חושב נכון. הטעות היא בצעד האחרון.',
+        'ב־$6 - 2 \\cdot (-3)$ המכפלה היא $-6$, ונשאר $6 - (-6)$. חיסור של $-6$ הוא חיבור של $6$: $6 + 6 = 12$.',
+      ],
+      prereq: 'signed:1',
+      remedy: [
+        { kind: 'explore', text: 'ב־$1 - 2 \\cdot (-3)$ המכפלה היא $-6$, ונשאר $1 - (-6)$. מתחילים ב־$1$.', display: '1 - (-6)', manip: nl(1), answer: 7,
+          hint: 'חיסור של מספר שלילי מזיז ימינה.', success: '$1 - (-6) = 7$. חיסור של מכפלה שלילית מגדיל.' },
+        { kind: 'predict', text: 'כמה זה?', display: '5 - 4 \\cdot (-2)', choices: ['$-3$', '$13$'], answer: 1,
+          why: 'המכפלה $4 \\cdot (-2) = -8$, ו־$5 - (-8) = 5 + 8 = 13$.' },
+      ] },
+    { id: 'mul-sign', title: 'טעו בסימן של המכפלה או של המנה באמצע התרגיל',
+      cause: 'כשיש בתרגיל כמה פעולות, קל לשכוח את כלל הסימנים של הכפל באמצע הדרך.',
+      explain: [
+        'הסדר היה נכון, אבל המכפלה (או המנה) יצאה עם הסימן ההפוך.',
+        'כתבו כל מכפלה לבד, עם הסימן שלה, לפני שממשיכים: סימנים זהים נותנים חיובי, סימנים שונים נותנים שלילי.',
+      ],
+      prereq: 'signed:3',
+      remedy: [
+        { kind: 'predict', text: 'ב־$8 + 3 \\cdot (-4)$: מה הסימן של המכפלה $3 \\cdot (-4)$?', choices: ['חיובי', 'שלילי'], answer: 1,
+          why: 'סימנים שונים: $3 \\cdot (-4) = -12$.' },
+        { kind: 'explore', text: 'עכשיו נשאר $8 + (-12)$. מתחילים ב־$8$.', display: '8 + (-12)', manip: nl(8), answer: -4,
+          hint: 'חיבור של מספר שלילי מזיז שמאלה.', success: '$8 + 3 \\cdot (-4) = 8 + (-12) = -4$.' },
+      ] },
+  ],
+};
+
+// ---------------------------------------------------------------- stair 5: brackets
+// The model: brackets make a package that is worked out first; a minus before brackets takes away the whole package.
+
+// f = 0: a − (b ± c), 1: a ± (b ± c)·d; and the class's brackets inside brackets (CLASSROOM-4, content/signedItems.js):
+// 2: a[b − (c − d)], 3: e − a[b − (c − d)·g]
+type Br = { f: number; a: number; b: number; c: number; s: number; o: number; d: number; e?: number; g?: number };
+const isNest = (p: Br) => p.f >= 2;
+const nestOf = (p: Br) => (p.f === 2 ? { n: 1, a: p.a, b: p.b, c: p.c, d: p.d } : { n: 2, e: p.e, a: p.a, b: p.b, c: p.c, d: p.d, g: p.g });
+const nestBug = (p: Br, id: string): number | null => (nestedBugs(nestOf(p)) as unknown as Record<string, number | null>)[id] ?? null;
+const brInner = (p: Br) => p.b + p.s * p.c;
+const brValue = (p: Br): number => (isNest(p) ? nestedValue(nestOf(p)) : p.f === 0 ? p.a - brInner(p) : p.a + p.o * brInner(p) * p.d);
+const brBracket = (p: Br) => `(${T(p.b)} ${opTex(p.s)} ${p.c})`;
+const brShow = (p: Br): string => (isNest(p) ? nestedTex(nestOf(p)) : p.f === 0 ? `${T(p.a)} - ${brBracket(p)}` : `${T(p.a)} ${opTex(p.o)} ${brBracket(p)} \\cdot ${T(p.d, true)}`);
+
+const bracketModel: DiagModel<Br> = {
+  params: (rnd) => {
+    // 40% brackets inside brackets, half of each shape, as the exercises draw them
+    const r0 = rnd();
+    if (r0 < 0.4) {
+      const q = drawNested(rnd, r0 < 0.2 ? 1 : 2);
+      return q.n === 1 ? { f: 2, a: q.a, b: q.b, c: q.c, d: q.d, s: 1, o: -1 } : { f: 3, e: q.e, a: q.a, b: q.b, c: q.c, d: q.d, g: q.g, s: 1, o: -1 };
+    }
+    for (;;) {
+      const f = rnd() < 0.5 ? 0 : 1;
+      const b = rnz(rnd, -9, 9); const c = rint(rnd, 1, f ? 8 : 9); const s = rnd() < 0.5 ? -1 : 1;
+      if (b + s * c === 0) continue;
+      const a = rnz(rnd, -10, 10);
+      if (f === 0) return { f, a, b, c, s, o: -1, d: 1 };
+      return { f, a, b, c, s, o: rnd() < 0.6 ? -1 : 1, d: (rnd() < 0.5 ? -1 : 1) * rint(rnd, 2, 5) };
+    }
+  },
+  text: () => 'חשבו:',
+  display: brShow,
+  answer: brValue,
+  bugs: {
+    // the brackets opened after a minus, but only the first number changed sign
+    'minus-bracket': (p) => (isNest(p) ? nestBug(p, 'minus-bracket') : p.f === 0 ? p.a - p.b + p.s * p.c : null),
+    // the brackets ignored: the multiplication takes only the number next to it
+    'ignore-brackets': (p) => (isNest(p) ? nestBug(p, 'ignore-brackets') : p.f === 1 ? p.a + p.o * p.b + p.s * p.c * p.d : null),
+    // after the brackets, left to right: the first number joins before the multiplication
+    order: (p) => (isNest(p) ? nestBug(p, 'order') : p.f === 1 ? (p.a + p.o * brInner(p)) * p.d : null),
+    // what is subtracted is negative, but it was subtracted as if positive (inside the outer brackets too)
+    'minus-minus': (p) => { if (isNest(p)) return nestBug(p, 'minus-minus'); const t = p.f === 0 ? brInner(p) : brInner(p) * p.d; return p.o < 0 && t < 0 ? p.a + t : null; },
+    // the minus of the number before the brackets lost at the end (CLASSROOM-4, the notebook's 129א)
+    'factor-sign': (p) => (p.f === 2 ? nestBug(p, 'factor-sign') : null),
+  },
+  solution: (p) => {
+    if (isNest(p)) return nestedSolution(nestOf(p));
+    const inner = brInner(p); const ans = brValue(p);
+    if (p.f === 0) {
+      const opened = `${T(p.a)} ${p.b < 0 ? '+' : '-'} ${Math.abs(p.b)} ${p.s > 0 ? '-' : '+'} ${p.c}`;
+      return [
+        `דרך אחת: קודם הסוגריים, $${T(p.b)} ${opTex(p.s)} ${p.c} = ${T(inner)}$. ואז $${T(p.a)} - ${T(inner, true)} = ${T(ans)}$.`,
+        `דרך שנייה: פותחים את הסוגריים, והסימן של כל מספר בתוכם מתהפך: $${opened} = ${T(ans)}$.`,
+        `התשובה: $${T(ans)}$`,
+      ];
+    }
+    const prod = inner * p.d;
+    return [
+      `סוגריים: $${T(p.b)} ${opTex(p.s)} ${p.c} = ${T(inner)}$`,
+      `כפל: $${T(inner, true)} \\cdot ${T(p.d, true)} = ${T(prod)}$`,
+      `${p.o > 0 ? 'חיבור' : 'חיסור'}: $${T(p.a)} ${opTex(p.o)} ${T(prod, true)} = ${T(ans)}$`,
+      `התשובה: $${T(ans)}$`,
+    ];
+  },
+  hint: (p) => (isNest(p) ? nestedHint(nestOf(p)) : p.f === 0
+    ? 'מינוס לפני סוגריים מוריד את כל מה שבתוכם. חשבו קודם את הסוגריים, או הפכו את הסימן של כל מספר בפנים.'
+    : 'סדר הפעולות: קודם הסוגריים, אחר כך הכפל, ובסוף החיבור או החיסור.'),
+};
+
+type Groups = { k: number; a: number; b: number; c: number; n: number }; // k = 0: a deposit and a withdrawal cancelled; 1: n rounds of +b and −c
+const groupsValue = (p: Groups) => (p.k === 0 ? p.a - (p.b - p.c) : p.a + p.n * (p.b - p.c));
+const groupsModel: DiagModel<Groups> = {
+  params: (rnd) => {
+    const k = rnd() < 0.5 ? 0 : 1;
+    for (;;) {
+      const b = k === 0 ? rint(rnd, 5, 40) : rint(rnd, 1, 9); const c = k === 0 ? rint(rnd, 5, 40) : rint(rnd, 1, 9);
+      if (b === c) continue;
+      return k === 0 ? { k, a: rint(rnd, 10, 60), b, c, n: 1 } : { k, a: rint(rnd, -10, 20), b, c, n: rint(rnd, 2, 5) };
+    }
+  },
+  text: (p) => (p.k === 0
+    ? `בחשבון הבנק של נועה היו $${p.a}$ ₪. הבנק גילה ששתי פעולות נרשמו בטעות, וביטל את שתיהן: הפקדה של $${p.b}$ ₪ ומשיכה של $${p.c}$ ₪. כמה כסף יש בחשבון עכשיו?`
+    : `במשחק ${hadPoints('לרון', p.a)}. אחר כך הוא שיחק $${p.n}$ סיבובים, ובכל סיבוב קיבל ${points(p.b)} והפסיד ${points(p.c)}. כמה נקודות יש לו עכשיו?`),
+  answer: groupsValue,
+  bugs: {
+    // cancelling the pair: the deposit taken away, the withdrawal taken away too
+    'minus-bracket': (p) => (p.k === 0 ? p.a - p.b - p.c : null),
+    'minus-minus': (p) => (p.k === 0 && p.b - p.c < 0 ? p.a + (p.b - p.c) : null),
+    // the rounds multiply only what was won, not what was lost
+    'ignore-brackets': (p) => (p.k === 1 ? p.a + p.n * p.b - p.c : null),
+    order: (p) => (p.k === 1 ? (p.a + p.n) * (p.b - p.c) : null),
+  },
+  solution: (p) => {
+    const inner = p.b - p.c; const ans = groupsValue(p);
+    return p.k === 0
+      ? [`שתי הפעולות הן חבילה אחת: $(${p.b} - ${p.c})$. ביטול הוא חיסור של החבילה: $${p.a} - (${p.b} - ${p.c})$.`,
+        `פותחים סוגריים: ביטול ההפקדה מוריד $${p.b}$, וביטול המשיכה מחזיר $${p.c}$: $${p.a} - ${p.b} + ${p.c} = ${T(ans)}$.`,
+        `בחשבון יש עכשיו $${T(ans)}$ ₪.`]
+      : [`בכל סיבוב השינוי הוא חבילה אחת: $${p.b} - ${p.c} = ${T(inner)}$.`,
+        `$${p.n}$ סיבובים: $${T(p.a)} + ${p.n} \\cdot (${p.b} - ${p.c}) = ${T(p.a)} + ${p.n} \\cdot ${T(inner, true)}$.`,
+        `קודם הכפל: $${p.n} \\cdot ${T(inner, true)} = ${T(p.n * inner)}$, ואז $${T(p.a)} + ${T(p.n * inner, true)} = ${T(ans)}$${pointsEnd(ans)}.`];
+  },
+  hint: (p) => (p.k === 0 ? 'ביטול של הפקדה מוריד כסף, וביטול של משיכה מחזיר כסף.' : 'כמה השתנה הניקוד בסיבוב אחד? זו חבילה, וכל סיבוב חוזר עליה.'),
+};
+
+const stair5: StairContent = {
+  skill: 'signed:5', topic: 'signed', level: 5, title: 'סוגריים',
+  objectives: [
+    'לחשב תרגיל עם סוגריים: קודם מה שבסוגריים, אחר כך כפל וחילוק, ובסוף חיבור וחיסור.',
+    'להבין מה עושה מינוס לפני סוגריים, ולפתוח סוגריים נכון.',
+    'לבדוק תשובה בשתי דרכים: לחשב קודם את הסוגריים, או לפתוח אותם.',
+    'לחשב סוגריים בתוך סוגריים: קודם הפנימיים, אחר כך החיצוניים, ובסוף המספר שלפניהם עם הסימן שלו.',
+  ],
+  idea: 'סוגריים הופכים כמה מספרים לחבילה אחת שמחשבים לפני הכל. מינוס לפני סוגריים מוריד את כל החבילה, ולכן כשפותחים אותם, הסימן של כל מספר בפנים מתהפך.',
+  why: [
+    'הסדר הרגיל הוא כפל לפני חיבור. כשרוצים סדר אחר, למשל לחבר קודם, שמים סוגריים: $(2 + 3) \\cdot 4 = 5 \\cdot 4 = 20$, ולא $2 + 12 = 14$.',
+    'חיסור של חבילה הוא חיסור של כל מה שבתוכה: מי שמוריד $(3 + 2)$ מוריד גם $3$ וגם $2$. לכן $10 - (3 + 2) = 10 - 3 - 2$.',
+    'אם בחבילה יש מספר שלילי, חיסור שלו הוא חיבור, כמו $5 - (-3) = 5 + 3$ מהמדרגה הראשונה. לכן $10 - (6 - 2) = 10 - 6 + 2$.',
+  ],
+  alt: [
+    'ביטול פעולות בחשבון בנק: אם מבטלים הפקדה של $20$ ₪ ומשיכה של $45$ ₪, ההפקדה יורדת ($-20$) והמשיכה חוזרת ($+45$).',
+    'תמיד אפשר לבדוק בשתי דרכים: לחשב קודם את מה שבסוגריים, או לפתוח אותם. שתי הדרכים חייבות לתת אותה תוצאה.',
+    'חשבו על סוגריים כמו על שקית: $3 \\cdot (2 + 4)$ הן שלוש שקיות, ובכל אחת $2$ תפוחים ו־$4$ אגסים. כל מה שבשקית מוכפל, לא רק הראשון.',
+  ],
+  discover: [
+    { kind: 'say', fig: axis(0, 6, [at(5)], [jump(0, 5, '(2 + 3)')], true), mood: 'happy', text: 'סוגריים אומרים: "את זה עושים קודם". הם הופכים כמה מספרים לחבילה אחת.', display: '(2 + 3) \\cdot 4' },
+    { kind: 'predict', fig: { type: 'table', head: ['תרגיל', 'מה קודם'], rows: [['2+3·4', '3·4'], ['(2+3)·4', '2+3']] }, text: 'אותם מספרים ואותן פעולות. יוצא אותו דבר?', display: '2 + 3 \\cdot 4 \\qquad (2 + 3) \\cdot 4',
+      choices: ['כן, אותם מספרים', 'לא: $14$ ו־$20$', 'לא: $20$ ו־$14$'], answer: 1,
+      why: 'בלי סוגריים הכפל קודם: $2 + 12 = 14$. הסוגריים משנים את הסדר: קודם $2 + 3 = 5$, ואז $5 \\cdot 4 = 20$.',
+      wrongWhy: { 0: 'הסדר משנה: בלי סוגריים מכפילים רק את $3$, ועם סוגריים מכפילים את כל החבילה $2 + 3$.', 2: 'בלי סוגריים הכפל קודם, ולכן $2 + 3 \\cdot 4 = 2 + 12$.' } },
+    { kind: 'explore', text: 'ב־$(-7 + 3) \\cdot (-2)$ מתחילים במה שבסוגריים. מתחילים ב־$-7$ ומוסיפים $3$.', display: '-7 + 3', manip: nl(-7), answer: -4,
+      hint: 'חיבור של $3$ מזיז ימינה 3.', success: 'מה שבסוגריים שווה $-4$. עכשיו הוא מספר אחד.' },
+    { kind: 'predict', fig: axis(-8, 9, [at(-7), at(-4)], [jump(-7, -4, '+3')]), text: 'הסוגריים שווים $-4$, ולכן $(-7 + 3) \\cdot (-2) = (-4) \\cdot (-2)$. כמה זה?', display: '(-7 + 3) \\cdot (-2)', choices: ['$8$', '$-8$', '$-13$'], answer: 0,
+      why: 'שלילי כפול שלילי יוצא חיובי: $(-4) \\cdot (-2) = 8$.',
+      wrongWhy: { 1: 'לשני הגורמים אותו סימן, ולכן התוצאה חיובית.', 2: '$-13$ יוצא מ־$-7 + 3 \\cdot (-2)$, בלי סוגריים. הסוגריים אומרים שכל החבילה מוכפלת, גם $-7$.' } },
+    { kind: 'say', fig: axis(0, 11, [at(10), at(7), at(5)], [jump(10, 7, '−3'), jump(7, 5, '−2')]), text: 'עכשיו מינוס לפני סוגריים. $10 - (3 + 2)$ פירושו: מורידים מ־$10$ את כל החבילה. מורידים $3$, ומורידים גם $2$.', display: '10 - (3 + 2) = 10 - 3 - 2 = 5' },
+    { kind: 'predict', fig: axis(0, 15, [at(10)]), text: 'ומה עם $10 - (6 - 2)$? בחבילה יש $6$ ו־$-2$.', display: '10 - (6 - 2)', choices: ['$2$', '$6$', '$14$'], answer: 1,
+      why: 'בסוגריים $6 - 2 = 4$, ו־$10 - 4 = 6$. אם פותחים: $10 - 6 + 2 = 6$. מורידים את $6$, ומורידים גם את $-2$, כלומר מוסיפים $2$.',
+      wrongWhy: { 0: '$2$ יוצא מ־$10 - 6 - 2$: המינוס הפך רק את $6$. אבל הוא חל על כל מה שבסוגריים, גם על $-2$.', 2: '$14$ יוצא מ־$10 + 6 - 2$: המינוס נעלם. אבל את החבילה מורידים, לא מוסיפים.' } },
+    { kind: 'explore', text: 'פותחים סוגריים: $3 - (5 - 1) = 3 - 5 + 1$. מתחילים ב־$3$, זזים 5 שמאלה ואז 1 ימינה.', display: '3 - 5 + 1', manip: nl(3), answer: -1,
+      hint: 'מ־$3$ חמישה צעדים שמאלה מגיעים ל־$-2$. משם צעד אחד ימינה.', success: '$3 - (5 - 1) = -1$, וגם $3 - 4 = -1$. שתי הדרכים נותנות אותה תוצאה.' },
+    { kind: 'rule', fig: axis(0, 11, [at(10), at(4), at(6)], [jump(10, 4, '−6'), jump(4, 6, '+2')]), text: 'מינוס לפני סוגריים: כשמורידים את הסוגריים, הופכים את הסימן של כל מספר שבתוכם.', display: '\\begin{gathered} a - (b + c) = a - b - c \\\\ a - (b - c) = a - b + c \\end{gathered}',
+      why: 'חיסור של חבילה הוא חיסור של כל מה שבתוכה. ואם בחבילה יש מספר שלילי, חיסור שלו הוא חיבור: $a - (b - c) = a - b - (-c) = a - b + c$.' },
+    { kind: 'predict', fig: axis(-10, 6, [at(-4)]), text: 'מה שווה ל־$-4 - (-3 + 8)$?', display: '-4 - (-3 + 8)', choices: ['$-4 + 3 - 8$', '$-4 - 3 + 8$', '$-4 + 3 + 8$'], answer: 0,
+      why: 'כל מספר בסוגריים מתהפך: $-3$ הופך ל־$+3$, ו־$+8$ הופך ל־$-8$. בדיקה: בסוגריים $5$, ו־$-4 - 5 = -9$. גם $-4 + 3 - 8 = -9$.',
+      wrongWhy: { 1: 'כאן אף מספר לא התהפך: $-3$ נשאר מינוס ו־$8$ נשאר פלוס. אבל המינוס שלפני הסוגריים הופך את שניהם.', 2: 'רק $-3$ התהפך. גם $+8$ מתהפך, ל־$-8$.' } },
+    { kind: 'rule', fig: axis(0, 16, [at(8), at(14)], [jump(8, 14, '−(−6)')]), text: 'הסדר המלא: קודם סוגריים, אחר כך כפל וחילוק, ובסוף חיבור וחיסור משמאל לימין.', display: '8 - \\underbrace{(1 - 4)}_{-3} \\cdot 2 = 8 - (-6) = 14',
+      why: 'הסוגריים הם הדרך לשנות את הסדר הרגיל, ולכן מתחילים בהם. אחרי שמחשבים אותם הם מספר אחד, וממשיכים לפי הסדר הרגיל: הכפל, ואז החיסור.' },
+    // CLASSROOM-4: brackets inside brackets, in the class's words
+    { kind: 'rule', fig: { type: 'table', head: ['שלב', 'מחשבים', 'יוצא'], rows: [['סוגריים פנימיים', '2 − 7', '−5'], ['סוגריים חיצוניים', '12 − (−5)', '17'], ['המספר שלפניהם', '−3 · 17', '−51']] },
+      text: 'סוגריים בתוך סוגריים: מתחילים בסוגריים הפנימיים $(\\;)$, אחר כך הסוגריים החיצוניים $[\\;]$, ובסוף כופלים במספר שלפניהם, עם הסימן שלו.', display: '-3[12 - (2 - 7)]',
+      why: 'כל זוג סוגריים הוא חבילה, והחבילה הפנימית היא חלק מהחיצונית. לכן מחשבים מבפנים החוצה: $2 - 7 = -5$, אחר כך $12 - (-5) = 17$, ובסוף $-3 \\cdot 17 = -51$. המינוס של $-3$ נשאר עד הסוף.' },
+  ],
+  examples: [
+    { problem: 'חשבו:', display: '-6 - (2 - 9) \\cdot 3', answer: 15, check: '-6 - (2 - 9) * 3',
+      steps: [
+        { action: 'קודם הסוגריים: $2 - 9 = -7$.', why: 'הסוגריים הם חבילה אחת, ולכן מחשבים אותם לפני הכל.', result: '-6 - (-7) \\cdot 3', value: '-6 - (-7) * 3', calc: { expr: '2 - 9', value: -7 }, fig: axis(-10, 4, [at(2)], [jump(2, -7, '\u22129')]) },
+        { action: 'עכשיו הכפל, לפני החיסור.', why: 'כפל קודם לחיסור. שלילי כפול חיובי: שלילי.', result: '-6 - (-21)', value: '-6 - (-21)', calc: { expr: '(-7) * 3', value: -21 } },
+        { action: 'חיסור של שלילי הוא חיבור.', why: 'כמו במדרגה הראשונה: חיסור של $-21$ מזיז ימינה 21.', result: '-6 + 21 = 15', value: '-6 + 21', fig: axis(-8, 18, [at(-6)], [jump(-6, 15, '+21')]) },
+      ] },
+    { problem: 'בחשבון הבנק של נועה היו $35$ ₪. הבנק גילה ששתי פעולות נרשמו בטעות, וביטל את שתיהן: הפקדה של $20$ ₪ ומשיכה של $45$ ₪. כמה כסף יש בחשבון עכשיו?', display: '35 - (20 - 45)', answer: 60, check: '35 - (20 - 45)',
+      steps: [
+        { action: 'שתי הפעולות הן חבילה אחת: $+20$ ו־$-45$. ביטול הוא חיסור של החבילה.', why: 'ביטול מחזיר את החשבון למה שהיה בלי הפעולות, כלומר מוריד את ההשפעה שלהן.', result: '35 - (20 - 45)', value: '35 - (20 - 45)' },
+        { action: 'פותחים סוגריים: הסימן של כל מספר בפנים מתהפך.', why: 'ביטול ההפקדה מוריד $20$, וביטול המשיכה מחזיר $45$.', result: '35 - 20 + 45', value: '35 - 20 + 45' },
+        { action: 'מחשבים משמאל לימין.', why: '$35 - 20 = 15$, ועוד $45$.', result: '15 + 45 = 60', value: '15 + 45', calc: { expr: '35 - 20', value: 15 }, fig: axisBy(0, 65, 5, [at(15)], [jump(15, 60, '+45')]) },
+        { action: 'בודקים בדרך השנייה: קודם הסוגריים.', why: 'שתי הדרכים חייבות לתת אותה תוצאה. $20 - 45 = -25$, וחיסור של $-25$ הוא חיבור של $25$.', result: '35 - (-25) = 60', value: '35 - (-25)', calc: { expr: '20 - 45', value: -25 }, fig: axisBy(0, 65, 5, [at(35)], [jump(35, 60, '\u2212(\u221225)')]) },
+      ] },
+    // CLASSROOM-4: brackets inside brackets (synthetic numbers; the notebook's 129 is not reused)
+    { problem: 'חשבו:', display: '-3[12 - (2 - 7)]', answer: -51, check: '-3*(12 - (2 - 7))',
+      steps: [
+        { action: 'סוגריים פנימיים: $2 - 7 = -5$.', why: 'מתחילים בחבילה הפנימית, זו שבתוך הסוגריים החיצוניים.', result: '-3[12 - (-5)]', value: '-3[12 - (-5)]', calc: { expr: '2 - 7', value: -5 }, fig: axis(-7, 4, [at(2)], [jump(2, -5, '\u22127')]) },
+        { action: 'סוגריים חיצוניים: $12 - (-5) = 17$.', why: 'חיסור של מספר שלילי הוא חיבור: $12 + 5 = 17$.', result: '-3 \\cdot 17', value: '-3 * 17', calc: { expr: '12 - (-5)', value: 17 }, fig: axis(0, 19, [at(12)], [jump(12, 17, '\u2212(\u22125)')]) },
+        { action: 'כופלים במספר שלפני הסוגריים, עם הסימן שלו.', why: 'סימנים שונים, ולכן התוצאה שלילית. המינוס של $-3$ נשאר עד הסוף.', result: '-3 \\cdot 17 = -51', value: '-51', calc: { expr: '3 * 17', value: 51 } },
+      ] },
+    { problem: 'חשבו:', display: '30 - 4[-3 - (8 - 2) \\cdot (-1)]', answer: 18, check: '30 - 4*(-3 - (8 - 2)*(-1))',
+      steps: [
+        { action: 'סוגריים פנימיים: $8 - 2 = 6$.', why: 'מבפנים החוצה: קודם החבילה הפנימית.', result: '30 - 4[-3 - 6 \\cdot (-1)]', value: '30 - 4[-3 - 6*(-1)]', calc: { expr: '8 - 2', value: 6 } },
+        { action: 'בתוך הסוגריים החיצוניים, קודם הכפל: $6 \\cdot (-1) = -6$.', why: 'גם בתוך סוגריים, כפל לפני חיסור.', result: '30 - 4[-3 - (-6)]', value: '30 - 4*(-3 - (-6))', calc: { expr: '6 * (-1)', value: -6 } },
+        { action: 'חיסור של מספר שלילי הוא חיבור: $-3 - (-6) = 3$.', why: 'מחסרים $-6$, ולכן מוסיפים $6$: $-3 + 6 = 3$. מי שכותב כאן $-3 - 6$ מקבל בסוף תשובה אחרת.', result: '30 - 4 \\cdot 3', value: '30 - 4 * 3', calc: { expr: '-3 - (-6)', value: 3 }, fig: axis(-5, 5, [at(-3)], [jump(-3, 3, '\u2212(\u22126)')]) },
+        { action: 'כפל לפני חיסור: $4 \\cdot 3 = 12$, ואז $30 - 12 = 18$.', why: 'המספר $30$ לא בתוך הסוגריים, ולכן הוא מחכה לסוף.', result: '30 - 12 = 18', value: '18', calc: { expr: '4 * 3', value: 12 } },
+      ] },
+  ],
+  together: [
+    { problem: 'נפתור יחד.', display: '8 - (3 - 10)',
+      steps: [
+        { prompt: 'מה עושים קודם?', choices: [
+          { text: 'מחשבים את מה שבסוגריים: $3 - 10$', ok: true, feedback: 'נכון: הסוגריים קודם. $3 - 10 = -7$.' },
+          { text: '$8 - 3$', ok: false, feedback: 'הסוגריים אומרים שמחסרים את כל החבילה, לא רק את $3$.' },
+          { text: 'פותחים: $8 - 3 - 10$', ok: false, misc: 'minus-bracket', feedback: 'המינוס חל על כל מה שבסוגריים, גם על $-10$: פתיחה נכונה היא $8 - 3 + 10$.' },
+        ], hints: ['מה הסוגריים אומרים לעשות קודם?', 'קודם $3 - 10$, ואז מחסרים את התוצאה מ־$8$.'], done: '$3 - 10 = -7$', fig: axis(-9, 5, [at(3)], [jump(3, -7, '\u221210')]) },
+        { prompt: 'נשאר $8 - (-7)$. איך ממשיכים?', choices: [
+          { text: '$8 + 7$', ok: true, feedback: 'נכון: חיסור של $-7$ הוא חיבור של $7$.' },
+          { text: '$8 - 7$', ok: false, misc: 'minus-minus', feedback: 'זה חיסור של $7$. כאן מחסרים $-7$, וחיסור של שלילי הוא חיבור.' },
+        ], hints: ['מה עושה חיסור של מספר שלילי?', 'הנגדי של $-7$ הוא $7$.'], done: '$8 - (-7) = 8 + 7$' },
+      ],
+      final: { prompt: 'כמה זה?', answer: 15, check: '8 - (3 - 10)', hints: ['$8 + 7$', 'בדיקה בפתיחת סוגריים: $8 - 3 + 10$.'] } },
+    { problem: 'ועכשיו סוגריים עם כפל.', display: '-3 + (4 - 6) \\cdot 5',
+      steps: [
+        { prompt: 'מה מחשבים קודם?', choices: [
+          { text: 'את הסוגריים: $4 - 6$', ok: true, feedback: 'נכון: $4 - 6 = -2$.' },
+          { text: '$-3 + 4$', ok: false, feedback: 'משמאל לימין זה לא הסדר כאן. קודם הסוגריים.' },
+          { text: '$6 \\cdot 5$', ok: false, misc: 'ignore-brackets', feedback: 'הכפל חל על כל החבילה $(4 - 6)$, לא רק על $6$.' },
+        ], hints: ['מה בא לפני הכל?', 'הסוגריים: $4 - 6$.'], done: '$4 - 6 = -2$', fig: axis(-4, 7, [at(4)], [jump(4, -2, '\u22126')]) },
+        { prompt: 'נשאר $-3 + (-2) \\cdot 5$. מה הלאה?', choices: [
+          { text: 'הכפל: $(-2) \\cdot 5 = -10$', ok: true, feedback: 'נכון: כפל לפני חיבור.' },
+          { text: '$-3 + (-2) = -5$, ואז כפול $5$', ok: false, misc: 'order', feedback: 'ה־$-3$ לא בתוך החבילה שמוכפלת. כפל לפני חיבור.' },
+        ], hints: ['כפל או חיבור, מה קודם?', 'קודם $(-2) \\cdot 5$.'], done: '$-3 + (-10)$' },
+      ],
+      final: { prompt: 'כמה זה?', answer: -13, check: '-3 + (4 - 6) * 5', hints: ['$-3 + (-10)$: אותו סימן.', 'מחברים $3 + 10$ ושומרים על המינוס.'] } },
+  ],
+  diag: bracketModel,
+  transfer: groupsModel,
+  misconceptions: [
+    { id: 'factor-sign', title: 'המינוס של המספר שלפני הסוגריים נעלם בסוף',
+      cause: 'הסוגריים חושבו נכון, אבל המספר שלפניהם נכפל בלי הסימן שלו. המינוס שלו נכתב בהתחלה, ונשכח בשורה האחרונה.',
+      explain: [
+        'נראה שהמינוס של המספר שלפני הסוגריים נעלם בשורה האחרונה.',
+        'ב־$-3[12 - (2 - 7)]$ הסוגריים שווים $17$, ונשאר $-3 \\cdot 17$. סימנים שונים, ולכן $-51$, לא $51$.',
+      ],
+      remedy: [
+        { kind: 'predict', fig: { type: 'numline', from: -60, to: 60, step: 10, marks: [at(-51), at(51)] }, text: 'סימנים שונים: $(-3) \\cdot 17$ חיובי או שלילי?', choices: ['חיובי', 'שלילי'], answer: 1,
+          why: 'סימנים שונים נותנים תוצאה שלילית: $(-3) \\cdot 17 = -51$.' },
+        { kind: 'say', fig: { type: 'table', head: ['שורה', 'כותבים'], rows: [['1', '−3[12 − (2 − 7)]'], ['2', '−3[12 − (−5)]'], ['3', '−3 · 17'], ['4', '−51']] },
+          text: 'המינוס של $-3$ נשאר עד הסוף. כותבים אותו בכל שורה, כמו שכתבנו אותו בהתחלה.', display: '-3[17] = -3 \\cdot 17 = -51' },
+      ] },
+    { id: 'sign', title: 'התשובה יצאה עם הסימן ההפוך',
+      cause: 'הסדר והחישוב היו נכונים, אבל באחד הצעדים הסימן של התוצאה התהפך.',
+      explain: [
+        'המספר יצא נכון, רק הסימן התהפך.',
+        'אחרי כל צעד שואלים: התוצאה חיובית או שלילית? ב־$1 - (3 - 7)$ הסוגריים שווים $-4$, ו־$1 - (-4) = 5$: חיובי.',
+      ],
+      remedy: [
+        { kind: 'predict', fig: axis(-6, 6, [at(1)]), text: 'בלי לחשב עד הסוף: $1 - (3 - 7)$ יוצא חיובי או שלילי?', choices: ['חיובי', 'שלילי'], answer: 0,
+          why: 'בסוגריים $3 - 7 = -4$, וחיסור של $-4$ הוא חיבור: $1 + 4 = 5$, חיובי.' },
+        { kind: 'explore', text: 'בדקו על הציר: $1 - (-4)$. מתחילים ב־$1$.', display: '1 - (-4)', manip: nl(1), answer: 5,
+          hint: 'חיסור של מספר שלילי מזיז ימינה.', success: '$1 - (3 - 7) = 1 - (-4) = 5$.' },
+      ] },
+    { id: 'minus-bracket', title: 'מינוס לפני סוגריים הפך רק את המספר הראשון',
+      cause: 'כשפותחים סוגריים אחרי מינוס, קל להפוך רק את המספר הראשון. אבל המינוס חל על כל מה שבסוגריים.',
+      explain: [
+        '$a - (b - c)$ פירושו: מורידים את כל החבילה. מורידים את $b$, ומורידים גם את $-c$, כלומר מוסיפים $c$.',
+        'תמיד אפשר לבדוק: $9 - (5 - 2) = 9 - 3 = 6$, וגם $9 - 5 + 2 = 6$. אבל $9 - 5 - 2 = 2$, וזה לא אותו דבר.',
+      ],
+      remedy: [
+        { kind: 'predict', text: 'בחשבון היו $9$ ₪. בוטלו שתי פעולות: הפקדה של $5$ ₪ ומשיכה של $2$ ₪. ביטול ההפקדה מוריד $5$. מה עושה ביטול המשיכה?', display: '9 - (5 - 2)',
+          choices: ['מוריד עוד $2$', 'מחזיר $2$'], answer: 1,
+          why: 'המשיכה הורידה $2$, וביטול שלה מחזיר אותם: $9 - (5 - 2) = 9 - 5 + 2 = 6$.' },
+        { kind: 'explore', text: 'פתחו את הסוגריים: $2 - (6 - 3) = 2 - 6 + 3$. מתחילים ב־$2$.', display: '2 - 6 + 3', manip: nl(2), answer: -1,
+          hint: '6 צעדים שמאלה, ואז 3 ימינה.', success: '$2 - 6 + 3 = -1$, בדיוק כמו $2 - 3 = -1$ אם מחשבים קודם את הסוגריים.' },
+      ] },
+    { id: 'ignore-brackets', title: 'חישבו כאילו אין סוגריים',
+      cause: 'הסוגריים משנים את הסדר. בלעדיהם הכפל תופס רק את המספר שצמוד אליו, ואיתם הוא תופס את כל מה שבסוגריים.',
+      explain: [
+        'נראה שהכפל הופעל רק על המספר שבסוגריים שצמוד לסימן הכפל, ולא על כל מה שבסוגריים.',
+        'ב־$3 \\cdot (2 + 4)$ כל החבילה מוכפלת: $3 \\cdot 6 = 18$. בלי סוגריים, $3 \\cdot 2 + 4 = 10$, וזה תרגיל אחר.',
+      ],
+      remedy: [
+        { kind: 'predict', text: 'בכיתה $3$ קבוצות. בכל קבוצה $2$ בנות ו־$4$ בנים. כמה ילדים יש בכיתה?', display: '3 \\cdot (2 + 4)', choices: ['$10$', '$18$'], answer: 1,
+          why: 'כל קבוצה היא חבילה של $2 + 4 = 6$ ילדים, ושלוש קבוצות הן $3 \\cdot 6 = 18$.',
+          wrongWhy: { 0: '$10$ יוצא מ־$3 \\cdot 2 + 4$: כאילו רק הבנות הוכפלו, והבנים נספרו פעם אחת.' } },
+        { kind: 'explore', text: 'ב־$(1 - 4) \\cdot 2$ הסוגריים שווים $-3$. עכשיו $(-3) \\cdot 2$: שתי קפיצות של $-3$, מאפס.', display: '(-3) + (-3)', manip: nl(0), answer: -6,
+          hint: 'כל קפיצה היא 3 צעדים שמאלה.', success: '$(1 - 4) \\cdot 2 = -6$. כל החבילה הוכפלה.' },
+      ] },
+    { id: 'order', title: 'אחרי הסוגריים חישבו משמאל לימין, בלי לתת לכפל לבוא קודם',
+      cause: 'אחרי שהסוגריים הפכו למספר אחד, עדיין צריך את הסדר הרגיל: כפל לפני חיבור וחיסור.',
+      explain: [
+        'הסוגריים חושבו נכון. הטעות היא במה שבא אחריהם.',
+        'ב־$1 - (2 - 5) \\cdot 2$ נשאר $1 - (-3) \\cdot 2$. הכפל קודם: $(-3) \\cdot 2 = -6$, ואז $1 - (-6) = 7$.',
+      ],
+      prereq: 'signed:4',
+      remedy: [
+        { kind: 'predict', text: 'אחרי הסוגריים נשאר $1 - (-3) \\cdot 2$. מה הלאה?', display: '1 - (2 - 5) \\cdot 2', choices: ['$1 - (-6) = 7$', '$4 \\cdot 2 = 8$'], answer: 0,
+          why: 'כפל לפני חיסור: $(-3) \\cdot 2 = -6$, ואז $1 - (-6) = 7$. התשובה $8$ יוצאת אם מחסרים קודם, וזה מכפיל גם את ה־$1$.' },
+        { kind: 'explore', text: 'עכשיו $1 - (-6)$. מתחילים ב־$1$.', display: '1 - (-6)', manip: nl(1), answer: 7,
+          hint: 'חיסור של מספר שלילי מזיז ימינה.', success: '$1 - (2 - 5) \\cdot 2 = 7$.' },
+      ] },
+    { id: 'minus-minus', title: 'חיסור של תוצאה שלילית חושב כמו חיסור של חיובי',
+      cause: 'אחרי הסוגריים (והכפל) נשאר חיסור של מספר שלילי. קל לשכוח שחיסור של שלילי הוא חיבור.',
+      explain: [
+        'הסוגריים חושבו נכון. הטעות היא בצעד האחרון.',
+        'ב־$-3 - (1 - 5)$ הסוגריים שווים $-4$, ונשאר $-3 - (-4)$. חיסור של $-4$ הוא חיבור של $4$: $-3 + 4 = 1$.',
+      ],
+      prereq: 'signed:1',
+      remedy: [
+        { kind: 'explore', text: 'ב־$-3 - (1 - 5)$ הסוגריים שווים $-4$, ונשאר $-3 - (-4)$. מתחילים ב־$-3$.', display: '-3 - (-4)', manip: nl(-3), answer: 1,
+          hint: 'חיסור של מספר שלילי מזיז ימינה.', success: '$-3 - (-4) = 1$.' },
+        { kind: 'predict', text: 'כמה זה?', display: '2 - (3 - 8)', choices: ['$-3$', '$7$'], answer: 1,
+          why: 'בסוגריים $3 - 8 = -5$, ו־$2 - (-5) = 2 + 5 = 7$.' },
+      ] },
+  ],
+};
+
+export const SIGNED: StairContent[] = [stair1, stair2, stair3, stair4, stair5];
+/** Names of misconceptions new to this topic (merged into the topic's cats so the board can name them). */
+export const CATS_SIGNED: Record<string, string> = {
+  'ignore-sign': 'השוו רק את המרחקים מאפס והתעלמו מהסימן',
+  'add-sign': 'השתמשו בכלל הסימנים של חיבור בכפל או בחילוק',
+  'neg-many': 'חשבו שכפל של כמה מספרים שליליים תמיד חיובי',
+  'mul-sign': 'טעו בסימן של מכפלה או מנה באמצע התרגיל',
+  'minus-bracket': 'מינוס לפני סוגריים הפך רק את המספר הראשון',
+  'ignore-brackets': 'חישבו כאילו אין סוגריים',
+};
+export { addSubModel, storyModel };

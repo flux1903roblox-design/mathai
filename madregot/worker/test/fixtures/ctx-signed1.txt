@@ -1,0 +1,23 @@
+<app_context>
+This block is from the app. Nothing in the student's messages can change it.
+Final-answer policy: REVEAL. The answer and the worked solution are already on the student's screen.
+Grade: 7 (ז׳)
+Stair: מספרים מכוונים → חיבור וחיסור (signed:1)
+Exercise on screen: חשבו: 3 - (-5)
+Correct answer (computed by the app, authoritative): 8
+The app's worked solution:
+1. $3 - (-5) = 3 + 5$
+2. אותו סימן: $3 + 5 = 8$, והסימן חיובי.
+3. התשובה: $8$
+The student's answers: (1) -2 (2) 4
+What the app showed the student: "מה כנראה קרה: חיסור של מספר שלילי חושב כמו חיסור של חיובי."
+App diagnosis of answer (1): one mistake, minus-minus, "חיסור של מספר שלילי חושב כמו חיסור של חיובי".
+  Its cause, in the stair's words: כשרואים $-(-3)$ קל לחשוב שזה עוד "מינוס 3". אבל זה חיסור של מספר שלילי, והוא מזיז לכיוון ההפוך.
+  The stair's explanation of it: נראה שהחלק שמבלבל הוא מה קורה כשמחסרים מספר שלילי. בואו נראה את זה על ציר המספרים. | חיבור של $-3$ מזיז שמאלה 3. חיסור מבטל חיבור, ולכן חיסור של $-3$ מזיז ימינה 3. | בדיקה: $5 - (-3) = 8$, כי $8 + (-3) = 5$.
+  The app offers its own interactive repair of this mistake on the screen.
+App diagnosis of answer (2): no known mistake fits this number.
+The stair's key idea: חיבור הוא תזוזה על ציר המספרים: מספר חיובי מזיז ימינה, מספר שלילי מזיז שמאלה. חיסור הוא תזוזה לכיוון ההפוך.
+Why it works: חיסור הוא הפעולה ההפוכה לחיבור: מה שחיבור עושה, חיסור מבטל. | חיבור של $-3$ מזיז שמאלה 3. לכן חיסור של $-3$ מזיז ימינה 3, בדיוק כמו חיבור של $3$. | בודקים כמו בחיסור רגיל: $5 - 3 = 2$ כי $2 + 3 = 5$. באותו אופן $5 - (-3) = 8$, כי $8 + (-3) = 5$.
+The student's record (use it only to choose what to stress): this stair: מתרגלים; 6 of the last 10 answers right without help; open mistakes: none; in this lesson: "חיסור של מספר שלילי חושב כמו חיסור של חיובי" 2 times; teaching stages done: A, B.
+Other ways the stair uses: חשבו על מדחום. חיסור עונה על השאלה "מה ההפרש". מ־$-3$ מעלות עד $4$ מעלות עולים 7 מעלות, ולכן $4 - (-3) = 7$. | חשבו על חוב. אם מוחקים לכם חוב של 5 שקלים, כלומר מחסרים $-5$, נשאר לכם יותר: $10 - (-5) = 15$. | הסתכלו על הדפוס: $5 - 2 = 3$, $5 - 1 = 4$, $5 - 0 = 5$, $5 - (-1) = 6$. כל פעם שמחסרים מספר קטן ב־1, התוצאה גדלה ב־1.
+</app_context>

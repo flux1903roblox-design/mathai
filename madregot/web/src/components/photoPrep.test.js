@@ -1,0 +1,182 @@
+// Exam and notebook photos (trust spec TRUST-5 §1, §2): the pure step that cuts the top band and blacks out boxes, and
+// the warning's words and once-a-session flag. The picture is a synthetic 100×100 ImageData-like object whose red
+// channel holds the row number, so a test can tell which rows survived.
+import { describe, it, expect, beforeEach } from 'vitest';
+import { createElement as h } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { prepImage, fitSize, keepBox, fitPage, EXAM_HEADER, CUT_MAX, PREP_COPY, PREP_MAX, PREP_QUALITY, PREP_TRIES, PREP_DATA_MAX } from './PhotoPrep.jsx';
+import { AI_BODY_MAX, EXAM_PAGE_MAX, CHECK_IMAGE_MAX, MAX_EXAM_PAGES } from '@shared/ai.js';
+import { TOPICS } from '@/content/index.js';
+import { PHOTO_WARN, PHOTO_WARNED, photoWarned, PhotoWarn, warnKind } from './PhotoWarn.jsx';
+
+function picture(W = 100, H = 100) {
+  const data = new Uint8ClampedArray(W * H * 4);
+  for (let y = 0; y < H; y += 1) {
+    for (let x = 0; x < W; x += 1) {
+      const i = (y * W + x) * 4;
+      data[i] = y; data[i + 1] = 200; data[i + 2] = 100 + (x % 50); data[i + 3] = 255;
+    }
+  }
+  return { width: W, height: H, data };
+}
+const px = (img, x, y) => [...img.data.subarray((y * img.width + x) * 4, (y * img.width + x) * 4 + 4)];
+
+describe('prepImage', () => {
+  it('a 15% cut: the output is 85 rows high and rows 0-14 are gone', () => {
+    const src = picture();
+    const out = prepImage(src, { cropTop: 0.15 });
+    expect(out.width).toBe(100);
+    expect(out.height).toBe(85);
+    expect(out.data.length).toBe(100 * 85 * 4);
+    // the first row kept is row 15, and every row is shifted up by 15
+    for (let y = 0; y < out.height; y += 1) expect(out.data[(y * 100) * 4]).toBe(y + 15);
+    const rowsLeft = new Set(); for (let i = 0; i < out.data.length; i += 4) rowsLeft.add(out.data[i]);
+    for (let r = 0; r <= 14; r += 1) expect(rowsLeft.has(r), `row ${r}`).toBe(false);
+  });
+
+  it('every pixel of a box is solid black, and only the box', () => {
+    const src = picture();
+    const box = { x: 0.2, y: 0.5, w: 0.3, h: 0.1 };
+    const out = prepImage(src, { cropTop: 0, boxes: [box] });
+    expect(out.height).toBe(100);
+    for (let y = 50; y < 60; y += 1) for (let x = 20; x < 50; x += 1) expect(px(out, x, y)).toEqual([0, 0, 0, 255]);
+    // just outside the box: the picture as it was
+    for (const [x, y] of [[19, 55], [50, 55], [30, 49], [30, 60]]) expect(px(out, x, y)).toEqual(px(src, x, y));
+  });
+
+  it('a box below the cut moves up with the page, a box inside the cut is gone with it, and the input is not changed', () => {
+    const src = picture();
+    const before = new Uint8ClampedArray(src.data);
+    const out = prepImage(src, { cropTop: 0.15, boxes: [{ x: 0, y: 0.5, w: 0.1, h: 0.1 }, { x: 0.5, y: 0, w: 0.5, h: 0.1 }] });
+    for (let y = 35; y < 45; y += 1) for (let x = 0; x < 10; x += 1) expect(px(out, x, y)).toEqual([0, 0, 0, 255]);
+    expect(px(out, 60, 0)).toEqual(px(src, 60, 15));
+    expect(src.data).toEqual(before);
+  });
+
+  it('a box is widened to whole pixels, never narrowed, and one past the edge is clipped', () => {
+    const out = prepImage(picture(), { boxes: [{ x: 0.205, y: 0.205, w: 0.01, h: 0.01 }, { x: 0.95, y: 0.95, w: 0.2, h: 0.2 }] });
+    expect(px(out, 20, 20)).toEqual([0, 0, 0, 255]);
+    expect(px(out, 21, 21)).toEqual([0, 0, 0, 255]);
+    expect(px(out, 99, 99)).toEqual([0, 0, 0, 255]);
+    expect(px(out, 94, 94)).not.toEqual([0, 0, 0, 255]);
+  });
+
+  it('no cut and no boxes: the same pixels; a cut of everything still leaves one row; nonsense boxes are skipped', () => {
+    const src = picture();
+    expect(prepImage(src).data).toEqual(src.data);
+    expect(prepImage(src, { cropTop: 1 }).height).toBe(1);
+    expect(prepImage(src, { boxes: [null, { x: 'a' }, { x: NaN, y: 0, w: 1, h: 1 }] }).data).toEqual(src.data);
+  });
+});
+
+describe('the page on screen and the boxes', () => {
+  it('the whole page fits the space, at its own shape', () => {
+    expect(fitSize(1200, 1600, 358, 400)).toEqual({ width: 300, height: 400 });
+    expect(fitSize(1600, 1200, 288, 400)).toEqual({ width: 288, height: 216 });
+  });
+  it('a box stays inside the page and keeps a usable size', () => {
+    expect(keepBox({ x: 0.9, y: -0.2, w: 0.4, h: 0.1 })).toEqual({ x: 0.6, y: 0, w: 0.4, h: 0.1 });
+    expect(keepBox({ x: 0.5, y: 0.5, w: 0, h: 2 })).toEqual({ x: 0.5, y: 0, w: 0.03, h: 1 });
+  });
+  it('the exam\'s default cut is 15%, and no more than 60% can be cut', () => {
+    expect(EXAM_HEADER).toBe(0.15);
+    expect(CUT_MAX).toBe(0.6);
+  });
+  it('the words of the step, as Appendix E.9 gives them', () => {
+    expect(PREP_COPY).toMatchObject({
+      title: 'מסתירים פרטים אישיים', band: 'השורה הזו לא תישלח', draw: 'השחרה', add: 'הוספת מלבן', undo: 'ביטול האחרון',
+      done: 'סיימתי, אין בדף פרטים אישיים', retake: 'צילום מחדש',
+      cutHint: 'גררו את הקו כדי לבחור כמה מהחלק העליון לחתוך. במקלדת: חצים למעלה ולמטה.',
+    });
+  });
+});
+
+describe('the warning before the camera', () => {
+  let store;
+  beforeEach(() => {
+    store = new Map();
+    globalThis.sessionStorage = { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, String(v)), removeItem: (k) => store.delete(k) };
+  });
+
+  it('says what is not sent and where the photo goes, with one button', () => {
+    expect(PHOTO_WARN.title).toBe('לפני שמצלמים');
+    expect(PHOTO_WARN.lines[0]).toContain('שם, תעודת זהות, ציון, כיתה ובית ספר');
+    expect(PHOTO_WARN.lines[1]).toBe('התמונה נשלחת לעוזר החכם (Anthropic, בארה״ב) כדי לבדוק אותה, ולא נשמרת אצלנו.');
+    expect(PHOTO_WARN.ok).toBe('הבנתי, לצלם');
+    // closed, it renders nothing into the page
+    expect(renderToStaticMarkup(h(PhotoWarn, { open: false, onGo() {}, onClose() {} }))).toBe('');
+  });
+
+  it('before the picker (a picture or a PDF), says so: the PDF opens on the device and only the pages\' pictures go', () => {
+    expect(PHOTO_WARN.file.title).toBe('לפני ששולחים דף');
+    expect(PHOTO_WARN.file.lines[0]).toBe(PHOTO_WARN.lines[0]);
+    expect(PHOTO_WARN.file.lines.slice(1)).toEqual([
+      'קובץ PDF נפתח כאן, במכשיר. הקובץ עצמו לא נשלח.',
+      'רק התמונות של הדפים נשלחות לעוזר החכם (Anthropic, בארה״ב) כדי לבדוק אותן, והן לא נשמרות אצלנו.',
+    ]);
+    expect(PHOTO_WARN.file.ok).toBe('הבנתי, לבחור קובץ');
+    // nothing on either wording speaks of taking a photo where a file is chosen, or hurries
+    for (const line of [PHOTO_WARN.file.title, PHOTO_WARN.file.ok, ...PHOTO_WARN.file.lines.slice(1)]) expect(line).not.toMatch(/מצלמ|לצלם|₪|מהר/);
+    // the input says which: the camera's has `capture`, the picker's not
+    const input = (capture) => ({ hasAttribute: (name) => name === 'capture' && capture });
+    expect(warnKind(input(true))).toBe('camera');
+    expect(warnKind(input(false))).toBe('file');
+    expect(warnKind(null)).toBe('file');
+  });
+
+  it('is read once a session: the flag lives in sessionStorage under the store\'s key', () => {
+    expect(PHOTO_WARNED).toBe('madregot-photo-warned');
+    expect(photoWarned()).toBe(false);
+    store.set(PHOTO_WARNED, '1');
+    expect(photoWarned()).toBe(true);
+    globalThis.sessionStorage = { getItem() { throw new Error('blocked'); } };
+    expect(photoWarned()).toBe(false); // blocked storage: the warning simply comes again
+  });
+});
+
+// ---- the largest exam the app can send fits the server's cap (COUNCIL2-17)
+describe('the largest output: 8 pages of 1800 px at q0.85 fit the exam\'s request cap', () => {
+  const PREFIX = 'data:image/jpeg;base64,';
+  // a stand-in for canvas.toDataURL at a scale and quality: `bytes(scale, quality)` JPEG bytes, as base64
+  const encoder = (bytes) => (scale, quality) => PREFIX + 'A'.repeat(Math.ceil(bytes(scale, quality) / 3) * 4);
+  // the most a page can be: the picture unpacked (3 bytes a pixel) at the long side PREP_MAX, square, at every quality
+  const unpacked = (scale) => (PREP_MAX * scale) ** 2 * 3;
+
+  it('the usual page is sent as before: 1800 px at q0.85 first, and only a page over the limit is encoded smaller', () => {
+    expect(PREP_MAX).toBe(1800);
+    expect(PREP_QUALITY).toBe(0.85);
+    expect(PREP_TRIES[0]).toEqual([1, PREP_QUALITY]);
+    expect(PREP_DATA_MAX).toBe(EXAM_PAGE_MAX);
+    // a photo of a page at 1800 px, q0.85, about 700 KB: kept as it is
+    const calls = [];
+    const page = fitPage((s, q) => { calls.push([s, q]); return encoder(() => 700_000)(s, q); });
+    expect(calls).toEqual([[1, 0.85]]);
+    expect(page.length).toBeLessThanOrEqual(PREP_DATA_MAX);
+  });
+
+  it('whatever the page shows, the output is at most PREP_DATA_MAX: the last step fits even unpacked', () => {
+    const [lastScale] = PREP_TRIES.at(-1);
+    expect(PREFIX.length + Math.ceil(unpacked(lastScale) / 3) * 4).toBeLessThanOrEqual(PREP_DATA_MAX);
+    // the worst encoder there is (no compression at all): a page still comes back, within the limit
+    const worst = fitPage(encoder((s) => unpacked(s)));
+    expect(worst).not.toBeNull();
+    expect(worst.length).toBeLessThanOrEqual(PREP_DATA_MAX);
+    // a noisy photo at 1.6 MB at q0.85 (bigger than any page of handwriting): a smaller try is taken, not the full one
+    const noisy = fitPage(encoder((s, q) => 1_600_000 * s * s * (q / 0.85)));
+    expect(noisy.length).toBeLessThanOrEqual(PREP_DATA_MAX);
+  });
+
+  it('eight of the largest pages, with the grade\'s topics, a full key and the prep counts, are under AI_BODY_MAX.exam', () => {
+    // the largest page PhotoPrep can hand over (the tests above: never more than PREP_DATA_MAX)
+    const largest = PREFIX + 'A'.repeat(PREP_DATA_MAX - PREFIX.length);
+    const topics = TOPICS.map((t) => ({ id: t.id, title: t.title, levels: t.levels.map((l) => l.title) }));
+    const key = Array.from({ length: 40 }, () => ({ prompt: 'פתרו את המשוואה $3(x - 4) + 2 = 5x - 10$ וכתבו את הדרך.', answer: '-2' }));
+    const body = JSON.stringify({ grade: '8', pages: Array.from({ length: MAX_EXAM_PAGES }, () => ({ data: largest, mediaType: 'image/jpeg' })), topics, prep: { crop: true, boxes: 40 }, key });
+    const bytes = new TextEncoder().encode(body).length;
+    expect(MAX_EXAM_PAGES).toBe(8);
+    expect(bytes).toBeLessThanOrEqual(AI_BODY_MAX.exam);
+    // and the photo check of one prepared page fits its own cap with room for the app's context
+    expect(PREP_DATA_MAX + 256 * 1024).toBeLessThanOrEqual(CHECK_IMAGE_MAX);
+    expect(CHECK_IMAGE_MAX + 256 * 1024).toBeLessThanOrEqual(AI_BODY_MAX.check);
+  });
+});

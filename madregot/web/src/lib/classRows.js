@@ -1,0 +1,93 @@
+// The teacher's work as the screens and the plan show it (spec TEACHER-5 §5, CURRICULUM-7.1 band 1): which rows show
+// today, where each leads, and the calm words for its due day. Pure: it reads no store and no clock (`day` comes in, as
+// in learn/next.ts), so the learning engine's planNext can use the very same selection and routes as TodayCard's
+// ClassWork rows without pulling the app's store into the engine. lib/classWork.js re-exports all of it. Its words are
+// the language's (COUNCIL2-34, locales/shell.*.json: shell.classwork.*).
+import { today } from './days.js';
+import { daysFrom, weekdayName, dm } from './workDates.js';
+import { mergeWork, workRoute } from '@/learn/assignments.ts';
+import { STAGE_MIN, MINUTES } from '@/learn/recommend.ts';
+import { t } from './i18n.js';
+
+/** The kinds a student sees: a stair, a mastery check, a class exam and the repair of one mistake (SK-BUYERS-2). */
+export const SHOWN = ['stair', 'check', 'exam', 'repair'];
+
+/**
+ * The class assignments with this device's reports: the server's copy of each (`mine`) merged with the report still
+ * waiting in the outbox (learn/assignments.ts mergeWork, the server's own rules). What the plan reads (lib/useLearn.js).
+ */
+export const classAssignments = (list, box = {}) => (Array.isArray(list) ? list : []).map((a) => (box?.[a.id] ? { ...a, mine: mergeWork(a.mine, box[a.id]) } : a));
+
+const localDay = (iso) => today(new Date(iso));
+
+/**
+ * The due line in calm words: "להיום", "עד מחר", "עד יום חמישי, 12.11", and for a date that passed "המועד עבר, ועדיין
+ * אפשר להשלים". Never red, never "late".
+ */
+export function dueLine(dueOn, day = today()) {
+  const left = daysFrom(day, dueOn);
+  if (left < 0) return t('shell.classwork.1');
+  if (left === 0) return t('shell.classwork.2');
+  if (left === 1) return t('shell.classwork.3');
+  return t('shell.classwork.4', { p0: weekdayName(dueOn), p1: dm(dueOn) });
+}
+
+/** The stair page's line: "משימה מהמורה, עד יום חמישי, 12.11" (or ", להיום", or ". המועד עבר, ועדיין אפשר להשלים"). */
+export function workBanner(dueOn, day = today()) {
+  const d = dueLine(dueOn, day);
+  return daysFrom(day, dueOn) < 0 ? t('shell.classwork.5', { d }) : t('shell.classwork.6', { d });
+}
+
+/**
+ * Where a row leads: the stair's page (with its banner), the mastery check counted for it (also a stair passed before
+ * and not done since), the class exam's start, or the repair of that mistake (learn/assignments.ts workRoute).
+ */
+export { workRoute };
+
+const STAGES = ['A', 'B', 'C', 'D', 'E'];
+/**
+ * Minutes left: the stages a stair still has, a check's 3, a repair's (MINUTES.repair, as the mission counts it), or 3
+ * for each question of a class exam. A stair passed before it was given (SK-BUYERS-1: earlier mastery never makes it
+ * done) has its mastery check again left.
+ */
+export const EXAM_MIN_PER_Q = 3;
+const stairLeft = (w) => (w?.passed && w.state !== 'done' ? STAGE_MIN.E : STAGES.slice(Math.min(5, w?.stage || 0)).reduce((s, x) => s + STAGE_MIN[x], 0));
+const minutesLeft = (a, w) => (a.kind === 'exam' ? (a.examCount || 0) * EXAM_MIN_PER_Q : a.kind === 'check' ? 3 : a.kind === 'repair' ? MINUTES.repair : stairLeft(w));
+
+/**
+ * The rows of the "מהמורה" block on a day: due within 3 days, or past by at most 14 days and not done (`show`), later
+ * ones (`later`, folded), done ones only on the day they were finished. `next` is the first unfinished row by due date;
+ * `minutes` the time the shown unfinished rows still take. The unfinished rows of `show` are band 1 of the plan
+ * (learn/next.ts planNext), whose top is TodayCard's big button.
+ */
+export function classRows(cw, box = {}, day = today()) {
+  const rows = (cw?.assignments || []).filter((a) => SHOWN.includes(a.kind) && (a.kind === 'exam' ? a.hasExam !== false : !!a.skill && (a.kind !== 'repair' || !!a.misc))).map((a) => {
+    const w = mergeWork(a.mine, box[a.id]);
+    const done = w?.state === 'done';
+    const left = daysFrom(day, a.dueOn);
+    return { a, w, done, doneToday: done && !!w.doneAt && localDay(w.doneAt) === day, started: !done && (w?.state === 'started' || (w?.stage || 0) > 0), left, to: workRoute(a, w), minutes: minutesLeft(a, w) };
+  });
+  const order = (x, y) => (x.a.dueOn < y.a.dueOn ? -1 : x.a.dueOn > y.a.dueOn ? 1 : String(x.a.createdAt || '') < String(y.a.createdAt || '') ? -1 : 1);
+  const open = rows.filter((r) => !r.done && r.left >= -14).sort(order);
+  const show = [...open.filter((r) => r.left <= 3), ...rows.filter((r) => r.doneToday).sort(order)];
+  const later = open.filter((r) => r.left > 3);
+  const next = open[0] || null;
+  return { show, later, next, minutes: show.filter((r) => !r.done).reduce((s, r) => s + r.minutes, 0), allDone: show.length > 0 && show.every((r) => r.done) && !later.length };
+}
+
+/** Work not done that came after the student last opened the missions tab (the tab's dot). */
+export function hasNewWork(cw, box = {}) {
+  const seen = cw?.seenAt || '';
+  return (cw?.assignments || []).some((a) => SHOWN.includes(a.kind) && mergeWork(a.mine, box[a.id])?.state !== 'done' && (!seen || String(a.createdAt || '') > seen));
+}
+
+/** The most urgent unfinished work due within 3 days (or past by at most 14), for the chip on the learning home. */
+export function urgentWork(cw, box = {}, day = today()) {
+  return classRows(cw, box, day).show.find((r) => !r.done) || null;
+}
+
+/** "משימה מהמורה: {title} · עד יום חמישי" (the date is left out once it passed). */
+export function urgentText(r) {
+  const when = r.left < 0 ? '' : r.left === 0 ? t('shell.classwork.7') : r.left === 1 ? t('shell.classwork.8') : t('shell.classwork.9', { p0: weekdayName(r.a.dueOn) });
+  return t('shell.classwork.10', { title: r.a.title, when });
+}
